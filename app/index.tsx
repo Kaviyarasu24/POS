@@ -46,8 +46,8 @@ export default function LoginScreen() {
     // Simulate API call
     setTimeout(() => {
       setIsLoading(false);
-      alert(`Welcome to SMART POS System!\nLogged in as: ${email}`);
-    }, 1500);
+      router.push('/(tabs)/dashboard');
+    }, 1000);
   };
 
   const renderForm = () => {
