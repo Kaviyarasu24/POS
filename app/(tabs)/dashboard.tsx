@@ -112,7 +112,7 @@ export default function DashboardScreen() {
           <View style={styles.chartCard}>
             <Text style={styles.chartTitle}>Revenue Trend</Text>
             <View style={styles.chartContainer}>
-              <Svg width="100%" height="120" viewBox="0 0 350 120" preserveAspectRatio="none">
+              <Svg width="100%" height="100%" viewBox="0 0 350 120" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                 <Defs>
                   <LinearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
                     <Stop offset="0" stopColor="#2563eb" stopOpacity="0.25" />
@@ -243,13 +243,13 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingVertical: 16,
     paddingHorizontal: 16,
-    paddingBottom: 100, // Safe padding above bottom navigation tabs
+    paddingBottom: 130, // Safe padding so all content remains visible and clear of the FAB
   },
   mainContainer: {
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-    gap: 20,
+    gap: 16, // Consistent spacing matching bentoGrid gap (16px)
   },
   bentoGrid: {
     width: '100%',
@@ -518,8 +518,8 @@ const styles = StyleSheet.create({
   },
   fab: {
     position: 'absolute',
-    bottom: 96, // Sits comfortably above bottom tab menu
-    right: 16,
+    bottom: 24, // Positioned 24px above bottom navigation bar
+    right: 24,  // 24px margin from right screen edge
     width: 56,
     height: 56,
     borderRadius: 28,
