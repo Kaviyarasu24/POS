@@ -6,24 +6,16 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  useWindowDimensions,
-  Platform,
   ActivityIndicator,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
-import { Feather } from '@expo/vector-icons';
+import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
-import { useColorScheme } from '@/hooks/use-color-scheme';
-
-const BREAKPOINT_WIDTH = 768;
 
 export default function SignupScreen() {
   const router = useRouter();
-  const colorScheme = useColorScheme() ?? 'light';
-  const theme = Colors[colorScheme];
-  const { width } = useWindowDimensions();
-  const isWebSplit = Platform.OS === 'web' && width > BREAKPOINT_WIDTH;
+  const colorScheme = 'light';
+  const theme = Colors.light;
 
   // Form states
   const [fullName, setFullName] = useState('');
@@ -66,35 +58,33 @@ export default function SignupScreen() {
   };
 
   const renderForm = () => {
+    const linkColor = '#004ac6'; // primary link color
+
     return (
       <View style={[styles.card, { backgroundColor: theme.cardBackground, borderColor: theme.border }]}>
-        {/* Header (visible on mobile only inside the form, hidden on web split since left pane handles it) */}
-        {!isWebSplit && (
-          <View style={styles.mobileHeader}>
-            <Image
-              source={require('@/assets/images/logo.png')}
-              style={styles.logoMobile}
-              contentFit="contain"
+        {/* Header Section */}
+        <View style={styles.formHeader}>
+          <View
+            style={[
+              styles.iconContainer,
+              { backgroundColor: 'rgba(37, 99, 235, 0.1)' },
+            ]}
+          >
+            <MaterialIcons
+              name="point-of-sale"
+              size={32}
+              color="#2563eb"
             />
-            <Text style={[styles.title, { color: theme.text }]}>SMART POS System</Text>
-            <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
-              Create your business terminal account
-            </Text>
           </View>
-        )}
-
-        {isWebSplit && (
-          <View style={styles.webFormHeader}>
-            <Text style={[styles.formTitle, { color: theme.text }]}>Create POS Account</Text>
-            <Text style={[styles.formSubtitle, { color: theme.textSecondary }]}>
-              Set up your business profile to get started
-            </Text>
-          </View>
-        )}
+          <Text style={[styles.title, { color: theme.text }]}>Create POS Account</Text>
+          <Text style={[styles.subtitle, { color: theme.textSecondary }]}>
+            Set up your business profile to get started
+          </Text>
+        </View>
 
         {errorMessage ? (
           <View style={styles.errorContainer}>
-            <Feather name="alert-circle" size={16} color="#ef4444" />
+            <MaterialIcons name="error-outline" size={16} color="#ef4444" />
             <Text style={styles.errorText}>{errorMessage}</Text>
           </View>
         ) : null}
@@ -102,11 +92,11 @@ export default function SignupScreen() {
         {/* Input Fields */}
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, { color: theme.text }]}>Full Name</Text>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f1f5f9' }]}>
-            <Feather name="user" size={20} color={theme.icon} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <MaterialIcons name="person" size={20} color={theme.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="John Doe"
+              placeholder="Enter your full name"
               placeholderTextColor={theme.icon}
               value={fullName}
               onChangeText={(text) => {
@@ -119,11 +109,11 @@ export default function SignupScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, { color: theme.text }]}>Business Name</Text>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f1f5f9' }]}>
-            <Feather name="briefcase" size={20} color={theme.icon} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <MaterialIcons name="storefront" size={20} color={theme.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="Apex Store Ltd"
+              placeholder="Enter your business name"
               placeholderTextColor={theme.icon}
               value={businessName}
               onChangeText={(text) => {
@@ -136,11 +126,11 @@ export default function SignupScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, { color: theme.text }]}>Email Address</Text>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f1f5f9' }]}>
-            <Feather name="mail" size={20} color={theme.icon} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <MaterialIcons name="email" size={20} color={theme.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="manager@store.com"
+              placeholder="Enter your email"
               placeholderTextColor={theme.icon}
               value={email}
               onChangeText={(text) => {
@@ -155,11 +145,11 @@ export default function SignupScreen() {
 
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, { color: theme.text }]}>Password</Text>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f1f5f9' }]}>
-            <Feather name="lock" size={20} color={theme.icon} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <MaterialIcons name="lock" size={20} color={theme.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="••••••••"
+              placeholder="Enter your password"
               placeholderTextColor={theme.icon}
               secureTextEntry={!showPassword}
               value={password}
@@ -170,18 +160,22 @@ export default function SignupScreen() {
               autoCapitalize="none"
             />
             <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
-              <Feather name={showPassword ? 'eye-off' : 'eye'} size={20} color={theme.icon} />
+              <MaterialIcons
+                name={showPassword ? 'visibility' : 'visibility-off'}
+                size={20}
+                color={theme.icon}
+              />
             </TouchableOpacity>
           </View>
         </View>
 
         <View style={styles.inputGroup}>
           <Text style={[styles.inputLabel, { color: theme.text }]}>Confirm Password</Text>
-          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: colorScheme === 'dark' ? '#1f2937' : '#f1f5f9' }]}>
-            <Feather name="shield" size={20} color={theme.icon} style={styles.inputIcon} />
+          <View style={[styles.inputWrapper, { borderColor: theme.border, backgroundColor: theme.cardBackground }]}>
+            <MaterialIcons name="lock-outline" size={20} color={theme.icon} style={styles.inputIcon} />
             <TextInput
               style={[styles.input, { color: theme.text }]}
-              placeholder="••••••••"
+              placeholder="Confirm your password"
               placeholderTextColor={theme.icon}
               secureTextEntry={!showPassword}
               value={confirmPassword}
@@ -194,7 +188,7 @@ export default function SignupScreen() {
           </View>
         </View>
 
-        {/* Action Button */}
+        {/* Primary Action Button */}
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: theme.tint }]}
           onPress={handleSignup}
@@ -207,80 +201,39 @@ export default function SignupScreen() {
           )}
         </TouchableOpacity>
 
-        {/* Footer Navigation */}
+        {/* Sign In Footer */}
         <View style={styles.footerRow}>
           <Text style={[styles.footerText, { color: theme.textSecondary }]}>Already registered? </Text>
           <TouchableOpacity onPress={() => router.push('/')}>
-            <Text style={[styles.footerLink, { color: theme.tint }]}>Sign In</Text>
+            <Text style={[styles.footerLink, { color: linkColor }]}>Sign In</Text>
           </TouchableOpacity>
         </View>
       </View>
     );
   };
 
-  const renderLeftPane = () => {
-    return (
-      <View
-        style={[
-          styles.leftPane,
-          Platform.select({
-            web: {
-              backgroundImage: 'linear-gradient(135deg, #312e81 0%, #0f172a 100%)',
-            },
-            default: {
-              backgroundColor: '#1e1b4b',
-            },
-          }) as any,
-        ]}
-      >
-        <View style={styles.brandingContainer}>
-          <Image
-            source={require('@/assets/images/logo.png')}
-            style={styles.logoWeb}
-            contentFit="contain"
-          />
-          <Text style={styles.webTitle}>SMART POS System</Text>
-          <Text style={styles.webSubtitle}>
-            Setup your retail store, food service outlet, or digital business terminal in seconds. Take payments securely and track inventory effortlessly.
-          </Text>
-        </View>
-
-        {/* Simulated iPad POS device frame */}
-        <View style={styles.deviceFrame}>
-          <Image
-            source={require('@/assets/images/pos-preview.png')}
-            style={styles.previewImage}
-            contentFit="cover"
-          />
-        </View>
-      </View>
-    );
-  };
-
-  if (isWebSplit) {
-    return (
-      <View style={[styles.container, { backgroundColor: theme.background }]}>
-        {renderLeftPane()}
-        <View style={styles.rightPane}>{renderForm()}</View>
-      </View>
-    );
-  }
-
   return (
     <ScrollView
       contentContainerStyle={[styles.scrollContainer, { backgroundColor: theme.background }]}
       keyboardShouldPersistTaps="handled"
     >
-      <View style={styles.mobileFormContainer}>{renderForm()}</View>
+      <View style={styles.formContainer}>
+        {renderForm()}
+        <View style={styles.supportContainer}>
+          <TouchableOpacity
+            style={styles.supportButton}
+            onPress={() => alert('Help & Support is currently unavailable.')}
+          >
+            <MaterialIcons name="help" size={18} color={theme.textSecondary} />
+            <Text style={[styles.supportText, { color: theme.textSecondary }]}>Help & Support</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
     </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    flexDirection: 'row',
-  },
   scrollContainer: {
     flexGrow: 1,
     justifyContent: 'center',
@@ -288,108 +241,45 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
     paddingHorizontal: 20,
   },
-  leftPane: {
-    flex: 1.2,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 60,
-    overflow: 'hidden',
-  },
-  rightPane: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 40,
-  },
-  brandingContainer: {
-    alignItems: 'center',
-    marginBottom: 40,
-    maxWidth: 480,
-  },
-  logoWeb: {
-    width: 90,
-    height: 90,
-    marginBottom: 16,
-  },
-  webTitle: {
-    fontSize: 32,
-    fontWeight: '800',
-    color: '#ffffff',
-    textAlign: 'center',
-    marginBottom: 10,
-    letterSpacing: 0.5,
-  },
-  webSubtitle: {
-    fontSize: 16,
-    color: '#cbd5e1',
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  deviceFrame: {
-    width: '90%',
-    aspectRatio: 1.6,
-    borderRadius: 20,
-    borderWidth: 12,
-    borderColor: '#1e293b',
-    backgroundColor: '#020617',
-    overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 15 },
-    shadowOpacity: 0.5,
-    shadowRadius: 20,
-  },
-  previewImage: {
-    flex: 1,
-    width: '100%',
-    height: '100%',
-  },
-  mobileFormContainer: {
+  formContainer: {
     width: '100%',
     maxWidth: 420,
+    alignItems: 'center',
   },
   card: {
     width: '100%',
-    maxWidth: 460,
-    padding: 32,
-    borderRadius: 24,
+    maxWidth: 420,
+    padding: 24,
+    borderRadius: 12,
     borderWidth: 1,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.04,
+    shadowRadius: 24,
+    elevation: 2,
   },
-  mobileHeader: {
+  formHeader: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 32,
   },
-  logoMobile: {
-    width: 70,
-    height: 70,
+  iconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
     marginBottom: 12,
   },
   title: {
-    fontSize: 24,
-    fontWeight: '800',
+    fontSize: 32,
+    fontWeight: '600',
     textAlign: 'center',
     marginBottom: 8,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 16,
     textAlign: 'center',
-    lineHeight: 20,
-  },
-  webFormHeader: {
-    marginBottom: 24,
-  },
-  formTitle: {
-    fontSize: 26,
-    fontWeight: '800',
-    marginBottom: 6,
-  },
-  formSubtitle: {
-    fontSize: 14,
-    lineHeight: 20,
+    lineHeight: 24,
   },
   errorContainer: {
     flexDirection: 'row',
@@ -398,7 +288,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#fca5a5',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 8,
     marginBottom: 20,
     gap: 8,
   },
@@ -410,53 +300,56 @@ const styles = StyleSheet.create({
   },
   inputGroup: {
     marginBottom: 16,
+    width: '100%',
   },
   inputLabel: {
     fontSize: 14,
-    fontWeight: '600',
-    marginBottom: 8,
+    fontWeight: '500',
+    marginBottom: 4,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
+    borderRadius: 8,
+    paddingHorizontal: 16,
     height: 48,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 12,
   },
   input: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: 16,
   },
   eyeIcon: {
     padding: 4,
   },
   primaryButton: {
-    height: 50,
-    borderRadius: 12,
+    width: '100%',
+    height: 48,
+    borderRadius: 9999,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#6366f1',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 2,
-    marginTop: 10,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 14,
+    fontWeight: '500',
   },
   footerRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     alignItems: 'center',
+    marginTop: 8,
   },
   footerText: {
     fontSize: 14,
@@ -464,5 +357,22 @@ const styles = StyleSheet.create({
   footerLink: {
     fontSize: 14,
     fontWeight: '600',
+  },
+  supportContainer: {
+    marginTop: 32,
+    alignItems: 'center',
+    width: '100%',
+  },
+  supportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 9999,
+  },
+  supportText: {
+    fontSize: 14,
+    fontWeight: '500',
+    marginLeft: 6,
   },
 });
