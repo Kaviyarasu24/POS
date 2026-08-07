@@ -8,10 +8,13 @@ import {
   SafeAreaView,
   Platform,
 } from 'react-native';
+import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
 
 export default function DashboardScreen() {
+  const router = useRouter();
+
   return (
     <SafeAreaView style={styles.outerContainer}>
       {/* Top App Bar */}
@@ -20,10 +23,18 @@ export default function DashboardScreen() {
           <MaterialIcons name="menu" size={24} color="#004ac6" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>SmartPOS</Text>
-        <TouchableOpacity style={[styles.headerIconButton, styles.notificationBtn]}>
-          <MaterialIcons name="notifications" size={24} color="#004ac6" />
-          <View style={styles.notificationBadge} />
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <TouchableOpacity
+            style={styles.headerIconButton}
+            onPress={() => router.push('/scanner')}
+          >
+            <MaterialIcons name="qr-code-scanner" size={24} color="#004ac6" />
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.headerIconButton, styles.notificationBtn]}>
+            <MaterialIcons name="notifications" size={24} color="#004ac6" />
+            <View style={styles.notificationBadge} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       {/* Main Scroll Content */}
@@ -238,6 +249,11 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#004ac6',
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   scrollContainer: {
     flexGrow: 1,
