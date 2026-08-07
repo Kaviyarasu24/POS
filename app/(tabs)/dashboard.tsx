@@ -46,7 +46,7 @@ export default function DashboardScreen() {
           {/* Summary Bento Grid */}
           <View style={styles.bentoGrid}>
             <View style={[styles.bentoCard, styles.salesCard]}>
-              <Text style={styles.bentoLabel}>Today's Sales</Text>
+              <Text style={styles.bentoLabel}>{"Today's Sales"}</Text>
               <Text style={styles.salesValue}>$4,289.50</Text>
               <View style={styles.trendContainer}>
                 <MaterialIcons name="trending-up" size={16} color="#006329" />

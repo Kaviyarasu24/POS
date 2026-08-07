@@ -77,7 +77,7 @@ export default function SignupScreen() {
     setTimeout(() => {
       setIsLoading(false);
       alert(`Success!\nAccount created for ${shopName}.\nRegistered Phone: ${countryCode} ${phone}\nPlease sign in.`);
-      router.push('/');
+      router.push('/login');
     }, 1500);
   };
 
