@@ -10,12 +10,11 @@ import {
   SafeAreaView,
   Dimensions,
 } from 'react-native';
-import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 export default function ScannerScreen() {
   const router = useRouter();
@@ -42,7 +41,14 @@ export default function ScannerScreen() {
         }),
       ])
     ).start();
-  }, []);
+  }, [scanLineAnim]);
+
+  // Request camera permission on mount
+  useEffect(() => {
+    if (permission && !permission.granted) {
+      requestPermission();
+    }
+  }, [permission, requestPermission]);
 
   const totalItems = (coffeeQty > 0 ? coffeeQty : 0) + (dripperQty > 0 ? dripperQty : 0);
 
@@ -52,20 +58,20 @@ export default function ScannerScreen() {
   };
 
   const renderCameraView = () => {
-    // If permission is not granted or we are on Web/Simulator, render simulated camera background
-    if (!permission?.granted || Platform.OS === 'web') {
+    if (!permission) {
+      // Permissions are still loading
+      return <View style={styles.simulatedCameraContainer} />;
+    }
+
+    if (!permission.granted) {
       return (
         <View style={styles.simulatedCameraContainer}>
-          <Image
-            source="https://lh3.googleusercontent.com/aida-public/AB6AXuAPOUvDOKaK81hCABlsg5y5SlL9vARP47Xr_jxEh3--ahaORPeZgVkKc349TJX6OW65d1-1QB2qvTmk0963wx2vQbt3RkODToh8SofzzhlRXCll94Ywu3tA6wYpMTB5vVLNRW0saHupr53HsWGrnXPMda3lXsL9tQqkF5_F036yxxxlBi53D4m8j1w3jaZlrGJqnzxtw7nIOnXZH6uUUfRs8tR9XhxR65JTUHMO0H-X8JtEzpYBlcjleA"
-            style={styles.simulatedImage}
-            contentFit="cover"
-          />
-          {!permission?.granted && Platform.OS !== 'web' && (
-            <TouchableOpacity style={styles.permissionRequestBtn} onPress={requestPermission}>
-              <Text style={styles.permissionRequestText}>Grant Camera Permission</Text>
-            </TouchableOpacity>
-          )}
+          <Text style={styles.permissionText}>
+            Camera permission is required to scan barcodes.
+          </Text>
+          <TouchableOpacity style={styles.permissionRequestBtn} onPress={requestPermission}>
+            <Text style={styles.permissionRequestText}>Grant Permission</Text>
+          </TouchableOpacity>
         </View>
       );
     }
@@ -239,9 +245,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  simulatedImage: {
-    ...StyleSheet.absoluteFillObject,
-    opacity: 0.6,
+  permissionText: {
+    color: '#ffffff',
+    fontSize: 16,
+    textAlign: 'center',
+    marginBottom: 16,
+    paddingHorizontal: 32,
   },
   permissionRequestBtn: {
     backgroundColor: '#004ac6',
