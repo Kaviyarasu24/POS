@@ -170,6 +170,10 @@ export default function AddProductScreen() {
       return;
     }
 
+    const finalImage = imageUrl.trim()
+      ? imageUrl.trim()
+      : `https://loremflickr.com/320/320/${encodeURIComponent(name.trim().toLowerCase())}`;
+
     if (isEdit && id) {
       store.updateProduct(id, {
         name: name.trim(),
@@ -180,7 +184,7 @@ export default function AddProductScreen() {
         taxRate: taxRateNum,
         stock: stockNum,
         lowStockAlert: lowStockAlertNum,
-        image: imageUrl.trim() ? imageUrl.trim() : undefined,
+        image: finalImage,
       });
       alert('Product updated successfully.');
     } else {
@@ -194,7 +198,7 @@ export default function AddProductScreen() {
         taxRate: taxRateNum,
         stock: stockNum,
         lowStockAlert: lowStockAlertNum,
-        image: imageUrl.trim() ? imageUrl.trim() : undefined,
+        image: finalImage,
       });
       alert('Product added successfully.');
     }
