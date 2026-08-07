@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -6,77 +6,14 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  Modal,
   SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  stock: number;
-  sku: string;
-  category: string;
-  unit?: string; // e.g. "lb", "ea"
-  image?: string;
-}
-
-const INITIAL_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Organic Red Apples',
-    price: 2.99,
-    stock: 142,
-    sku: 'APP-1001',
-    category: 'Grocery',
-    unit: 'lb',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD7Yv43gGyBrKPnc0srxcs5O03zMXz-kw6ik4_yGC9vLV0HpZ-DtXrmoqJoZ-RVFG83qRIFt1v8J5pcGPem1sa0aBpIAkuBFtLldhxByyecMfmiFpVduKdE0EEGiDt8ujZaKP_8Y2Wrn24FG4W7_ybunWjQx6wxkOkfQ3w61Mn2jjVLLuCJosYlkzfue6upEIqLJHudITp58a71o2d_cNpwwWkAblqsDdAPwFtn_Q0hTDNYkoGOQuT9Vg',
-  },
-  {
-    id: '2',
-    name: 'Premium Dark Chocolate',
-    price: 4.50,
-    stock: 56,
-    sku: 'CHC-8092',
-    category: 'Snacks',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCcjJoa_Zd04PJFBlQNgfFIaDRlfTxM2JpcwdEqdGmx0RVcEp4OZRx1nNZRDblw3DpbJSDbSde8QpAeDIVunwmBIeIkQB2RX5vCRUst99bnd7EvjX31OB0V8-IYXkHZ1pjrjBog3EcE4z0gS3quC8ZLdfE_dtWlzKj3qWzDqsFVN2nGtBHm3qOhlLgAABZZrWIEFa044t_7pSjp_qSyAfRJCIUO3Khq_Cvjegnz31bPqQp5b0Q_sFQOVA',
-  },
-  {
-    id: '3',
-    name: 'Sparkling Spring Water',
-    price: 1.25,
-    stock: 8,
-    sku: 'BEV-2201',
-    category: 'Beverages',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBznE2CZzBvkdpUgXw3R5l-fH_KSpOwInC0SmgXoOwDitZLjvqbHyOsezACGSROCb7jbnbJy5KViR7dcFf_3nloXK705mflV0iGb1_FpfWc4N3A6_2tQVl1E8UX9CKUojYAIZxOe1f5dOGhUIAPGJo0ggcgd7D7hhpFmHWaaeYhU0cMNuQCQPFmD7DBBI-ojIIuhFiuQw5Wl-xDA04_viCwIqCbCqfTgG4UHInY0n19mEL-ADWLbg9Cyw',
-  },
-  {
-    id: '4',
-    name: 'Artisan Sourdough Loaf',
-    price: 5.00,
-    stock: 0,
-    sku: 'BAK-0045',
-    category: 'Grocery',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuD-I0YlupUZeAa1MceqEGvWcr6StURpq5EZrBS63mYwhe-xKfcxpdTD2FSPt9u4-1StjeQRsFn5BQUdr_eMxsJI2t2V8a9ld6UGyMqTF0QPN-jhKZZginZnPfggx_ialJi7KZJWXlYZrIpCjuh2CLhE-miTP9AqxPs85dL7eghROJ3eDDuuMzpsF_ZukBAt3nCnHVTpLHmyom6-HanHNMZAMJAcl5t-26uOGJgLI64MCl3abMa7FxiLAg',
-  },
-  {
-    id: '5',
-    name: 'Organic Bananas Bunch',
-    price: 1.99,
-    stock: 85,
-    sku: 'FRU-9921',
-    category: 'Grocery',
-    unit: 'ea',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAzwe9ikzT25B_qRuKo0FCxckifDsnHJEGEdyP9DuKwtFxPW2baYpTEVcjGvECg6sdRdHnPUykFm3cFrh8gh2CW_jdwh9Okx2GX0-CfJC48-FbsvMJH1Db5gGYuR6KcnMxW6zH4IK7M49vd3fOnf3TRY58TGpQVJ-pa-nEbjlN_gza5HtKDYtUtL4jz-TZkytZSVACGdO2KLvlGnTCVT2GuF-QsrzE2N_OBHbcxUludBVK6kuT41DsVkw',
-  },
-];
+import { store, Product } from '@/constants/store';
 
 const FILTERS = ['All', 'Grocery', 'Snacks', 'Beverages', 'Dairy'];
 const SORT_MODES = ['Name (A-Z)', 'Price (Low-High)', 'Price (High-Low)'];
@@ -85,21 +22,20 @@ export default function ProductsScreen() {
   const router = useRouter();
 
   // State
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
+  const [products, setProducts] = useState<Product[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortIndex, setSortIndex] = useState(0); // Index in SORT_MODES
-  const [addModalVisible, setAddModalVisible] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
 
-  // Form states
-  const [formName, setFormName] = useState('');
-  const [formSku, setFormSku] = useState('');
-  const [formPrice, setFormPrice] = useState('');
-  const [formStock, setFormStock] = useState('');
-  const [formCategory, setFormCategory] = useState(FILTERS[1]); // Grocery
-  const [formUnit, setFormUnit] = useState('');
-  const [formError, setFormError] = useState('');
+  // Subscribe to store updates
+  useEffect(() => {
+    setProducts(store.getProducts());
+    const unsubscribe = store.subscribe(() => {
+      setProducts(store.getProducts());
+    });
+    return unsubscribe;
+  }, []);
 
   // Sorting mode label
   const sortMode = SORT_MODES[sortIndex];
@@ -138,62 +74,13 @@ export default function ProductsScreen() {
     setSortIndex((prev) => (prev + 1) % SORT_MODES.length);
   };
 
-  const handleAddProduct = () => {
-    setFormError('');
-    if (!formName.trim() || !formSku.trim() || !formPrice.trim() || !formStock.trim()) {
-      setFormError('Please fill in all required fields.');
-      return;
-    }
-
-    const skuExists = products.some(
-      (item) => item.sku.toLowerCase() === formSku.trim().toLowerCase()
-    );
-    if (skuExists) {
-      setFormError('Product SKU already exists.');
-      return;
-    }
-
-    const priceNum = parseFloat(formPrice);
-    if (isNaN(priceNum) || priceNum <= 0) {
-      setFormError('Please enter a valid price greater than $0.');
-      return;
-    }
-
-    const stockNum = parseInt(formStock, 10);
-    if (isNaN(stockNum) || stockNum < 0) {
-      setFormError('Please enter a valid non-negative stock quantity.');
-      return;
-    }
-
-    const newProduct: Product = {
-      id: Date.now().toString(),
-      name: formName.trim(),
-      sku: formSku.trim().toUpperCase(),
-      price: priceNum,
-      stock: stockNum,
-      category: formCategory,
-      unit: formUnit.trim() ? formUnit.trim() : undefined,
-    };
-
-    setProducts((prev) => [newProduct, ...prev]);
-
-    // Reset Form & Close
-    setFormName('');
-    setFormSku('');
-    setFormPrice('');
-    setFormStock('');
-    setFormCategory(FILTERS[1]);
-    setFormUnit('');
-    setAddModalVisible(false);
-  };
-
   // Simulate loading more products
   const handleLoadMore = () => {
     if (loadingMore) return;
     setLoadingMore(true);
     setTimeout(() => {
       setLoadingMore(false);
-    }, 1500);
+    }, 1200);
   };
 
   return (
@@ -273,10 +160,13 @@ export default function ProductsScreen() {
         }
         renderItem={({ item }) => {
           const isOutOfStock = item.stock === 0;
-          const isLowStock = item.stock > 0 && item.stock <= 8;
+          const isLowStock = item.stock > 0 && item.stock <= item.lowStockAlert;
 
           return (
-            <View style={styles.productItemCard}>
+            <TouchableOpacity
+              style={styles.productItemCard}
+              onPress={() => router.push(`/add_product?id=${item.id}`)}
+            >
               <View style={styles.productThumbnailWrapper}>
                 {item.image ? (
                   <Image
@@ -320,7 +210,7 @@ export default function ProductsScreen() {
                   </View>
                 )}
               </View>
-            </View>
+            </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -339,132 +229,9 @@ export default function ProductsScreen() {
       />
 
       {/* Floating Action Button */}
-      <TouchableOpacity style={styles.fab} onPress={() => setAddModalVisible(true)}>
+      <TouchableOpacity style={styles.fab} onPress={() => router.push('/add_product')}>
         <MaterialIcons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
-
-      {/* Add Product Modal */}
-      <Modal
-        visible={addModalVisible}
-        transparent
-        animationType="slide"
-        onRequestClose={() => setAddModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <KeyboardAvoidingView
-            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalContainer}
-          >
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Add Product to Catalog</Text>
-              <TouchableOpacity onPress={() => setAddModalVisible(false)}>
-                <MaterialIcons name="close" size={24} color="#434655" />
-              </TouchableOpacity>
-            </View>
-
-            {formError ? (
-              <View style={styles.errorBanner}>
-                <MaterialIcons name="error-outline" size={16} color="#ba1a1a" />
-                <Text style={styles.errorText}>{formError}</Text>
-              </View>
-            ) : null}
-
-            <ScrollView style={styles.modalForm} showsVerticalScrollIndicator={false}>
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Product Name *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. Organic Red Apples"
-                  placeholderTextColor="#737686"
-                  value={formName}
-                  onChangeText={setFormName}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>SKU Code *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. APP-1001"
-                  placeholderTextColor="#737686"
-                  autoCapitalize="characters"
-                  value={formSku}
-                  onChangeText={setFormSku}
-                />
-              </View>
-
-              <View style={styles.rowInputs}>
-                <View style={[styles.inputGroup, { flex: 1, marginRight: 12 }]}>
-                  <Text style={styles.inputLabel}>Unit Price ($) *</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. 2.99"
-                    placeholderTextColor="#737686"
-                    keyboardType="numeric"
-                    value={formPrice}
-                    onChangeText={setFormPrice}
-                  />
-                </View>
-
-                <View style={[styles.inputGroup, { flex: 1 }]}>
-                  <Text style={styles.inputLabel}>Unit (optional)</Text>
-                  <TextInput
-                    style={styles.textInput}
-                    placeholder="e.g. lb, ea, pack"
-                    placeholderTextColor="#737686"
-                    value={formUnit}
-                    onChangeText={setFormUnit}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Initial Stock Level *</Text>
-                <TextInput
-                  style={styles.textInput}
-                  placeholder="e.g. 100"
-                  placeholderTextColor="#737686"
-                  keyboardType="numeric"
-                  value={formStock}
-                  onChangeText={setFormStock}
-                />
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category</Text>
-                <View style={styles.categoryDropdown}>
-                  {FILTERS.slice(1).map((cat) => {
-                    const selected = formCategory === cat;
-                    return (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[
-                          styles.catSelectBtn,
-                          selected && styles.catSelectBtnActive,
-                        ]}
-                        onPress={() => setFormCategory(cat)}
-                      >
-                        <Text
-                          style={[
-                            styles.catSelectText,
-                            selected && styles.catSelectTextActive,
-                          ]}
-                        >
-                          {cat}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              </View>
-            </ScrollView>
-
-            <TouchableOpacity style={styles.submitBtn} onPress={handleAddProduct}>
-              <Text style={styles.submitBtnText}>Add Product</Text>
-            </TouchableOpacity>
-          </KeyboardAvoidingView>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -714,113 +481,5 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  modalContainer: {
-    backgroundColor: '#ffffff',
-    width: '100%',
-    maxWidth: 380,
-    maxHeight: '90%',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#131b2e',
-  },
-  errorBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffdad6',
-    padding: 10,
-    borderRadius: 8,
-    marginBottom: 16,
-    gap: 8,
-  },
-  errorText: {
-    fontSize: 13,
-    color: '#ba1a1a',
-    fontWeight: '500',
-  },
-  modalForm: {
-    flex: 1,
-  },
-  inputGroup: {
-    marginBottom: 16,
-  },
-  inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#131b2e',
-    marginBottom: 6,
-  },
-  textInput: {
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-    borderRadius: 8,
-    height: 44,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#131b2e',
-  },
-  rowInputs: {
-    flexDirection: 'row',
-  },
-  categoryDropdown: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 6,
-    marginTop: 4,
-  },
-  catSelectBtn: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-    backgroundColor: '#ffffff',
-  },
-  catSelectBtnActive: {
-    borderColor: '#2563eb',
-    backgroundColor: '#eaedff',
-  },
-  catSelectText: {
-    fontSize: 12,
-    color: '#434655',
-  },
-  catSelectTextActive: {
-    color: '#004ac6',
-    fontWeight: '600',
-  },
-  submitBtn: {
-    backgroundColor: '#2563eb',
-    height: 48,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 16,
-  },
-  submitBtnText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
   },
 });

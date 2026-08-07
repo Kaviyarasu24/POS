@@ -16,6 +16,7 @@ export default function RootLayout() {
         <Stack.Screen name="signup" />
         <Stack.Screen name="(tabs)" />
         <Stack.Screen name="scanner" options={{ presentation: 'modal' }} />
+        <Stack.Screen name="add_product" options={{ presentation: 'modal' }} />
       </Stack>
       <StatusBar style="auto" />
     </ThemeProvider>

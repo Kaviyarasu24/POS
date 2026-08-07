@@ -17,16 +17,9 @@ import {
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+import { store, Product } from '@/constants/store';
 
-interface Product {
-  id: string;
-  name: string;
-  price: number;
-  category: string;
-  sku: string;
-  image: string;
-}
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface CartItem {
   product: Product;
@@ -35,73 +28,12 @@ interface CartItem {
 
 const CATEGORIES = ['All Items', 'Beverages', 'Snacks', 'Electronics', 'Apparel'];
 
-const MOCK_PRODUCTS: Product[] = [
-  {
-    id: '1',
-    name: 'Energy Drink 250ml',
-    price: 3.50,
-    category: 'Beverages',
-    sku: 'ED-250ML',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuBlnK9W4ZQ3kzaD-p4rcSQbAkOZRJDTspnx3jW3ZJyk1yXp6ORCX1BQYAn3-JtTl0guYQPWC7ObYKj3nLCz6E9fFZgfnme33Bi4ilAKWlmVEyOUTn3c5k-rwSsNAAKMaWL7ocQ-AKpmB99ls7YT8NVOPnzH6fGk_MS6Ptwv0PTO305r9EQS3Aj4UNUqlLrJOB4VeYDmvr6pm9AskZ1qv2aApTVg20ZdR0nL-cpl78QCdE1LpcvMBKMF8Q',
-  },
-  {
-    id: '2',
-    name: 'Dark Chocolate Bar 70%',
-    price: 4.25,
-    category: 'Snacks',
-    sku: 'DC-70PCT',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCMMQ_JALQOualfMi9HvbD-FVV4U27MIbDwduaRidsD67fUt5t4Jsfj1HDZmZ46U9upmAPxyQLJ7VSBh2GJ1SZpO8gcEL9BLJD1UZao4bLnuc9xvWb1TDUhDxTRgYBzDa8iMbXvWqZYEHvO9KR9WUlvTnAncrUEqNwv11EJ_HbcG6SeTDO-A5VVIo-e5QzH2WviZPbcKWPxUHsSFidwF_jsCWUG26KDwaJbMUVWqyMuAkKVAzCXJFTjBQ',
-  },
-  {
-    id: '3',
-    name: 'Ceramic Mug - White',
-    price: 12.00,
-    category: 'Apparel',
-    sku: 'CM-WHT',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1LekN-jkmiYWqgvtWR1FLYpJCzpgQyov2zYLrLtIE9oeqYrNYqOJI1rV0CMfR6hIRBrCQzxmmTJY7vTrAMDOzqPTodg59Gm9iFnJhNPt_qupMoVWmex9P92Uq2rzacRWYiAFBNjH70zPowM0xk1kt2XQFmvLINML7BpcWTIGGIoW74splBp3Tu99f79kiSjlnCdyT_Yr1rUkIz3AIJOA_pRGynoIjFOIShHZUWfSGP9n-f3I5wGakTQ',
-  },
-  {
-    id: '4',
-    name: 'Artisan Coffee Beans 500g',
-    price: 14.99,
-    category: 'Beverages',
-    sku: 'CB-ART-500',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAPOUvDOKaK81hCABlsg5y5SlL9vARP47Xr_jxEh3--ahaORPeZgVkKc349TJX6OW65d1-1QB2qvTmk0963wx2vQbt3RkODToh8SofzzhlRXCll94Ywu3tA6wYpMTB5vVLNRW0saHupr53HsWGrnXPMda3lXsL9tQqkF5_F036yxxxlBi53D4m8j1w3jaZlrGJqnzxtw7nIOnXZH6uUUfRs8tR9XhxR65JTUHMO0H-X8JtEzpYBlcjleA',
-  },
-  {
-    id: '5',
-    name: 'Organic Oat Milk 1L',
-    price: 4.50,
-    category: 'Beverages',
-    sku: 'OM-ORG-1L',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuCc87xKniW_pNkxmpHb8OQenjLOrbGF73DdCwm40fPFaGxV15bdGw-UXxa5QLYxQHz2V-d7TQvJDGf69GIRa_Hi915ctz8bSbm63rVCyoammLPWdBHC4ptzfTyCLqD2W61fJLsYXBac_dNcTeLTDjVm4YxAO7f14CSIUXa_MKKu7W8V8siIjKi9bAROkjINNc-idUgkOxGSSI1ChpZGN2D0mfdpia7A3qjZZPn-GSMOiGWmYhEnbWHUeA',
-  },
-  {
-    id: '6',
-    name: 'Wireless Charging Pad',
-    price: 29.99,
-    category: 'Electronics',
-    sku: 'WCP-15W',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuAbzsFnwR1dDaMlIjVr8PZrvOepuQ2tEP2tupZm9_9-UVDyG0efyl15hGAIHx9ODQ3lkjoaxMlSuGgv-XlE7AAiB0KtKwyuctg31J1cj_Xespl40g-l2KZza7KdtR8JmL6C0pvAUVaOxn8hXxa_mSk7ltlEqSc-uE17SHD25SfqZLZk5uRrBFPPbx8zf4MWbViV851HZKm65wgExHo1jgkDsVv8_x1cH7_8CcitPc_7CmElu5y-3TrkWA',
-  },
-  {
-    id: '7',
-    name: 'SmartPOS Brand T-Shirt',
-    price: 19.99,
-    category: 'Apparel',
-    sku: 'TS-SPOS-L',
-    image: 'https://lh3.googleusercontent.com/aida-public/AB6AXuB1LekN-jkmiYWqgvtWR1FLYpJCzpgQyov2zYLrLtIE9oeqYrNYqOJI1rV0CMfR6hIRBrCQzxmmTJY7vTrAMDOzqPTodg59Gm9iFnJhNPt_qupMoVWmex9P92Uq2rzacRWYiAFBNjH70zPowM0xk1kt2XQFmvLINML7BpcWTIGGIoW74splBp3Tu99f79kiSjlnCdyT_Yr1rUkIz3AIJOA_pRGynoIjFOIShHZUWfSGP9n-f3I5wGakTQ',
-  },
-];
-
 export default function BillingScreen() {
   const router = useRouter();
 
   // States
-  const [cart, setCart] = useState<CartItem[]>([
-    { product: MOCK_PRODUCTS[0], quantity: 1 }, // Energy Drink
-    { product: MOCK_PRODUCTS[2], quantity: 2 }, // Ceramic Mug
-  ]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
@@ -109,6 +41,15 @@ export default function BillingScreen() {
   const [discountInput, setDiscountInput] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
   const [chargeSuccess, setChargeSuccess] = useState(false);
+
+  // Subscribe to store updates
+  useEffect(() => {
+    setProducts(store.getProducts());
+    const unsubscribe = store.subscribe(() => {
+      setProducts(store.getProducts());
+    });
+    return unsubscribe;
+  }, []);
 
   // Animation for Bottom Sheet
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;
@@ -143,7 +84,7 @@ export default function BillingScreen() {
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
-    return MOCK_PRODUCTS.filter((product) => {
+    return products.filter((product) => {
       const matchesCategory =
         selectedCategory === 'All Items' || product.category === selectedCategory;
       const matchesSearch =
@@ -151,7 +92,7 @@ export default function BillingScreen() {
         product.sku.toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
-  }, [selectedCategory, searchQuery]);
+  }, [products, selectedCategory, searchQuery]);
 
   // Helper dictionary of product quantities in cart
   const cartQuantities = useMemo(() => {
@@ -164,9 +105,17 @@ export default function BillingScreen() {
 
   // Cart operations
   const addToCart = (product: Product) => {
+    if (product.stock <= 0) {
+      alert('Product is out of stock.');
+      return;
+    }
     setCart((prev) => {
       const existing = prev.find((item) => item.product.id === product.id);
       if (existing) {
+        if (existing.quantity >= product.stock) {
+          alert(`Cannot add more. Only ${product.stock} units available in stock.`);
+          return prev;
+        }
         return prev.map((item) =>
           item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
         );
@@ -180,11 +129,18 @@ export default function BillingScreen() {
   };
 
   const updateQuantity = (productId: string, delta: number) => {
+    const product = products.find((p) => p.id === productId);
+    if (!product) return;
+
     setCart((prev) => {
       return prev
         .map((item) => {
           if (item.product.id === productId) {
             const nextQty = item.quantity + delta;
+            if (nextQty > product.stock) {
+              alert(`Cannot add more. Only ${product.stock} units available in stock.`);
+              return item;
+            }
             return { ...item, quantity: nextQty };
           }
           return item;
@@ -205,6 +161,12 @@ export default function BillingScreen() {
 
   const handleCharge = () => {
     if (cart.length === 0) return;
+
+    // Deduct stock levels in shared store
+    cart.forEach((item) => {
+      store.checkoutProduct(item.product.id, item.quantity);
+    });
+
     setChargeSuccess(true);
   };
 
@@ -294,12 +256,14 @@ export default function BillingScreen() {
           renderItem={({ item }) => {
             const qty = cartQuantities[item.id] || 0;
             const inCart = qty > 0;
+            const isOutOfStock = item.stock === 0;
 
             return (
               <View
                 style={[
                   styles.productCard,
                   inCart && styles.productCardActive,
+                  isOutOfStock && styles.productCardOutOfStock,
                 ]}
               >
                 {/* Badge for items in cart */}
@@ -309,11 +273,17 @@ export default function BillingScreen() {
                   </View>
                 )}
 
-                <Image
-                  source={{ uri: item.image }}
-                  style={styles.productImage}
-                  contentFit="cover"
-                />
+                {item.image ? (
+                  <Image
+                    source={{ uri: item.image }}
+                    style={styles.productImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={styles.productImagePlaceholder}>
+                    <MaterialIcons name="inventory" size={32} color="#c3c6d7" />
+                  </View>
+                )}
 
                 <View style={styles.productDetails}>
                   <Text style={styles.productName} numberOfLines={2}>
@@ -322,7 +292,11 @@ export default function BillingScreen() {
                   <View style={styles.productFooter}>
                     <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
 
-                    {inCart ? (
+                    {isOutOfStock ? (
+                      <View style={styles.outOfStockLabel}>
+                        <Text style={styles.outOfStockText}>SOLD OUT</Text>
+                      </View>
+                    ) : inCart ? (
                       <View style={styles.cardQtyControls}>
                         <TouchableOpacity
                           style={styles.cardQtyBtn}
@@ -411,11 +385,17 @@ export default function BillingScreen() {
         <ScrollView style={styles.cartItemList}>
           {cart.map((item) => (
             <View key={item.product.id} style={styles.cartItem}>
-              <Image
-                source={{ uri: item.product.image }}
-                style={styles.cartItemImage}
-                contentFit="cover"
-              />
+              {item.product.image ? (
+                <Image
+                  source={{ uri: item.product.image }}
+                  style={styles.cartItemImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={[styles.cartItemImage, { alignItems: 'center', justifyContent: 'center' }]}>
+                  <MaterialIcons name="inventory" size={20} color="#737686" />
+                </View>
+              )}
               <View style={styles.cartItemDetails}>
                 <View style={styles.cartItemRow}>
                   <Text style={styles.cartItemName} numberOfLines={1}>
@@ -723,6 +703,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(0,74,198,0.3)',
     backgroundColor: '#f9faff',
   },
+  productCardOutOfStock: {
+    opacity: 0.6,
+  },
   badge: {
     position: 'absolute',
     top: 8,
@@ -749,6 +732,13 @@ const styles = StyleSheet.create({
     aspectRatio: 1,
     backgroundColor: '#f2f3ff',
   },
+  productImagePlaceholder: {
+    width: '100%',
+    aspectRatio: 1,
+    backgroundColor: '#f2f3ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   productDetails: {
     padding: 10,
     justifyContent: 'space-between',
@@ -770,6 +760,17 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '700',
     color: '#004ac6',
+  },
+  outOfStockLabel: {
+    backgroundColor: '#ffdad6',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  outOfStockText: {
+    color: '#ba1a1a',
+    fontSize: 10,
+    fontWeight: '700',
   },
   addBtnCircle: {
     width: 28,
