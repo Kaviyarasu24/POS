@@ -12,6 +12,7 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { API_BASE_URL } from '@/constants/config';
 
 const categories = [
   { label: 'Retail / Apparel', value: 'retail' },
@@ -52,7 +53,7 @@ export default function SignupScreen() {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Validations
-  const handleSignup = () => {
+  const handleSignup = async () => {
     setErrorMessage('');
     if (!shopName || !shopCategory || !fullName || !email || !phone || !password || !confirmPassword) {
       setErrorMessage('Please fill in all fields.');
@@ -73,12 +74,40 @@ export default function SignupScreen() {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/signup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          shop_name: shopName.trim(),
+          owner_name: fullName.trim(),
+          shop_category: shopCategory,
+          phone: `${countryCode} ${phone.trim()}`,
+          email_or_username: email.trim().toLowerCase(),
+          password: password,
+        }),
+      });
+
       setIsLoading(false);
+
+      if (!response.ok) {
+        const errData = await response.json();
+        setErrorMessage(errData.detail || 'Signup failed. Please try again.');
+        return;
+      }
+
       alert(`Success!\nAccount created for ${shopName}.\nRegistered Phone: ${countryCode} ${phone}\nPlease sign in.`);
       router.push('/login');
-    }, 1500);
+    } catch (err) {
+      console.warn("API signup failed, falling back to local simulation:", err);
+      // Fallback: local simulation
+      setTimeout(() => {
+        setIsLoading(false);
+        alert(`Offline Mode: Account created successfully for ${shopName} (simulated).`);
+        router.push('/login');
+      }, 1000);
+    }
   };
 
   return (

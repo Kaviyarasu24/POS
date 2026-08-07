@@ -10,18 +10,24 @@ import {
   SafeAreaView,
   Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import { store, Product } from '@/constants/store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
+interface ScannedItemState {
+  product: Product;
+  quantity: number;
+}
+
 export default function ScannerScreen() {
   const router = useRouter();
+  const { mode } = useLocalSearchParams<{ mode?: string }>();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
-  const [coffeeQty, setCoffeeQty] = useState(1);
-  const [dripperQty, setDripperQty] = useState(1);
+  const [scannedItems, setScannedItems] = useState<ScannedItemState[]>([]);
 
   // Animation for the scanning laser line
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -50,11 +56,36 @@ export default function ScannerScreen() {
     }
   }, [permission, requestPermission]);
 
-  const totalItems = (coffeeQty > 0 ? coffeeQty : 0) + (dripperQty > 0 ? dripperQty : 0);
+  const totalItems = scannedItems.reduce((acc, item) => acc + item.quantity, 0);
 
   const handleBarcodeScanned = ({ data }: { data: string }) => {
-    // Basic scanner simulation trigger
-    alert(`Scanned Barcode: ${data}`);
+    const barcodeStr = data.trim();
+    if (!barcodeStr) return;
+
+    if (mode === 'add_product') {
+      router.replace({ pathname: '/add_product', params: { scannedSku: barcodeStr } });
+      return;
+    }
+
+    // Look up product in local store
+    const product = store.getProducts().find(
+      (p) => p.sku.toUpperCase() === barcodeStr.toUpperCase() || p.id === barcodeStr
+    );
+
+    if (product) {
+      setScannedItems((prevItems) => {
+        const existingIdx = prevItems.findIndex((item) => item.product.id === product.id);
+        if (existingIdx > -1) {
+          const updated = [...prevItems];
+          updated[existingIdx].quantity += 1;
+          return updated;
+        } else {
+          return [...prevItems, { product, quantity: 1 }];
+        }
+      });
+    } else {
+      alert(`Product not found for SKU: ${barcodeStr}`);
+    }
   };
 
   const renderCameraView = () => {
@@ -145,66 +176,56 @@ export default function ScannerScreen() {
           <Text style={styles.drawerTitle}>Recently Scanned</Text>
 
           <ScrollView style={styles.scannedList} showsVerticalScrollIndicator={false}>
-            {/* Item 1: Coffee Beans */}
-            {coffeeQty > 0 && (
-              <View style={styles.scannedItem}>
+            {scannedItems.map((item) => (
+              <View key={item.product.id} style={styles.scannedItem}>
                 <View style={styles.itemIconContainer}>
                   <MaterialIcons name="inventory" size={20} color="#434655" />
                 </View>
                 <View style={styles.itemDetails}>
                   <Text style={styles.itemName} numberOfLines={1}>
-                    Premium Organic Coffee Beans 1lb
+                    {item.product.name}
                   </Text>
-                  <Text style={styles.itemSku}>SKU: 8901234567</Text>
+                  <Text style={styles.itemSku}>SKU: {item.product.sku}</Text>
                 </View>
                 <View style={styles.itemActions}>
-                  <Text style={styles.itemPrice}>₹{(14.99 * coffeeQty).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{(item.product.price * item.quantity).toFixed(2)}</Text>
                   <View style={styles.quantityControls}>
                     <TouchableOpacity
                       style={styles.qtyBtn}
-                      onPress={() => setCoffeeQty(Math.max(0, coffeeQty - 1))}
+                      onPress={() => {
+                        const newQty = item.quantity - 1;
+                        setScannedItems((prev) =>
+                          prev
+                            .map((p) => (p.product.id === item.product.id ? { ...p, quantity: newQty } : p))
+                            .filter((p) => p.quantity > 0)
+                        );
+                      }}
                     >
                       <MaterialIcons name="remove" size={14} color="#434655" />
                     </TouchableOpacity>
-                    <Text style={styles.qtyText}>{coffeeQty}</Text>
-                    <TouchableOpacity style={styles.qtyBtn} onPress={() => setCoffeeQty(coffeeQty + 1)}>
+                    <Text style={styles.qtyText}>{item.quantity}</Text>
+                    <TouchableOpacity
+                      style={styles.qtyBtn}
+                      onPress={() => {
+                        setScannedItems((prev) =>
+                          prev.map((p) =>
+                            p.product.id === item.product.id ? { ...p, quantity: p.quantity + 1 } : p
+                          )
+                        );
+                      }}
+                    >
                       <MaterialIcons name="add" size={14} color="#434655" />
                     </TouchableOpacity>
                   </View>
                 </View>
               </View>
-            )}
-
-            {/* Item 2: Ceramic Dripper */}
-            {dripperQty > 0 && (
-              <View style={styles.scannedItem}>
-                <View style={styles.itemIconContainer}>
-                  <MaterialIcons name="inventory" size={20} color="#434655" />
-                </View>
-                <View style={styles.itemDetails}>
-                  <Text style={styles.itemName} numberOfLines={1}>
-                    Ceramic Pour-Over Dripper
-                  </Text>
-                  <Text style={styles.itemSku}>SKU: 8901234568</Text>
-                </View>
-                <View style={styles.itemActions}>
-                  <Text style={styles.itemPrice}>₹{(22.5 * dripperQty).toFixed(2)}</Text>
-                  <View style={styles.quantityControls}>
-                    <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => setDripperQty(Math.max(0, dripperQty - 1))}
-                    >
-                      <MaterialIcons name="remove" size={14} color="#434655" />
-                    </TouchableOpacity>
-                    <Text style={styles.qtyText}>{dripperQty}</Text>
-                    <TouchableOpacity
-                      style={styles.qtyBtn}
-                      onPress={() => setDripperQty(dripperQty + 1)}
-                    >
-                      <MaterialIcons name="add" size={14} color="#434655" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
+            ))}
+            {scannedItems.length === 0 && (
+              <View style={{ paddingVertical: 32, alignItems: 'center' }}>
+                <MaterialIcons name="qr-code" size={48} color="#c3c6d7" />
+                <Text style={{ fontSize: 14, color: '#737686', marginTop: 8 }}>
+                  Align barcode inside the target viewfinder frame
+                </Text>
               </View>
             )}
           </ScrollView>
@@ -219,7 +240,16 @@ export default function ScannerScreen() {
               <Text style={styles.secondaryBtnText}>Manual Entry</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.primaryBtn} onPress={() => router.back()}>
+            <TouchableOpacity
+              style={styles.primaryBtn}
+              onPress={() => {
+                // Buffer to store
+                scannedItems.forEach((item) => {
+                  store.addScannedItem(item.product.id, item.quantity);
+                });
+                router.back();
+              }}
+            >
               <MaterialIcons name="check-circle" size={20} color="#ffffff" />
               <Text style={styles.primaryBtnText}>Done ({totalItems})</Text>
             </TouchableOpacity>

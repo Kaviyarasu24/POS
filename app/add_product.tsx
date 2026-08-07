@@ -189,7 +189,6 @@ export default function AddProductScreen() {
       alert('Product updated successfully.');
     } else {
       store.addProduct({
-        id: Date.now().toString(),
         name: name.trim(),
         sku: sku.trim().toUpperCase(),
         category,

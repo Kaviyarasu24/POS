@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,9 +11,54 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
+import { API_BASE_URL } from '@/constants/config';
+import { store } from '@/constants/store';
 
 export default function DashboardScreen() {
   const router = useRouter();
+
+  // Dashboard metrics state
+  const [metrics, setMetrics] = useState({
+    today_sales: 4289.50,
+    orders_count: 142,
+    profit: 1104.00,
+    low_stock_alerts: [
+      { id: 1, name: 'Artisan Coffee Beans', stock: 2 },
+      { id: 2, name: 'Organic Oat Milk', stock: 5 },
+      { id: 3, name: 'Reusable Cups', stock: 8 },
+    ] as any[],
+    recent_transactions: [
+      { id: 4921, created_at: '2026-08-07T10:42:00Z', items_count: 3, total: 24.50 },
+      { id: 4920, created_at: '2026-08-07T10:15:00Z', items_count: 1, total: 4.50 },
+      { id: 4919, created_at: '2026-08-07T09:58:00Z', items_count: 5, total: 42.00 },
+    ] as any[],
+  });
+
+  const fetchDashboardMetrics = async () => {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/dashboard`);
+      if (!response.ok) throw new Error('Failed to fetch dashboard metrics');
+      const data = await response.json();
+      setMetrics({
+        today_sales: parseFloat(data.today_sales),
+        orders_count: data.orders_count,
+        profit: parseFloat(data.profit),
+        low_stock_alerts: data.low_stock_alerts,
+        recent_transactions: data.recent_transactions,
+      });
+    } catch (err) {
+      console.warn("Could not load backend metrics, using dashboard mock fallbacks:", err);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardMetrics();
+    // Subscribe to store updates to auto-refresh metrics on checkouts/edits
+    const unsubscribe = store.subscribe(() => {
+      fetchDashboardMetrics();
+    });
+    return unsubscribe;
+  }, []);
 
   return (
     <SafeAreaView style={styles.outerContainer}>
@@ -47,7 +92,7 @@ export default function DashboardScreen() {
           <View style={styles.bentoGrid}>
             <View style={[styles.bentoCard, styles.salesCard]}>
               <Text style={styles.bentoLabel}>{"Today's Sales"}</Text>
-              <Text style={styles.salesValue}>₹4,289.50</Text>
+              <Text style={styles.salesValue}>₹{metrics.today_sales.toFixed(2)}</Text>
               <View style={styles.trendContainer}>
                 <MaterialIcons name="trending-up" size={16} color="#006329" />
                 <Text style={styles.trendText}>+12.5% vs yesterday</Text>
@@ -57,11 +102,11 @@ export default function DashboardScreen() {
             <View style={styles.bentoRow}>
               <View style={[styles.bentoCard, styles.halfCard]}>
                 <Text style={styles.bentoLabel}>Orders</Text>
-                <Text style={styles.bentoValue}>142</Text>
+                <Text style={styles.bentoValue}>{metrics.orders_count}</Text>
               </View>
               <View style={[styles.bentoCard, styles.halfCard]}>
                 <Text style={styles.bentoLabel}>Profit</Text>
-                <Text style={styles.bentoValue}>₹1,104</Text>
+                <Text style={styles.bentoValue}>₹{metrics.profit.toFixed(2)}</Text>
               </View>
             </View>
           </View>
@@ -74,17 +119,26 @@ export default function DashboardScreen() {
               showsHorizontalScrollIndicator={false}
               contentContainerStyle={styles.actionsScroll}
             >
-              <TouchableOpacity style={[styles.actionButton, styles.primaryActionButton]}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.primaryActionButton]}
+                onPress={() => router.push('/billing')}
+              >
                 <MaterialIcons name="point-of-sale" size={24} color="#ffffff" style={styles.actionIcon} />
                 <Text style={styles.primaryActionText}>New Sale</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push('/add_product')}
+              >
                 <MaterialIcons name="add-box" size={24} color="#131b2e" style={styles.actionIcon} />
                 <Text style={styles.actionText}>Add Product</Text>
               </TouchableOpacity>
 
-              <TouchableOpacity style={styles.actionButton}>
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push('/inventory')}
+              >
                 <MaterialIcons name="inventory" size={24} color="#131b2e" style={styles.actionIcon} />
                 <Text style={styles.actionText}>Stock Entry</Text>
               </TouchableOpacity>
@@ -99,23 +153,28 @@ export default function DashboardScreen() {
                 <Text style={styles.alertsTitle}>Low Stock Alerts</Text>
               </View>
               <View style={styles.alertsBadge}>
-                <Text style={styles.alertsBadgeText}>3 Items</Text>
+                <Text style={styles.alertsBadgeText}>
+                  {metrics.low_stock_alerts.length} Items
+                </Text>
               </View>
             </View>
 
             <View style={styles.alertList}>
-              <View style={styles.alertItem}>
-                <Text style={styles.alertItemName}>Artisan Coffee Beans</Text>
-                <Text style={styles.alertItemQty}>2 left</Text>
-              </View>
-              <View style={styles.alertItem}>
-                <Text style={styles.alertItemName}>Organic Oat Milk</Text>
-                <Text style={styles.alertItemQty}>5 left</Text>
-              </View>
-              <View style={[styles.alertItem, styles.lastAlertItem]}>
-                <Text style={styles.alertItemName}>Reusable Cups</Text>
-                <Text style={styles.alertItemQty}>8 left</Text>
-              </View>
+              {metrics.low_stock_alerts.map((item, idx) => (
+                <View
+                  key={item.id}
+                  style={[
+                    styles.alertItem,
+                    idx === metrics.low_stock_alerts.length - 1 && styles.lastAlertItem,
+                  ]}
+                >
+                  <Text style={styles.alertItemName}>{item.name}</Text>
+                  <Text style={styles.alertItemQty}>{item.stock} left</Text>
+                </View>
+              ))}
+              {metrics.low_stock_alerts.length === 0 && (
+                <Text style={styles.emptyAlertText}>No low stock alerts</Text>
+              )}
             </View>
           </View>
 
@@ -165,45 +224,45 @@ export default function DashboardScreen() {
             </View>
 
             <View style={styles.transactionList}>
-              <View style={styles.transactionItem}>
-                <View style={styles.transactionIconContainer}>
-                  <MaterialIcons name="receipt-long" size={20} color="#434655" />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionOrder}>Order #4921</Text>
-                  <Text style={styles.transactionTime}>10:42 AM • 3 items</Text>
-                </View>
-                <Text style={styles.transactionAmount}>₹24.50</Text>
-              </View>
-
-              <View style={styles.transactionItem}>
-                <View style={styles.transactionIconContainer}>
-                  <MaterialIcons name="receipt-long" size={20} color="#434655" />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionOrder}>Order #4920</Text>
-                  <Text style={styles.transactionTime}>10:15 AM • 1 item</Text>
-                </View>
-                <Text style={styles.transactionAmount}>₹4.50</Text>
-              </View>
-
-              <View style={[styles.transactionItem, styles.lastTransactionItem]}>
-                <View style={styles.transactionIconContainer}>
-                  <MaterialIcons name="receipt-long" size={20} color="#434655" />
-                </View>
-                <View style={styles.transactionDetails}>
-                  <Text style={styles.transactionOrder}>Order #4919</Text>
-                  <Text style={styles.transactionTime}>09:58 AM • 5 items</Text>
-                </View>
-                <Text style={styles.transactionAmount}>₹42.00</Text>
-              </View>
+              {metrics.recent_transactions.map((tx, idx) => {
+                const dateObj = new Date(tx.created_at);
+                const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                return (
+                  <View
+                    key={tx.id}
+                    style={[
+                      styles.transactionItem,
+                      idx === metrics.recent_transactions.length - 1 && styles.lastTransactionItem,
+                    ]}
+                  >
+                    <View style={styles.transactionIconContainer}>
+                      <MaterialIcons name="receipt-long" size={20} color="#434655" />
+                    </View>
+                    <View style={styles.transactionDetails}>
+                      <Text style={styles.transactionOrder}>Order #{tx.id}</Text>
+                      <Text style={styles.transactionTime}>
+                        {timeString} • {tx.items_count} items
+                      </Text>
+                    </View>
+                    <Text style={styles.transactionAmount}>
+                      ₹{parseFloat(tx.total).toFixed(2)}
+                    </Text>
+                  </View>
+                );
+              })}
+              {metrics.recent_transactions.length === 0 && (
+                <Text style={styles.emptyTransactionsText}>No recent transactions</Text>
+              )}
             </View>
           </View>
         </View>
       </ScrollView>
 
       {/* Floating Action Button (FAB) */}
-      <TouchableOpacity style={styles.fab}>
+      <TouchableOpacity
+        style={styles.fab}
+        onPress={() => router.push('/add_product')}
+      >
         <MaterialIcons name="add" size={28} color="#ffffff" />
       </TouchableOpacity>
     </SafeAreaView>
@@ -429,6 +488,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#ba1a1a',
   },
+  emptyAlertText: {
+    fontSize: 13,
+    color: '#ba1a1a',
+    paddingVertical: 8,
+    fontWeight: '500',
+  },
   chartCard: {
     width: '100%',
     backgroundColor: '#ffffff',
@@ -531,6 +596,12 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '700',
     color: '#131b2e',
+  },
+  emptyTransactionsText: {
+    fontSize: 13,
+    color: '#737686',
+    paddingVertical: 12,
+    textAlign: 'center',
   },
   fab: {
     position: 'absolute',

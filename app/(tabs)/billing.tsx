@@ -45,8 +45,33 @@ export default function BillingScreen() {
   // Subscribe to store updates
   useEffect(() => {
     setProducts(store.getProducts());
+
+    const checkScanned = () => {
+      if (store.scannedItems && store.scannedItems.length > 0) {
+        setCart((prevCart) => {
+          const newCart = [...prevCart];
+          store.scannedItems.forEach((scanned) => {
+            const product = store.getProductById(scanned.productId);
+            if (product) {
+              const existingIdx = newCart.findIndex((item) => item.product.id === scanned.productId);
+              if (existingIdx > -1) {
+                newCart[existingIdx].quantity += scanned.quantity;
+              } else {
+                newCart.push({ product, quantity: scanned.quantity });
+              }
+            }
+          });
+          return newCart;
+        });
+        store.scannedItems = [];
+      }
+    };
+
+    checkScanned();
+
     const unsubscribe = store.subscribe(() => {
       setProducts(store.getProducts());
+      checkScanned();
     });
     return unsubscribe;
   }, []);
@@ -162,10 +187,18 @@ export default function BillingScreen() {
   const handleCharge = () => {
     if (cart.length === 0) return;
 
-    // Deduct stock levels in shared store
-    cart.forEach((item) => {
-      store.checkoutProduct(item.product.id, item.quantity);
-    });
+    // Execute atomic checkout in store (hits FastAPI backend or runs local simulation fallback)
+    store.checkoutOrder(
+      cartTotals.subtotal,
+      cartTotals.discountAmount,
+      cartTotals.tax,
+      cartTotals.total,
+      cart.map((item) => ({
+        product_id: item.product.id,
+        quantity: item.quantity,
+        price: item.product.price,
+      }))
+    );
 
     setChargeSuccess(true);
   };

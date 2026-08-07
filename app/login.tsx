@@ -11,6 +11,8 @@ import {
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
+import { API_BASE_URL } from '@/constants/config';
+import { store } from '@/constants/store';
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -24,7 +26,7 @@ export default function LoginScreen() {
   const [errorMessage, setErrorMessage] = useState('');
 
   // Validations
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setErrorMessage('');
     if (!email || !password) {
       setErrorMessage('Please fill in all fields.');
@@ -41,11 +43,47 @@ export default function LoginScreen() {
     }
 
     setIsLoading(true);
-    // Simulate API call
-    setTimeout(() => {
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email_or_username: email.trim().toLowerCase(),
+          password: password,
+        }),
+      });
+
       setIsLoading(false);
+
+      if (!response.ok) {
+        const errData = await response.json();
+        setErrorMessage(errData.detail || 'Login failed. Please check credentials.');
+        return;
+      }
+
+      const data = await response.json();
+      store.currentUser = {
+        id: data.id.toString(),
+        shopName: data.shop_name,
+        ownerName: data.owner_name,
+        shopCategory: data.shop_category,
+        phone: data.phone,
+        email: data.email_or_username,
+        gstNumber: data.gst_number || undefined,
+        businessAddress: data.business_address || undefined,
+      };
+
+      // Successfully authenticated!
       router.push('/(tabs)/dashboard');
-    }, 1000);
+    } catch (err) {
+      console.warn("API login failed, falling back to local simulation:", err);
+      // Fallback: local simulation
+      setTimeout(() => {
+        setIsLoading(false);
+        router.push('/(tabs)/dashboard');
+      }, 1000);
+    }
   };
 
   const renderForm = () => {

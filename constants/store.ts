@@ -1,3 +1,5 @@
+import { API_BASE_URL } from './config';
+
 export interface Product {
   id: string;
   name: string;
@@ -10,6 +12,17 @@ export interface Product {
   unit?: string; // e.g. "lb", "ea"
   taxRate: number; // e.g. 8%
   image?: string;
+}
+
+export interface UserSession {
+  id: string;
+  shopName: string;
+  ownerName: string;
+  shopCategory: string;
+  phone: string;
+  email: string;
+  gstNumber?: string;
+  businessAddress?: string;
 }
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -140,8 +153,47 @@ const INITIAL_PRODUCTS: Product[] = [
 class ProductStore {
   private products: Product[] = INITIAL_PRODUCTS;
   private listeners: (() => void)[] = [];
+  private isSynced = false;
+  public scannedItems: { productId: string; quantity: number }[] = [];
+  public currentUser: UserSession | null = null;
+
+  constructor() {
+    this.syncProducts();
+  }
+
+  // Trigger API Sync
+  async syncProducts() {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products`);
+      if (!response.ok) throw new Error('API fetch error');
+      const data = await response.json();
+      
+      this.products = data.map((p: any) => ({
+        id: p.id.toString(),
+        name: p.name,
+        price: parseFloat(p.price),
+        costPrice: parseFloat(p.cost_price),
+        stock: p.stock,
+        lowStockAlert: p.low_stock_alert,
+        sku: p.sku,
+        category: p.category,
+        unit: p.unit || undefined,
+        taxRate: parseFloat(p.tax_rate),
+        image: p.image || undefined,
+      }));
+      
+      this.isSynced = true;
+      this.notify();
+    } catch (err) {
+      console.warn('API sync failed, using local store:', err);
+    }
+  }
 
   getProducts() {
+    // If not synced yet, request in background
+    if (!this.isSynced) {
+      this.syncProducts();
+    }
     return this.products;
   }
 
@@ -149,29 +201,194 @@ class ProductStore {
     return this.products.find((p) => p.id === id);
   }
 
-  addProduct(product: Product) {
-    this.products = [product, ...this.products];
-    this.notify();
+  async addProduct(product: Omit<Product, 'id'>) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: product.name,
+          sku: product.sku.toUpperCase(),
+          price: product.price,
+          cost_price: product.costPrice,
+          stock: product.stock,
+          low_stock_alert: product.lowStockAlert,
+          category: product.category,
+          unit: product.unit || null,
+          tax_rate: product.taxRate,
+          image: product.image || null,
+        }),
+      });
+      
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || 'API addition error');
+      }
+      
+      await this.syncProducts();
+    } catch (err) {
+      console.warn('API add failed, falling back to local simulation:', err);
+      const localProduct: Product = {
+        ...product,
+        id: Date.now().toString(),
+      };
+      this.products = [localProduct, ...this.products];
+      this.notify();
+    }
   }
 
-  updateProduct(id: string, updatedFields: Partial<Product>) {
-    this.products = this.products.map((p) =>
-      p.id === id ? { ...p, ...updatedFields } : p
-    );
-    this.notify();
+  async updateProduct(id: string, updatedFields: Partial<Product>) {
+    try {
+      // Map properties to backend naming
+      const bodyPayload: any = {};
+      if (updatedFields.name !== undefined) bodyPayload.name = updatedFields.name;
+      if (updatedFields.sku !== undefined) bodyPayload.sku = updatedFields.sku;
+      if (updatedFields.price !== undefined) bodyPayload.price = updatedFields.price;
+      if (updatedFields.costPrice !== undefined) bodyPayload.cost_price = updatedFields.costPrice;
+      if (updatedFields.stock !== undefined) bodyPayload.stock = updatedFields.stock;
+      if (updatedFields.lowStockAlert !== undefined) bodyPayload.low_stock_alert = updatedFields.lowStockAlert;
+      if (updatedFields.category !== undefined) bodyPayload.category = updatedFields.category;
+      if (updatedFields.unit !== undefined) bodyPayload.unit = updatedFields.unit || null;
+      if (updatedFields.taxRate !== undefined) bodyPayload.tax_rate = updatedFields.taxRate;
+      if (updatedFields.image !== undefined) bodyPayload.image = updatedFields.image || null;
+
+      const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload),
+      });
+
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || 'API update error');
+      }
+
+      await this.syncProducts();
+    } catch (err) {
+      console.warn('API update failed, falling back to local simulation:', err);
+      this.products = this.products.map((p) =>
+        p.id === id ? { ...p, ...updatedFields } : p
+      );
+      this.notify();
+    }
   }
 
-  restockProduct(id: string, qtyToAdd: number) {
-    this.products = this.products.map((p) =>
-      p.id === id ? { ...p, ...{ stock: p.stock + qtyToAdd } } : p
-    );
-    this.notify();
+  async updateUserProfile(updatedFields: Partial<UserSession>) {
+    if (!this.currentUser) {
+      console.warn('Cannot update user: No active session');
+      return;
+    }
+
+    try {
+      const bodyPayload: any = {};
+      if (updatedFields.shopName !== undefined) bodyPayload.shop_name = updatedFields.shopName;
+      if (updatedFields.ownerName !== undefined) bodyPayload.owner_name = updatedFields.ownerName;
+      if (updatedFields.shopCategory !== undefined) bodyPayload.shop_category = updatedFields.shopCategory;
+      if (updatedFields.phone !== undefined) bodyPayload.phone = updatedFields.phone;
+      if (updatedFields.email !== undefined) bodyPayload.email_or_username = updatedFields.email;
+      if (updatedFields.gstNumber !== undefined) bodyPayload.gst_number = updatedFields.gstNumber;
+      if (updatedFields.businessAddress !== undefined) bodyPayload.business_address = updatedFields.businessAddress;
+
+      const response = await fetch(`${API_BASE_URL}/api/users/${this.currentUser.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(bodyPayload),
+      });
+
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || 'API user update error');
+      }
+
+      const data = await response.json();
+      this.currentUser = {
+        id: data.id.toString(),
+        shopName: data.shop_name,
+        ownerName: data.owner_name,
+        shopCategory: data.shop_category,
+        phone: data.phone,
+        email: data.email_or_username,
+        gstNumber: data.gst_number || undefined,
+        businessAddress: data.business_address || undefined,
+      };
+      
+      this.notify();
+    } catch (err) {
+      console.warn('API user update failed, falling back to local simulation:', err);
+      this.currentUser = {
+        ...this.currentUser,
+        ...updatedFields,
+      };
+      this.notify();
+    }
+  }
+
+  async restockProduct(id: string, qtyToAdd: number) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/${id}/restock?qty=${qtyToAdd}`, {
+        method: 'POST',
+      });
+      if (!response.ok) throw new Error('API restock error');
+      await this.syncProducts();
+    } catch (err) {
+      console.warn('API restock failed, falling back to local simulation:', err);
+      this.products = this.products.map((p) =>
+        p.id === id ? { ...p, stock: p.stock + qtyToAdd } : p
+      );
+      this.notify();
+    }
+  }
+
+  // Unified Atomic checkout for billing screen
+  async checkoutOrder(subtotal: number, discount: number, tax: number, total: number, items: { product_id: string; quantity: number; price: number }[]) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/checkout`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          subtotal,
+          discount,
+          tax,
+          total,
+          items: items.map(item => ({
+            product_id: parseInt(item.product_id, 10),
+            quantity: item.quantity,
+            price: item.price
+          }))
+        })
+      });
+      if (!response.ok) {
+        const errorDetail = await response.json();
+        throw new Error(errorDetail.detail || 'API checkout error');
+      }
+      await this.syncProducts();
+    } catch (err) {
+      console.warn('API checkout failed, falling back to local simulation:', err);
+      // Fallback: local in-memory decrement
+      items.forEach(item => {
+        this.products = this.products.map(p =>
+          p.id === item.product_id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p
+        );
+      });
+      this.notify();
+    }
   }
 
   checkoutProduct(id: string, qtyToSubtract: number) {
+    // Retained for backwards compatibility if needed directly
     this.products = this.products.map((p) =>
-      p.id === id ? { ...p, ...{ stock: Math.max(0, p.stock - qtyToSubtract) } } : p
+      p.id === id ? { ...p, stock: Math.max(0, p.stock - qtyToSubtract) } : p
     );
+    this.notify();
+  }
+
+  addScannedItem(productId: string, quantity: number = 1) {
+    const existing = this.scannedItems.find(item => item.productId === productId);
+    if (existing) {
+      existing.quantity += quantity;
+    } else {
+      this.scannedItems.push({ productId, quantity });
+    }
     this.notify();
   }
 
