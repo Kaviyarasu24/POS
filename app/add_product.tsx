@@ -131,7 +131,7 @@ export default function AddProductScreen() {
 
     const priceNum = parseFloat(sellingPrice);
     if (isNaN(priceNum) || priceNum <= 0) {
-      setError('Please enter a valid selling price greater than $0.');
+      setError('Please enter a valid selling price greater than ₹0.');
       return;
     }
 
@@ -315,7 +315,7 @@ export default function AddProductScreen() {
                   value={costPrice}
                   onChangeText={setCostPrice}
                   keyboardType="numeric"
-                  iconLeft="$"
+                  iconLeft="₹"
                 />
               </View>
               <View style={{ flex: 1 }}>
@@ -324,7 +324,7 @@ export default function AddProductScreen() {
                   value={sellingPrice}
                   onChangeText={setSellingPrice}
                   keyboardType="numeric"
-                  iconLeft="$"
+                  iconLeft="₹"
                 />
               </View>
             </View>

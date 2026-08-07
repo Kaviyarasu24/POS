@@ -47,7 +47,7 @@ export default function DashboardScreen() {
           <View style={styles.bentoGrid}>
             <View style={[styles.bentoCard, styles.salesCard]}>
               <Text style={styles.bentoLabel}>{"Today's Sales"}</Text>
-              <Text style={styles.salesValue}>$4,289.50</Text>
+              <Text style={styles.salesValue}>₹4,289.50</Text>
               <View style={styles.trendContainer}>
                 <MaterialIcons name="trending-up" size={16} color="#006329" />
                 <Text style={styles.trendText}>+12.5% vs yesterday</Text>
@@ -61,7 +61,7 @@ export default function DashboardScreen() {
               </View>
               <View style={[styles.bentoCard, styles.halfCard]}>
                 <Text style={styles.bentoLabel}>Profit</Text>
-                <Text style={styles.bentoValue}>$1,104</Text>
+                <Text style={styles.bentoValue}>₹1,104</Text>
               </View>
             </View>
           </View>
@@ -173,7 +173,7 @@ export default function DashboardScreen() {
                   <Text style={styles.transactionOrder}>Order #4921</Text>
                   <Text style={styles.transactionTime}>10:42 AM • 3 items</Text>
                 </View>
-                <Text style={styles.transactionAmount}>$24.50</Text>
+                <Text style={styles.transactionAmount}>₹24.50</Text>
               </View>
 
               <View style={styles.transactionItem}>
@@ -184,7 +184,7 @@ export default function DashboardScreen() {
                   <Text style={styles.transactionOrder}>Order #4920</Text>
                   <Text style={styles.transactionTime}>10:15 AM • 1 item</Text>
                 </View>
-                <Text style={styles.transactionAmount}>$4.50</Text>
+                <Text style={styles.transactionAmount}>₹4.50</Text>
               </View>
 
               <View style={[styles.transactionItem, styles.lastTransactionItem]}>
@@ -195,7 +195,7 @@ export default function DashboardScreen() {
                   <Text style={styles.transactionOrder}>Order #4919</Text>
                   <Text style={styles.transactionTime}>09:58 AM • 5 items</Text>
                 </View>
-                <Text style={styles.transactionAmount}>$42.00</Text>
+                <Text style={styles.transactionAmount}>₹42.00</Text>
               </View>
             </View>
           </View>

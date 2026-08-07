@@ -158,7 +158,7 @@ export default function ScannerScreen() {
                   <Text style={styles.itemSku}>SKU: 8901234567</Text>
                 </View>
                 <View style={styles.itemActions}>
-                  <Text style={styles.itemPrice}>${(14.99 * coffeeQty).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{(14.99 * coffeeQty).toFixed(2)}</Text>
                   <View style={styles.quantityControls}>
                     <TouchableOpacity
                       style={styles.qtyBtn}
@@ -188,7 +188,7 @@ export default function ScannerScreen() {
                   <Text style={styles.itemSku}>SKU: 8901234568</Text>
                 </View>
                 <View style={styles.itemActions}>
-                  <Text style={styles.itemPrice}>${(22.5 * dripperQty).toFixed(2)}</Text>
+                  <Text style={styles.itemPrice}>₹{(22.5 * dripperQty).toFixed(2)}</Text>
                   <View style={styles.quantityControls}>
                     <TouchableOpacity
                       style={styles.qtyBtn}

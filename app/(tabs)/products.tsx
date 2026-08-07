@@ -188,7 +188,7 @@ export default function ProductsScreen() {
 
               <View style={styles.productMeta}>
                 <Text style={[styles.productPrice, isOutOfStock && styles.textSecondary]}>
-                  ${item.price.toFixed(2)}
+                  ₹{item.price.toFixed(2)}
                   {item.unit ? <Text style={styles.unitText}>/{item.unit}</Text> : null}
                 </Text>
 

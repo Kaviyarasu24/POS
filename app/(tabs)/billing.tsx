@@ -290,7 +290,7 @@ export default function BillingScreen() {
                     {item.name}
                   </Text>
                   <View style={styles.productFooter}>
-                    <Text style={styles.productPrice}>${item.price.toFixed(2)}</Text>
+                    <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
 
                     {isOutOfStock ? (
                       <View style={styles.outOfStockLabel}>
@@ -411,7 +411,7 @@ export default function BillingScreen() {
 
                 <View style={styles.cartItemFooter}>
                   <Text style={styles.cartItemPrice}>
-                    ${(item.product.price * item.quantity).toFixed(2)}
+                    ₹{(item.product.price * item.quantity).toFixed(2)}
                   </Text>
                   <View style={styles.cartItemQtyControls}>
                     <TouchableOpacity
@@ -465,26 +465,26 @@ export default function BillingScreen() {
           {/* Pricing Details */}
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Subtotal</Text>
-            <Text style={styles.summaryValue}>${cartTotals.subtotal.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>₹{cartTotals.subtotal.toFixed(2)}</Text>
           </View>
 
           {discountPercent > 0 && (
             <View style={styles.summaryRow}>
               <Text style={styles.summaryLabel}>Discount ({discountPercent}%)</Text>
               <Text style={[styles.summaryValue, styles.discountAppliedText]}>
-                -${cartTotals.discountAmount.toFixed(2)}
+                -₹{cartTotals.discountAmount.toFixed(2)}
               </Text>
             </View>
           )}
 
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Tax (8%)</Text>
-            <Text style={styles.summaryValue}>${cartTotals.tax.toFixed(2)}</Text>
+            <Text style={styles.summaryValue}>₹{cartTotals.tax.toFixed(2)}</Text>
           </View>
 
           <View style={[styles.summaryRow, styles.totalRow]}>
             <Text style={styles.totalLabel}>Total</Text>
-            <Text style={styles.totalValue}>${cartTotals.total.toFixed(2)}</Text>
+            <Text style={styles.totalValue}>₹{cartTotals.total.toFixed(2)}</Text>
           </View>
 
           {/* Charge Button */}
@@ -498,7 +498,7 @@ export default function BillingScreen() {
           >
             <Text style={styles.chargeButtonText}>Charge</Text>
             <Text style={styles.chargeButtonAmount}>
-              ${cartTotals.total.toFixed(2)}
+              ₹{cartTotals.total.toFixed(2)}
             </Text>
             <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={styles.arrowIcon} />
           </TouchableOpacity>
@@ -561,7 +561,7 @@ export default function BillingScreen() {
             </View>
             <Text style={styles.successTitle}>Transaction Complete!</Text>
             <Text style={styles.successDescription}>
-              Payment of <Text style={styles.successAmount}>${cartTotals.total.toFixed(2)}</Text>{' '}
+              Payment of <Text style={styles.successAmount}>₹{cartTotals.total.toFixed(2)}</Text>{' '}
               was charged successfully.
             </Text>
             <TouchableOpacity

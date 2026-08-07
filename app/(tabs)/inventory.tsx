@@ -90,7 +90,7 @@ export default function InventoryScreen() {
               <View style={styles.metricCard}>
                 <Text style={styles.metricLabel}>Total Stock Value</Text>
                 <Text style={styles.metricValuePrimary}>
-                  ${metrics.totalValue.toLocaleString(undefined, {
+                  ₹{metrics.totalValue.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
                   })}
@@ -161,7 +161,7 @@ export default function InventoryScreen() {
                   <Text style={styles.itemSku}>SKU: {item.sku}</Text>
                   <View style={styles.itemMetaRow}>
                     <Text style={[styles.itemPrice, isOutOfStock && styles.textSecondary]}>
-                      ${item.price.toFixed(2)}
+                      ₹{item.price.toFixed(2)}
                     </Text>
 
                     {/* Stock status badge */}
