@@ -53,6 +53,7 @@ class UserUpdate(BaseModel):
     phone: Optional[str] = None
     email_or_username: Optional[str] = None
     role: Optional[str] = None
+    image: Optional[str] = None
 
 class UserLogin(BaseModel):
     email_or_username: str
@@ -65,6 +66,7 @@ class UserResponse(BaseModel):
     email_or_username: str
     role: str
     phone: Optional[str] = None
+    image: Optional[str] = None
     # Store Details embedded for instant frontend store setup
     shop_name: Optional[str] = None
     shop_category: Optional[str] = None

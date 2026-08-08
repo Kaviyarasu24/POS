@@ -24,6 +24,7 @@ export interface UserSession {
   shopCategory: string;
   phone: string;
   email: string;
+  image?: string; // Profile Avatar (Base64 / URL)
   gstNumber?: string;
   businessAddress?: string;
   storePhone?: string;
@@ -384,6 +385,7 @@ class ProductStore {
       if (updatedFields.userName !== undefined) userPayload.name = updatedFields.userName;
       if (updatedFields.phone !== undefined) userPayload.phone = updatedFields.phone;
       if (updatedFields.email !== undefined) userPayload.email_or_username = updatedFields.email;
+      if (updatedFields.image !== undefined) userPayload.image = updatedFields.image;
 
       const userRes = await fetch(`${API_BASE_URL}/api/users/${this._currentUser.id}`, {
         method: 'PUT',
@@ -402,6 +404,7 @@ class ProductStore {
           shopCategory: data.shop_category || 'Retail',
           phone: data.phone || '',
           email: data.email_or_username,
+          image: data.image || undefined,
           gstNumber: data.gst_number || undefined,
           businessAddress: data.business_address || undefined,
           storePhone: data.store_phone || undefined,

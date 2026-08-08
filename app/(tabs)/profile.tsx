@@ -10,10 +10,12 @@ import {
   Switch,
   Modal,
   TextInput,
+  Alert,
 } from 'react-native';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { store } from '@/constants/store';
 
 export default function ProfileScreen() {
@@ -21,15 +23,16 @@ export default function ProfileScreen() {
 
   // Load session or defaults
   const userSession = store.currentUser;
-  const [shopName, setShopName] = useState(userSession?.shopName || 'Acme Retail');
+  const [shopName, setShopName] = useState(userSession?.shopName || 'TGM Supermart');
   const [ownerName, setOwnerName] = useState(userSession?.userName || 'Store User');
-  const [phone, setPhone] = useState(userSession?.phone || '+91 98765 43210');
-  const [email, setEmail] = useState(userSession?.email || 'user@example.com');
+  const [phone, setPhone] = useState(userSession?.phone || '+91 7010764469');
+  const [email, setEmail] = useState(userSession?.email || 'rithes07@gmail.com');
+  const [avatarImage, setAvatarImage] = useState<string | null>(userSession?.image || null);
 
   // Shop Info Details
-  const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Electronics & Gadgets');
-  const [gstNumber, setGstNumber] = useState(userSession?.gstNumber || '29GGGGG1314R9Z6');
-  const [businessAddress, setBusinessAddress] = useState(userSession?.businessAddress || '123 Tech Park, Silicon Avenue, NY');
+  const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Retail & Grocery');
+  const [gstNumber, setGstNumber] = useState(userSession?.gstNumber || '33AAACT1024K1Z0');
+  const [businessAddress, setBusinessAddress] = useState(userSession?.businessAddress || '124 Market Avenue, Tech Park City');
 
   // Printer Settings
   const [printerType, setPrinterType] = useState('Bluetooth');
@@ -48,6 +51,7 @@ export default function ProfileScreen() {
   const [biometricLock, setBiometricLock] = useState(true);
 
   // Modal Visibility States
+  const [avatarOptionsVisible, setAvatarOptionsVisible] = useState(false);
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [shopInfoVisible, setShopInfoVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
@@ -72,6 +76,7 @@ export default function ProfileScreen() {
         setOwnerName(store.currentUser.userName);
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
+        setAvatarImage(store.currentUser.image || null);
         setShopCategory(store.currentUser.shopCategory);
         setGstNumber(store.currentUser.gstNumber || '');
         setBusinessAddress(store.currentUser.businessAddress || '');
@@ -86,6 +91,71 @@ export default function ProfileScreen() {
     return unsubscribe;
   }, []);
 
+  // Pick / Upload Profile Image
+  const handlePickImage = async () => {
+    setAvatarOptionsVisible(false);
+    try {
+      if (Platform.OS !== 'web') {
+        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access gallery is required to set profile picture.');
+          return;
+        }
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.7,
+        base64: true,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        const base64Data = asset.base64
+          ? `data:image/jpeg;base64,${asset.base64}`
+          : asset.uri;
+
+        setAvatarImage(base64Data);
+        await store.updateUserProfile({ image: base64Data });
+        Alert.alert('Success', 'Profile image updated successfully!');
+      }
+    } catch (err: any) {
+      console.warn('Image picker error:', err);
+      // Fallback for Web browser file picker
+      if (Platform.OS === 'web' && typeof document !== 'undefined') {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'image/*';
+        input.onchange = (e: any) => {
+          const file = e.target?.files?.[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onloadend = async () => {
+              const base64Data = reader.result as string;
+              setAvatarImage(base64Data);
+              await store.updateUserProfile({ image: base64Data });
+              Alert.alert('Success', 'Profile image updated successfully!');
+            };
+            reader.readAsDataURL(file);
+          }
+        };
+        input.click();
+      } else {
+        Alert.alert('Error', 'Could not open image picker.');
+      }
+    }
+  };
+
+  // Remove Profile Image (Reset to Default initials)
+  const handleRemoveImage = async () => {
+    setAvatarOptionsVisible(false);
+    setAvatarImage(null);
+    await store.updateUserProfile({ image: '' });
+    Alert.alert('Photo Removed', 'Profile picture reset to default.');
+  };
+
   // Open Edit Profile form
   const openEditProfile = () => {
     setTempShopName(shopName);
@@ -97,7 +167,7 @@ export default function ProfileScreen() {
 
   const saveProfile = async () => {
     if (!tempShopName.trim() || !tempOwnerName.trim() || !tempPhone.trim() || !tempEmail.trim()) {
-      alert('Please fill in all fields.');
+      Alert.alert('Required Fields', 'Please fill in all fields.');
       return;
     }
 
@@ -109,7 +179,7 @@ export default function ProfileScreen() {
     });
     
     setEditProfileVisible(false);
-    alert('Profile updated successfully.');
+    Alert.alert('Success', 'Profile updated successfully.');
   };
 
   // Open Shop Details form
@@ -185,20 +255,32 @@ export default function ProfileScreen() {
         <View style={styles.mainContainer}>
           {/* Profile Header Card */}
           <View style={styles.profileHeaderCard}>
-            <View style={styles.avatarContainer}>
-              <Image
-                style={styles.avatarImage}
-                source="https://lh3.googleusercontent.com/aida-public/AB6AXuBk5aqkffguS6PxPxS0aqX_WTyHCjfWIIufTx-RZUFHmS58folkqO_SWR9l3gzaEbtBlcUOjwM-37Vjo6_2YPPc7bD94CN_3QwjIcYybEQN9SMWdsXjeCZQB0Q89_Ip5bgfz1QApnndwi8bTgPs75A7gn-81lBLodw094vEN7TvZnYgEqLpiTX0bLcO9HT_PT4mpqhU3VwFyy_e339wA_4pFj6VJoUq-GxNoJYAXyFS5oD6IcCptwNcbQ"
-                contentFit="cover"
-              />
-              <TouchableOpacity style={styles.editAvatarBtn} onPress={openEditProfile}>
-                <MaterialIcons name="edit" size={14} color="#ffffff" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity
+              style={styles.avatarContainer}
+              onPress={() => setAvatarOptionsVisible(true)}
+              activeOpacity={0.8}
+            >
+              {avatarImage ? (
+                <Image
+                  style={styles.avatarImage}
+                  source={avatarImage}
+                  contentFit="cover"
+                />
+              ) : (
+                <View style={styles.defaultAvatarContainer}>
+                  <Text style={styles.defaultAvatarText}>
+                    {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                  </Text>
+                </View>
+              )}
+              <View style={styles.editAvatarBtn}>
+                <MaterialIcons name="camera-alt" size={14} color="#ffffff" />
+              </View>
+            </TouchableOpacity>
             <Text style={styles.shopNameText}>{shopName}</Text>
             <Text style={styles.ownerNameText}>{ownerName}</Text>
             <TouchableOpacity style={styles.editProfileBtn} onPress={openEditProfile}>
-              <MaterialIcons name="person" size={18} color="#004ac6" />
+              <MaterialIcons name="edit" size={16} color="#004ac6" />
               <Text style={styles.editProfileBtnText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
@@ -396,12 +478,77 @@ export default function ProfileScreen() {
 
       {/* --- MODAL DIALOGS --- */}
 
+      {/* 0. Avatar Options Modal */}
+      <Modal visible={avatarOptionsVisible} animationType="fade" transparent onRequestClose={() => setAvatarOptionsVisible(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxWidth: 360 }]}>
+            <Text style={styles.modalTitle}>Profile Photo</Text>
+            <Text style={styles.modalSubtitle}>
+              {avatarImage ? 'Update or remove your store profile picture' : 'Upload a picture for your store profile'}
+            </Text>
+
+            <TouchableOpacity style={styles.avatarActionItem} onPress={handlePickImage}>
+              <View style={[styles.avatarActionIcon, { backgroundColor: '#e0e7ff' }]}>
+                <MaterialIcons name="photo-library" size={22} color="#004ac6" />
+              </View>
+              <View style={styles.avatarActionTextWrap}>
+                <Text style={styles.avatarActionTitle}>Upload from Gallery</Text>
+                <Text style={styles.avatarActionSub}>Select a photo from device</Text>
+              </View>
+            </TouchableOpacity>
+
+            {avatarImage && (
+              <TouchableOpacity style={styles.avatarActionItem} onPress={handleRemoveImage}>
+                <View style={[styles.avatarActionIcon, { backgroundColor: '#fee2e2' }]}>
+                  <MaterialIcons name="delete-outline" size={22} color="#ba1a1a" />
+                </View>
+                <View style={styles.avatarActionTextWrap}>
+                  <Text style={[styles.avatarActionTitle, { color: '#ba1a1a' }]}>Remove Photo</Text>
+                  <Text style={styles.avatarActionSub}>Reset to default initials</Text>
+                </View>
+              </TouchableOpacity>
+            )}
+
+            <TouchableOpacity
+              style={[styles.cancelBtn, { marginTop: 12, width: '100%', alignItems: 'center' }]}
+              onPress={() => setAvatarOptionsVisible(false)}
+            >
+              <Text style={styles.cancelBtnText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       {/* 1. Edit Profile Modal */}
       <Modal visible={editProfileVisible} animationType="slide" transparent>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Edit Profile</Text>
             
+            {/* Quick Photo Upload row in Edit Form */}
+            <TouchableOpacity
+              style={styles.formAvatarRow}
+              onPress={() => {
+                setEditProfileVisible(false);
+                setTimeout(() => setAvatarOptionsVisible(true), 300);
+              }}
+            >
+              {avatarImage ? (
+                <Image style={styles.formAvatarThumb} source={avatarImage} contentFit="cover" />
+              ) : (
+                <View style={styles.formAvatarPlaceholder}>
+                  <Text style={styles.formAvatarPlaceholderText}>
+                    {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                  </Text>
+                </View>
+              )}
+              <View style={{ flex: 1 }}>
+                <Text style={styles.formAvatarLabel}>Profile Picture</Text>
+                <Text style={styles.formAvatarAction}>Tap to change or remove photo</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color="#737686" />
+            </TouchableOpacity>
+
             <Text style={styles.fieldLabel}>Shop Name</Text>
             <TextInput
               style={styles.inputField}
@@ -703,24 +850,120 @@ const styles = StyleSheet.create({
     borderColor: '#c3c6d7',
     position: 'relative',
     marginBottom: 12,
+    overflow: 'visible',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
     borderRadius: 48,
   },
+  defaultAvatarContainer: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 48,
+    backgroundColor: '#e0e7ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  defaultAvatarText: {
+    fontSize: 32,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
   editAvatarBtn: {
     position: 'absolute',
     bottom: 0,
     right: 0,
     backgroundColor: '#004ac6',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
     borderWidth: 2,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#737686',
+    textAlign: 'center',
+    marginBottom: 20,
+    marginTop: -8,
+  },
+  avatarActionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#eaedff',
+    backgroundColor: '#faf8ff',
+    marginBottom: 10,
+  },
+  avatarActionIcon: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  avatarActionTextWrap: {
+    flex: 1,
+  },
+  avatarActionTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#131b2e',
+  },
+  avatarActionSub: {
+    fontSize: 11,
+    color: '#737686',
+    marginTop: 2,
+  },
+  formAvatarRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#eaedff',
+    backgroundColor: '#faf8ff',
+    marginBottom: 16,
+  },
+  formAvatarThumb: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+  },
+  formAvatarPlaceholder: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#e0e7ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  formAvatarPlaceholderText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+  formAvatarLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#131b2e',
+  },
+  formAvatarAction: {
+    fontSize: 11,
+    color: '#004ac6',
+    marginTop: 2,
   },
   shopNameText: {
     fontSize: 20,

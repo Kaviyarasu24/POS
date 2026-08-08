@@ -29,6 +29,7 @@ class User(Base):
     password = Column(String(255), nullable=False)
     role = Column(String(50), nullable=False, default="cashier")  # owner, manager, cashier
     phone = Column(String(50), nullable=True)
+    image = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     store = relationship("Store", back_populates="users")
