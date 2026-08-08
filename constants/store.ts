@@ -38,7 +38,7 @@ export interface BillItem {
 }
 
 export interface GeneratedBill {
-  store_id: number;
+  store_id: string;
   invoice_number: string;
   shop_name: string;
   shop_address?: string;
@@ -187,7 +187,7 @@ class ProductStore {
   public scannedItems: { productId: string; quantity: number }[] = [];
   private _currentUser: UserSession | null = {
     id: '1',
-    storeId: '1',
+    storeId: 'TGM-1001',
     userName: 'Kaviyarasu P',
     role: 'owner',
     shopName: 'TGM Supermart',
@@ -218,10 +218,10 @@ class ProductStore {
       'Content-Type': 'application/json',
     };
     if (this._currentUser) {
-      headers['X-Store-ID'] = this._currentUser.storeId || '1';
+      headers['X-Store-ID'] = this._currentUser.storeId || 'TGM-1001';
       headers['X-User-ID'] = this._currentUser.id;
     } else {
-      headers['X-Store-ID'] = '1';
+      headers['X-Store-ID'] = 'TGM-1001';
     }
     return headers;
   }
@@ -237,7 +237,7 @@ class ProductStore {
       
       this.products = data.map((p: any) => ({
         id: p.id.toString(),
-        storeId: p.store_id ? p.store_id.toString() : '1',
+        storeId: p.store_id ? p.store_id.toString() : 'TGM-1001',
         name: p.name,
         price: parseFloat(p.price),
         costPrice: parseFloat(p.cost_price),
@@ -505,7 +505,7 @@ class ProductStore {
 
       const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
       return {
-        store_id: parseInt(this._currentUser?.storeId || '1', 10),
+        store_id: this._currentUser?.storeId || 'TGM-1001',
         invoice_number: invoiceNumber,
         shop_name: this._currentUser?.shopName || 'SmartPOS Store',
         shop_address: this._currentUser?.businessAddress || '124 Market Avenue, Tech Park City',

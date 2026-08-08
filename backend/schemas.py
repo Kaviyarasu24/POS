@@ -24,7 +24,7 @@ class StoreUpdate(BaseModel):
     address: Optional[str] = None
 
 class StoreResponse(StoreBase):
-    id: int
+    id: str
     created_at: Optional[datetime] = None
 
     class Config:
@@ -60,7 +60,7 @@ class UserLogin(BaseModel):
 
 class UserResponse(BaseModel):
     id: int
-    store_id: int
+    store_id: str
     name: str
     email_or_username: str
     role: str
@@ -105,7 +105,7 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: int
-    store_id: int
+    store_id: str
 
     class Config:
         from_attributes = True
@@ -136,7 +136,7 @@ class TransactionItemResponse(BaseModel):
         from_attributes = True
 
 class BillResponse(BaseModel):
-    store_id: int
+    store_id: str
     invoice_number: str
     shop_name: str
     shop_address: Optional[str] = None
@@ -156,7 +156,7 @@ class BillResponse(BaseModel):
         from_attributes = True
 
 class TransactionResponse(BaseModel):
-    store_id: int
+    store_id: str
     invoice_number: str
     payment_method: str
     subtotal: Decimal
@@ -176,7 +176,7 @@ class LowStockAlert(BaseModel):
     stock: int
 
 class RecentTransaction(BaseModel):
-    store_id: int
+    store_id: str
     invoice_number: str
     created_at: datetime
     items_count: int

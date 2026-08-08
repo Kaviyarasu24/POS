@@ -5,7 +5,7 @@ from database import Base
 class Store(Base):
     __tablename__ = "stores"
 
-    id = Column(Integer, primary_key=True, index=True)
+    id = Column(String(100), primary_key=True, index=True)  # e.g. 'TGM-1001'
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)
     phone = Column(String(50), nullable=False)
@@ -23,7 +23,7 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
-    store_id = Column(Integer, ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+    store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     email_or_username = Column(String(255), unique=True, index=True, nullable=False)
     password = Column(String(255), nullable=False)
@@ -39,7 +39,7 @@ class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
-    store_id = Column(Integer, ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+    store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
     name = Column(String(255), nullable=False)
     sku = Column(String(100), index=True, nullable=False)
     price = Column(DECIMAL(10, 2), nullable=False)
@@ -54,13 +54,13 @@ class Product(Base):
 
     __table_args__ = (UniqueConstraint('store_id', 'sku', name='unique_store_sku'),)
 
-    store = relationship("Store", back_populates="products")
+    store = relationship("Product", back_populates="products", foreign_keys=[store_id]) if False else relationship("Store", back_populates="products")
 
 
 class Transaction(Base):
     __tablename__ = "transactions"
 
-    store_id = Column(Integer, ForeignKey("stores.id", ondelete="CASCADE"), primary_key=True)
+    store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), primary_key=True)
     invoice_number = Column(String(100), primary_key=True)
     user_id = Column(Integer, ForeignKey("users.id", ondelete="SET NULL"), nullable=True)
     payment_method = Column(String(50), nullable=False, default="CASH")  # CASH, UPI, CARD
@@ -85,7 +85,7 @@ class TransactionItem(Base):
     __tablename__ = "transaction_items"
 
     id = Column(Integer, primary_key=True, index=True)
-    store_id = Column(Integer, nullable=False)
+    store_id = Column(String(100), nullable=False)
     invoice_number = Column(String(100), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     product_name = Column(String(255), nullable=False)

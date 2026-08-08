@@ -6,6 +6,8 @@ from typing import List, Optional
 from datetime import datetime, date, time
 from decimal import Decimal
 import hashlib
+import re
+import random
 
 import models
 import schemas
@@ -28,13 +30,25 @@ app.add_middleware(
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
-def get_store_id(x_store_id: Optional[int] = Header(None)) -> int:
-    if x_store_id is None:
+def generate_store_id(store_name: str, db: Session) -> str:
+    """Generate a clean alphanumeric store identifier e.g. TGM-1001"""
+    clean_prefix = re.sub(r'[^A-Za-z0-9]', '', store_name.upper())[:4]
+    if not clean_prefix or len(clean_prefix) < 2:
+        clean_prefix = "STR"
+    random_num = random.randint(1000, 9999)
+    candidate_id = f"{clean_prefix}-{random_num}"
+    while db.query(models.Store).filter(models.Store.id == candidate_id).first():
+        random_num = random.randint(1000, 9999)
+        candidate_id = f"{clean_prefix}-{random_num}"
+    return candidate_id
+
+def get_store_id(x_store_id: Optional[str] = Header(None)) -> str:
+    if not x_store_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Store ID header missing (X-Store-ID)"
         )
-    return x_store_id
+    return str(x_store_id).strip()
 
 def get_user_id(x_user_id: Optional[int] = Header(None)) -> Optional[int]:
     return x_user_id
@@ -50,8 +64,10 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or Email already registered")
 
-    # 1. Create Store
+    # 1. Generate Alphanumeric Store ID & Create Store
+    new_store_id = generate_store_id(payload.shop_name, db)
     db_store = models.Store(
+        id=new_store_id,
         name=payload.shop_name.strip(),
         category=payload.shop_category.strip(),
         phone=payload.phone.strip(),
@@ -118,9 +134,9 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
 
 @app.post("/api/stores/{store_id}/staff", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def add_staff_user(
-    store_id: int, 
+    store_id: str, 
     staff: schemas.StaffCreate, 
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     if store_id != x_store_id:
@@ -162,11 +178,41 @@ def add_staff_user(
         store_phone=db_store.phone
     )
 
+@app.get("/api/stores/{store_id}/staff", response_model=List[schemas.UserResponse])
+def get_staff_users(
+    store_id: str,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    if store_id != x_store_id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this store")
+    
+    db_store = db.query(models.Store).filter(models.Store.id == store_id).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    users = db.query(models.User).filter(models.User.store_id == store_id).all()
+    return [
+        schemas.UserResponse(
+            id=u.id,
+            store_id=u.store_id,
+            name=u.name,
+            email_or_username=u.email_or_username,
+            role=u.role,
+            phone=u.phone,
+            shop_name=db_store.name,
+            shop_category=db_store.category,
+            gst_number=db_store.gst_number,
+            business_address=db_store.address,
+            store_phone=db_store.phone
+        ) for u in users
+    ]
+
 @app.put("/api/stores/{store_id}", response_model=schemas.StoreResponse)
 def update_store(
-    store_id: int,
+    store_id: str,
     updated_fields: schemas.StoreUpdate,
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     if store_id != x_store_id:
@@ -187,7 +233,7 @@ def update_store(
 def update_user(
     user_id: int,
     updated_fields: schemas.UserUpdate,
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     db_user = db.query(models.User).filter(
@@ -234,7 +280,7 @@ def update_user(
 def read_products(
     category: Optional[str] = Query(None),
     query: Optional[str] = Query(None),
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     q = db.query(models.Product).filter(models.Product.store_id == x_store_id)
@@ -250,7 +296,7 @@ def read_products(
 @app.post("/api/products", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
     product: schemas.ProductCreate, 
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     existing = db.query(models.Product).filter(
@@ -259,11 +305,11 @@ def create_product(
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
-
+        
     db_product = models.Product(
         store_id=x_store_id,
-        name=product.name.strip(),
-        sku=product.sku.upper().strip(),
+        name=product.name,
+        sku=product.sku.upper(),
         price=product.price,
         cost_price=product.cost_price,
         stock=product.stock,
@@ -282,7 +328,7 @@ def create_product(
 def update_product(
     product_id: int, 
     updated_fields: schemas.ProductUpdate, 
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     db_product = db.query(models.Product).filter(
@@ -313,7 +359,7 @@ def update_product(
 @app.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int,
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     db_product = db.query(models.Product).filter(
@@ -330,7 +376,7 @@ def delete_product(
 def restock_product(
     product_id: int,
     qty: int = Query(..., gt=0),
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     db_product = db.query(models.Product).filter(
@@ -349,7 +395,7 @@ def restock_product(
 @app.post("/api/checkout", response_model=schemas.BillResponse, status_code=status.HTTP_201_CREATED)
 def checkout(
     order: schemas.CheckoutSchema,
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     x_user_id: Optional[int] = Depends(get_user_id),
     db: Session = Depends(get_db)
 ):
@@ -445,7 +491,7 @@ def checkout(
 @app.get("/api/bills/{invoice_number}", response_model=schemas.BillResponse)
 def get_bill(
     invoice_number: str,
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     db_transaction = db.query(models.Transaction).filter(
@@ -497,7 +543,7 @@ def get_bill(
 @app.get("/api/transactions", response_model=List[schemas.TransactionResponse])
 def get_transactions(
     limit: int = Query(20, ge=1, le=100),
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     transactions = db.query(models.Transaction).filter(
@@ -535,7 +581,7 @@ def get_transactions(
 
 @app.get("/api/dashboard", response_model=schemas.DashboardMetricsResponse)
 def get_dashboard_metrics(
-    x_store_id: int = Depends(get_store_id),
+    x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
     today = date.today()
