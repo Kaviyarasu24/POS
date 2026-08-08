@@ -233,6 +233,35 @@ def update_store(
     db.refresh(db_store)
     return db_store
 
+@app.get("/api/users/{user_id}", response_model=schemas.UserResponse)
+def get_user(
+    user_id: int,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.store_id == x_store_id
+    ).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in this store")
+
+    db_store = db.query(models.Store).filter(models.Store.id == x_store_id).first()
+    return schemas.UserResponse(
+        id=db_user.id,
+        store_id=db_user.store_id,
+        name=db_user.name,
+        email_or_username=db_user.email_or_username,
+        role=db_user.role,
+        phone=db_user.phone,
+        image=db_user.image,
+        shop_name=db_store.name if db_store else None,
+        shop_category=db_store.category if db_store else None,
+        gst_number=db_store.gst_number if db_store else None,
+        business_address=db_store.address if db_store else None,
+        store_phone=db_store.phone if db_store else None
+    )
+
 @app.put("/api/users/{user_id}", response_model=schemas.UserResponse)
 def update_user(
     user_id: int,

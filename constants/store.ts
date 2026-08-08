@@ -200,8 +200,41 @@ class ProductStore {
     storePhone: '+91 7010764469',
   };
 
+  private loadSavedSession(): UserSession | null {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        const saved = window.localStorage.getItem('smartpos_user_session');
+        if (saved) {
+          return JSON.parse(saved);
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read localStorage session:', e);
+    }
+    return null;
+  }
+
+  private persistSession(user: UserSession | null) {
+    try {
+      if (typeof window !== 'undefined' && window.localStorage) {
+        if (user) {
+          window.localStorage.setItem('smartpos_user_session', JSON.stringify(user));
+        } else {
+          window.localStorage.removeItem('smartpos_user_session');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not save localStorage session:', e);
+    }
+  }
+
   constructor() {
+    const saved = this.loadSavedSession();
+    if (saved) {
+      this._currentUser = saved;
+    }
     this.syncProducts();
+    this.syncUserProfile();
   }
 
   get currentUser(): UserSession | null {
@@ -210,8 +243,40 @@ class ProductStore {
 
   set currentUser(user: UserSession | null) {
     this._currentUser = user;
+    this.persistSession(user);
     this.isSynced = false; // reset sync state
     this.syncProducts(); // auto-sync products when user changes
+    this.notify();
+  }
+
+  async syncUserProfile() {
+    if (!this._currentUser) return;
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/users/${this._currentUser.id}`, {
+        headers: this.getHeaders(),
+      });
+      if (!response.ok) return;
+      const data = await response.json();
+      const updatedUser: UserSession = {
+        id: data.id.toString(),
+        storeId: data.store_id.toString(),
+        userName: data.name,
+        role: data.role,
+        shopName: data.shop_name || 'SmartPOS Store',
+        shopCategory: data.shop_category || 'Retail',
+        phone: data.phone || '',
+        email: data.email_or_username,
+        image: data.image || undefined,
+        gstNumber: data.gst_number || undefined,
+        businessAddress: data.business_address || undefined,
+        storePhone: data.store_phone || undefined,
+      };
+      this._currentUser = updatedUser;
+      this.persistSession(updatedUser);
+      this.notify();
+    } catch (err) {
+      console.warn('User profile sync failed:', err);
+    }
   }
 
   getHeaders(): HeadersInit {

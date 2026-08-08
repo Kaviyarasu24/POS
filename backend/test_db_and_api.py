@@ -91,7 +91,22 @@ def test_api():
     elif signup_res.status_code == 400:
         print("Store user already registered (idempotent test pass).")
 
-    print("\nAll alphanumeric VARCHAR store_id tests PASSED successfully!")
+    print("\n--- 7. Testing User Profile Image Update & Retrieval ---")
+    avatar_payload = {
+        "image": "data:image/jpeg;base64,/9j/4AAQSkZJRgABAQEASABIAAD/2wBDAP..."
+    }
+    update_res = requests.put(f"{BASE_URL}/api/users/1", json=avatar_payload, headers=headers)
+    print(f"PUT /api/users/1 status: {update_res.status_code}")
+    assert update_res.status_code == 200, "User update with image should succeed"
+    assert update_res.json()["image"] == avatar_payload["image"], "Returned user must contain updated image"
+
+    get_user_res = requests.get(f"{BASE_URL}/api/users/1", headers=headers)
+    print(f"GET /api/users/1 status: {get_user_res.status_code}")
+    assert get_user_res.status_code == 200
+    assert get_user_res.json()["image"] == avatar_payload["image"], "Persisted image must match uploaded image"
+    print("User profile image persistence verified successfully!")
+
+    print("\nAll alphanumeric VARCHAR store_id and profile image tests PASSED successfully!")
 
 if __name__ == "__main__":
     test_api()

@@ -18,6 +18,22 @@ import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { store } from '@/constants/store';
 
+// Curated preset avatars for store profiles
+const PRESET_AVATARS = [
+  { id: 'av-1', name: 'Alex (Owner)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Alex&backgroundColor=b6e3f4' },
+  { id: 'av-2', name: 'Sophia (Manager)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Sophia&backgroundColor=ffd5dc' },
+  { id: 'av-3', name: 'Oliver (Retail)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Oliver&backgroundColor=d1d4f9' },
+  { id: 'av-4', name: 'Aneka (Cashier)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Aneka&backgroundColor=c0aede' },
+  { id: 'av-5', name: 'Leo (Merchant)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Leo&backgroundColor=ffdfbf' },
+  { id: 'av-6', name: 'Emma (Lead)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Emma&backgroundColor=b6e3f4' },
+  { id: 'av-7', name: 'Felix (Tech)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Felix&backgroundColor=d1d4f9' },
+  { id: 'av-8', name: 'Zack (Hero)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Zack&backgroundColor=c0aede' },
+  { id: 'av-9', name: 'POS Bot', url: 'https://api.dicebear.com/7.x/bottts/png?seed=POSBot&backgroundColor=b6e3f4' },
+  { id: 'av-10', name: 'Happy Boss', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=HappyBoss' },
+  { id: 'av-11', name: 'Cool Merchant', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=CoolMerchant' },
+  { id: 'av-12', name: 'Super Star', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=SuperStar' },
+];
+
 export default function ProfileScreen() {
   const router = useRouter();
 
@@ -28,6 +44,7 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState(userSession?.phone || '+91 7010764469');
   const [email, setEmail] = useState(userSession?.email || 'rithes07@gmail.com');
   const [avatarImage, setAvatarImage] = useState<string | null>(userSession?.image || null);
+  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(userSession?.image || null);
 
   // Shop Info Details
   const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Retail & Grocery');
@@ -51,7 +68,7 @@ export default function ProfileScreen() {
   const [biometricLock, setBiometricLock] = useState(true);
 
   // Modal Visibility States
-  const [avatarOptionsVisible, setAvatarOptionsVisible] = useState(false);
+  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
   const [editProfileVisible, setEditProfileVisible] = useState(false);
   const [shopInfoVisible, setShopInfoVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
@@ -77,6 +94,7 @@ export default function ProfileScreen() {
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
         setAvatarImage(store.currentUser.image || null);
+        setSelectedAvatar(store.currentUser.image || null);
         setShopCategory(store.currentUser.shopCategory);
         setGstNumber(store.currentUser.gstNumber || '');
         setBusinessAddress(store.currentUser.businessAddress || '');
@@ -91,14 +109,27 @@ export default function ProfileScreen() {
     return unsubscribe;
   }, []);
 
-  // Pick / Upload Profile Image
-  const handlePickImage = async () => {
-    setAvatarOptionsVisible(false);
+  // Open Avatar Selection Modal
+  const openAvatarPicker = () => {
+    setSelectedAvatar(avatarImage);
+    setAvatarModalVisible(true);
+  };
+
+  // Save selected avatar
+  const handleSaveAvatar = async () => {
+    setAvatarImage(selectedAvatar);
+    await store.updateUserProfile({ image: selectedAvatar || '' });
+    setAvatarModalVisible(false);
+    Alert.alert('Avatar Updated', selectedAvatar ? 'Your new avatar is saved!' : 'Reset to default initials.');
+  };
+
+  // Custom photo upload from device (optional alternative)
+  const handlePickCustomImage = async () => {
     try {
       if (Platform.OS !== 'web') {
         const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== 'granted') {
-          Alert.alert('Permission Denied', 'Permission to access gallery is required to set profile picture.');
+          Alert.alert('Permission Denied', 'Permission to access gallery is required.');
           return;
         }
       }
@@ -117,13 +148,10 @@ export default function ProfileScreen() {
           ? `data:image/jpeg;base64,${asset.base64}`
           : asset.uri;
 
-        setAvatarImage(base64Data);
-        await store.updateUserProfile({ image: base64Data });
-        Alert.alert('Success', 'Profile image updated successfully!');
+        setSelectedAvatar(base64Data);
       }
     } catch (err: any) {
       console.warn('Image picker error:', err);
-      // Fallback for Web browser file picker
       if (Platform.OS === 'web' && typeof document !== 'undefined') {
         const input = document.createElement('input');
         input.type = 'file';
@@ -132,28 +160,15 @@ export default function ProfileScreen() {
           const file = e.target?.files?.[0];
           if (file) {
             const reader = new FileReader();
-            reader.onloadend = async () => {
-              const base64Data = reader.result as string;
-              setAvatarImage(base64Data);
-              await store.updateUserProfile({ image: base64Data });
-              Alert.alert('Success', 'Profile image updated successfully!');
+            reader.onloadend = () => {
+              setSelectedAvatar(reader.result as string);
             };
             reader.readAsDataURL(file);
           }
         };
         input.click();
-      } else {
-        Alert.alert('Error', 'Could not open image picker.');
       }
     }
-  };
-
-  // Remove Profile Image (Reset to Default initials)
-  const handleRemoveImage = async () => {
-    setAvatarOptionsVisible(false);
-    setAvatarImage(null);
-    await store.updateUserProfile({ image: '' });
-    Alert.alert('Photo Removed', 'Profile picture reset to default.');
   };
 
   // Open Edit Profile form
@@ -257,7 +272,7 @@ export default function ProfileScreen() {
           <View style={styles.profileHeaderCard}>
             <TouchableOpacity
               style={styles.avatarContainer}
-              onPress={() => setAvatarOptionsVisible(true)}
+              onPress={openAvatarPicker}
               activeOpacity={0.8}
             >
               {avatarImage ? (
@@ -274,7 +289,7 @@ export default function ProfileScreen() {
                 </View>
               )}
               <View style={styles.editAvatarBtn}>
-                <MaterialIcons name="camera-alt" size={14} color="#ffffff" />
+                <MaterialIcons name="palette" size={14} color="#ffffff" />
               </View>
             </TouchableOpacity>
             <Text style={styles.shopNameText}>{shopName}</Text>
@@ -478,43 +493,99 @@ export default function ProfileScreen() {
 
       {/* --- MODAL DIALOGS --- */}
 
-      {/* 0. Avatar Options Modal */}
-      <Modal visible={avatarOptionsVisible} animationType="fade" transparent onRequestClose={() => setAvatarOptionsVisible(false)}>
+      {/* 0. Avatar Selection Modal */}
+      <Modal visible={avatarModalVisible} animationType="slide" transparent onRequestClose={() => setAvatarModalVisible(false)}>
         <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { maxWidth: 360 }]}>
-            <Text style={styles.modalTitle}>Profile Photo</Text>
-            <Text style={styles.modalSubtitle}>
-              {avatarImage ? 'Update or remove your store profile picture' : 'Upload a picture for your store profile'}
-            </Text>
+          <View style={[styles.modalCard, { maxWidth: 440, maxHeight: '90%' }]}>
+            <Text style={styles.modalTitle}>Choose Profile Avatar</Text>
+            <Text style={styles.modalSubtitle}>Pick an avatar to represent your store persona</Text>
 
-            <TouchableOpacity style={styles.avatarActionItem} onPress={handlePickImage}>
-              <View style={[styles.avatarActionIcon, { backgroundColor: '#e0e7ff' }]}>
-                <MaterialIcons name="photo-library" size={22} color="#004ac6" />
+            {/* Live Preview Box */}
+            <View style={styles.avatarPreviewSection}>
+              <View style={styles.avatarPreviewCircle}>
+                {selectedAvatar ? (
+                  <Image style={styles.avatarPreviewImage} source={selectedAvatar} contentFit="cover" />
+                ) : (
+                  <View style={styles.defaultAvatarContainer}>
+                    <Text style={styles.defaultAvatarText}>
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                    </Text>
+                  </View>
+                )}
               </View>
-              <View style={styles.avatarActionTextWrap}>
-                <Text style={styles.avatarActionTitle}>Upload from Gallery</Text>
-                <Text style={styles.avatarActionSub}>Select a photo from device</Text>
-              </View>
-            </TouchableOpacity>
+              <Text style={styles.avatarPreviewLabel}>
+                {selectedAvatar ? 'Selected Avatar' : 'Default Initials'}
+              </Text>
+            </View>
 
-            {avatarImage && (
-              <TouchableOpacity style={styles.avatarActionItem} onPress={handleRemoveImage}>
-                <View style={[styles.avatarActionIcon, { backgroundColor: '#fee2e2' }]}>
-                  <MaterialIcons name="delete-outline" size={22} color="#ba1a1a" />
-                </View>
-                <View style={styles.avatarActionTextWrap}>
-                  <Text style={[styles.avatarActionTitle, { color: '#ba1a1a' }]}>Remove Photo</Text>
-                  <Text style={styles.avatarActionSub}>Reset to default initials</Text>
-                </View>
+            {/* Scrollable Grid of Avatars */}
+            <ScrollView style={{ maxHeight: 280, marginVertical: 8 }} showsVerticalScrollIndicator={false}>
+              {/* Default Badge Option */}
+              <View style={styles.avatarGrid}>
+                <TouchableOpacity
+                  style={[
+                    styles.avatarGridItem,
+                    selectedAvatar === null && styles.avatarGridItemActive,
+                  ]}
+                  onPress={() => setSelectedAvatar(null)}
+                >
+                  <View style={[styles.avatarThumbCircle, { backgroundColor: '#e0e7ff' }]}>
+                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#004ac6' }}>
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                    </Text>
+                  </View>
+                  <Text style={styles.avatarGridLabel} numberOfLines={1}>Default</Text>
+                  {selectedAvatar === null && (
+                    <View style={styles.checkBadge}>
+                      <MaterialIcons name="check" size={12} color="#ffffff" />
+                    </View>
+                  )}
+                </TouchableOpacity>
+
+                {/* Preset Avatars */}
+                {PRESET_AVATARS.map((av) => {
+                  const isSelected = selectedAvatar === av.url;
+                  return (
+                    <TouchableOpacity
+                      key={av.id}
+                      style={[
+                        styles.avatarGridItem,
+                        isSelected && styles.avatarGridItemActive,
+                      ]}
+                      onPress={() => setSelectedAvatar(av.url)}
+                    >
+                      <View style={styles.avatarThumbCircle}>
+                        <Image style={styles.avatarThumbImage} source={av.url} contentFit="cover" />
+                      </View>
+                      <Text style={styles.avatarGridLabel} numberOfLines={1}>{av.name.split(' ')[0]}</Text>
+                      {isSelected && (
+                        <View style={styles.checkBadge}>
+                          <MaterialIcons name="check" size={12} color="#ffffff" />
+                        </View>
+                      )}
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              {/* Custom Image Upload Option */}
+              <TouchableOpacity style={styles.customUploadBtn} onPress={handlePickCustomImage}>
+                <MaterialIcons name="add-photo-alternate" size={20} color="#004ac6" />
+                <Text style={styles.customUploadText}>Or Upload Custom Photo from Device</Text>
               </TouchableOpacity>
-            )}
+            </ScrollView>
 
-            <TouchableOpacity
-              style={[styles.cancelBtn, { marginTop: 12, width: '100%', alignItems: 'center' }]}
-              onPress={() => setAvatarOptionsVisible(false)}
-            >
-              <Text style={styles.cancelBtnText}>Cancel</Text>
-            </TouchableOpacity>
+            <View style={styles.modalActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setAvatarModalVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveAvatar}>
+                <Text style={styles.saveBtnText}>Save Avatar</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>
@@ -525,12 +596,12 @@ export default function ProfileScreen() {
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Edit Profile</Text>
             
-            {/* Quick Photo Upload row in Edit Form */}
+            {/* Quick Avatar selection row in Edit Form */}
             <TouchableOpacity
               style={styles.formAvatarRow}
               onPress={() => {
                 setEditProfileVisible(false);
-                setTimeout(() => setAvatarOptionsVisible(true), 300);
+                setTimeout(() => openAvatarPicker(), 300);
               }}
             >
               {avatarImage ? (
@@ -543,8 +614,8 @@ export default function ProfileScreen() {
                 </View>
               )}
               <View style={{ flex: 1 }}>
-                <Text style={styles.formAvatarLabel}>Profile Picture</Text>
-                <Text style={styles.formAvatarAction}>Tap to change or remove photo</Text>
+                <Text style={styles.formAvatarLabel}>Store Avatar</Text>
+                <Text style={styles.formAvatarAction}>Tap to choose avatar</Text>
               </View>
               <MaterialIcons name="chevron-right" size={20} color="#737686" />
             </TouchableOpacity>
@@ -892,39 +963,106 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#737686',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     marginTop: -8,
   },
-  avatarActionItem: {
-    flexDirection: 'row',
+  avatarPreviewSection: {
     alignItems: 'center',
-    gap: 14,
-    padding: 14,
+    justifyContent: 'center',
+    marginBottom: 12,
+    paddingVertical: 12,
+    backgroundColor: '#faf8ff',
     borderRadius: 12,
     borderWidth: 1,
     borderColor: '#eaedff',
-    backgroundColor: '#faf8ff',
-    marginBottom: 10,
   },
-  avatarActionIcon: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+  avatarPreviewCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 3,
+    borderColor: '#004ac6',
+    overflow: 'hidden',
+    marginBottom: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#e0e7ff',
+  },
+  avatarPreviewImage: {
+    width: '100%',
+    height: '100%',
+  },
+  avatarPreviewLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#004ac6',
+  },
+  avatarGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  avatarGridItem: {
+    width: '30%',
+    alignItems: 'center',
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#eaedff',
+    backgroundColor: '#ffffff',
+    position: 'relative',
+  },
+  avatarGridItemActive: {
+    borderColor: '#004ac6',
+    backgroundColor: '#e0e7ff',
+  },
+  avatarThumbCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  avatarActionTextWrap: {
-    flex: 1,
+  avatarThumbImage: {
+    width: '100%',
+    height: '100%',
   },
-  avatarActionTitle: {
-    fontSize: 14,
+  avatarGridLabel: {
+    fontSize: 11,
     fontWeight: '600',
     color: '#131b2e',
+    marginTop: 4,
   },
-  avatarActionSub: {
-    fontSize: 11,
-    color: '#737686',
-    marginTop: 2,
+  checkBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    backgroundColor: '#004ac6',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  customUploadBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    padding: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c3c6d7',
+    borderStyle: 'dashed',
+    marginTop: 14,
+    backgroundColor: '#ffffff',
+  },
+  customUploadText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#004ac6',
   },
   formAvatarRow: {
     flexDirection: 'row',
