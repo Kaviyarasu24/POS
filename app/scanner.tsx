@@ -9,6 +9,8 @@ import {
   Platform,
   SafeAreaView,
   Dimensions,
+  Modal,
+  TextInput,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -28,6 +30,8 @@ export default function ScannerScreen() {
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedItemState[]>([]);
+  const [manualInputVisible, setManualInputVisible] = useState(false);
+  const [manualBarcode, setManualBarcode] = useState('');
 
   // Animation for the scanning laser line
   const scanLineAnim = useRef(new Animated.Value(0)).current;
@@ -234,7 +238,10 @@ export default function ScannerScreen() {
           <View style={styles.actionRow}>
             <TouchableOpacity
               style={styles.secondaryBtn}
-              onPress={() => alert('Manual barcode input dialog is under development.')}
+              onPress={() => {
+                setManualBarcode('');
+                setManualInputVisible(true);
+              }}
             >
               <MaterialIcons name="keyboard" size={20} color="#131b2e" />
               <Text style={styles.secondaryBtnText}>Manual Entry</Text>
@@ -256,6 +263,60 @@ export default function ScannerScreen() {
           </View>
         </View>
       </View>
+
+      {/* Manual Entry Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={manualInputVisible}
+        onRequestClose={() => setManualInputVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="keyboard" size={24} color="#004ac6" />
+              <Text style={styles.modalTitle}>Manual Entry</Text>
+            </View>
+            <Text style={styles.modalDescription}>
+              Enter the product barcode or SKU code below to add it.
+            </Text>
+            
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. APP-1001"
+              placeholderTextColor="#9ca3af"
+              value={manualBarcode}
+              onChangeText={setManualBarcode}
+              autoCapitalize="characters"
+              autoCorrect={false}
+              autoFocus={true}
+            />
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setManualInputVisible(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.modalSubmitBtn}
+                onPress={() => {
+                  const barcode = manualBarcode.trim();
+                  if (barcode) {
+                    handleBarcodeScanned({ data: barcode });
+                    setManualInputVisible(false);
+                  } else {
+                    alert('Please enter a valid barcode or SKU.');
+                  }
+                }}
+              >
+                <Text style={styles.modalSubmitText}>Add Item</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -530,6 +591,90 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   primaryBtnText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#ffffff',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  modalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 24,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '600',
+    color: '#131b2e',
+  },
+  modalDescription: {
+    fontSize: 14,
+    color: '#434655',
+    marginBottom: 16,
+    lineHeight: 20,
+  },
+  modalInput: {
+    width: '100%',
+    height: 48,
+    borderWidth: 1,
+    borderColor: '#c3c6d7',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    color: '#131b2e',
+    backgroundColor: '#faf8ff',
+    marginBottom: 20,
+  },
+  modalActionRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#737686',
+  },
+  modalCancelText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#131b2e',
+  },
+  modalSubmitBtn: {
+    flex: 1,
+    height: 48,
+    backgroundColor: '#004ac6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 8,
+    shadowColor: 'rgba(37,99,235,0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+  },
+  modalSubmitText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',

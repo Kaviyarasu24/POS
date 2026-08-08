@@ -13,7 +13,6 @@ db_password = os.getenv("DB_PASSWORD", "root")
 
 print("Connecting to MySQL server...")
 try:
-    # Connect without specifying database
     connection = pymysql.connect(
         host=db_host,
         user=db_user,
@@ -35,7 +34,6 @@ try:
         with open(schema_path, "r", encoding="utf-8") as f:
             sql_file = f.read()
 
-        # Split SQL file into commands (ignoring USE smartpossystem since we did it)
         commands = sql_file.split(";")
         for idx, command in enumerate(commands):
             cmd_stripped = command.strip()
@@ -47,8 +45,8 @@ try:
             try:
                 cursor.execute(cmd_stripped)
             except Exception as cmd_err:
-                print(f"Warning in statement {idx + 1}: {cmd_err}")
+                print(f"Statement {idx + 1} note: {cmd_err}")
 
-        print("Database schema and products successfully reinitialized!")
+        print("Database schema and seed data successfully initialized!")
 finally:
     connection.close()

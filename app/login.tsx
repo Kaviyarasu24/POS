@@ -65,13 +65,16 @@ export default function LoginScreen() {
       const data = await response.json();
       store.currentUser = {
         id: data.id.toString(),
-        shopName: data.shop_name,
-        ownerName: data.owner_name,
-        shopCategory: data.shop_category,
-        phone: data.phone,
+        storeId: data.store_id ? data.store_id.toString() : '1',
+        userName: data.name,
+        role: data.role || 'owner',
+        shopName: data.shop_name || 'SmartPOS Store',
+        shopCategory: data.shop_category || 'Retail',
+        phone: data.phone || '',
         email: data.email_or_username,
         gstNumber: data.gst_number || undefined,
         businessAddress: data.business_address || undefined,
+        storePhone: data.store_phone || data.phone || undefined,
       };
 
       // Successfully authenticated!

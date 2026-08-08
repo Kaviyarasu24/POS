@@ -9,6 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   SafeAreaView,
+  Alert,
 } from 'react-native';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -205,6 +206,35 @@ export default function AddProductScreen() {
     router.back();
   };
 
+  const handleDeleteProduct = () => {
+    if (!id) return;
+
+    const performDelete = async () => {
+      try {
+        await store.deleteProduct(id);
+        alert('Product deleted successfully.');
+        router.back();
+      } catch (err) {
+        alert('Failed to delete product.');
+      }
+    };
+
+    if (Platform.OS === 'web') {
+      if (window.confirm(`Are you sure you want to delete "${name}"?`)) {
+        performDelete();
+      }
+    } else {
+      Alert.alert(
+        'Delete Product',
+        `Are you sure you want to delete "${name}"? This action cannot be undone.`,
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Delete', style: 'destructive', onPress: performDelete },
+        ]
+      );
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeContainer}>
       {/* Top Header App Bar */}
@@ -215,9 +245,13 @@ export default function AddProductScreen() {
         <Text style={styles.headerTitle}>
           {isEdit ? 'Edit Product' : 'Add Product'}
         </Text>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="more-vert" size={24} color="#434655" />
-        </TouchableOpacity>
+        {isEdit ? (
+          <TouchableOpacity style={styles.headerIconButton} onPress={handleDeleteProduct}>
+            <MaterialIcons name="delete" size={24} color="#ba1a1a" />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 40 }} />
+        )}
       </View>
 
       <KeyboardAvoidingView
@@ -364,10 +398,26 @@ export default function AddProductScreen() {
 
       {/* Save Button Fixed Bottom Bar */}
       <View style={styles.bottomBar}>
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveProduct}>
-          <MaterialIcons name="save" size={20} color="#ffffff" />
-          <Text style={styles.saveButtonText}>Save Product</Text>
-        </TouchableOpacity>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          {isEdit && (
+            <TouchableOpacity
+              style={[styles.saveButton, { backgroundColor: '#ba1a1a', flex: 1 }]}
+              onPress={handleDeleteProduct}
+            >
+              <MaterialIcons name="delete" size={20} color="#ffffff" />
+              <Text style={styles.saveButtonText}>Delete</Text>
+            </TouchableOpacity>
+          )}
+          <TouchableOpacity
+            style={[styles.saveButton, { flex: isEdit ? 2 : 1 }]}
+            onPress={handleSaveProduct}
+          >
+            <MaterialIcons name="save" size={20} color="#ffffff" />
+            <Text style={styles.saveButtonText}>
+              {isEdit ? 'Save Changes' : 'Save Product'}
+            </Text>
+          </TouchableOpacity>
+        </View>
       </View>
     </SafeAreaView>
   );

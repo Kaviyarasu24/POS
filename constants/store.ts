@@ -2,6 +2,7 @@ import { API_BASE_URL } from './config';
 
 export interface Product {
   id: string;
+  storeId?: string;
   name: string;
   price: number;
   costPrice: number;
@@ -15,14 +16,43 @@ export interface Product {
 }
 
 export interface UserSession {
-  id: string;
+  id: string; // user_id
+  storeId: string; // store_id
+  userName: string;
+  role: string; // 'owner' | 'manager' | 'cashier'
   shopName: string;
-  ownerName: string;
   shopCategory: string;
   phone: string;
   email: string;
   gstNumber?: string;
   businessAddress?: string;
+  storePhone?: string;
+}
+
+export interface BillItem {
+  id?: number;
+  product_id: number;
+  product_name: string;
+  quantity: number;
+  price: number;
+}
+
+export interface GeneratedBill {
+  store_id: number;
+  invoice_number: string;
+  shop_name: string;
+  shop_address?: string;
+  shop_phone?: string;
+  gst_number?: string;
+  cashier_name?: string;
+  payment_method: string;
+  payment_status: string;
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  created_at: string;
+  items: BillItem[];
 }
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -155,21 +185,59 @@ class ProductStore {
   private listeners: (() => void)[] = [];
   private isSynced = false;
   public scannedItems: { productId: string; quantity: number }[] = [];
-  public currentUser: UserSession | null = null;
+  private _currentUser: UserSession | null = {
+    id: '1',
+    storeId: '1',
+    userName: 'Kaviyarasu P',
+    role: 'owner',
+    shopName: 'TGM Supermart',
+    shopCategory: 'Retail & Grocery',
+    phone: '+91 7010764469',
+    email: 'rithes07@gmail.com',
+    gstNumber: '33AAACT1024K1Z0',
+    businessAddress: '124 Market Avenue, Tech Park City, TN 600001',
+    storePhone: '+91 7010764469',
+  };
 
   constructor() {
     this.syncProducts();
   }
 
+  get currentUser(): UserSession | null {
+    return this._currentUser;
+  }
+
+  set currentUser(user: UserSession | null) {
+    this._currentUser = user;
+    this.isSynced = false; // reset sync state
+    this.syncProducts(); // auto-sync products when user changes
+  }
+
+  getHeaders(): HeadersInit {
+    const headers: HeadersInit = {
+      'Content-Type': 'application/json',
+    };
+    if (this._currentUser) {
+      headers['X-Store-ID'] = this._currentUser.storeId || '1';
+      headers['X-User-ID'] = this._currentUser.id;
+    } else {
+      headers['X-Store-ID'] = '1';
+    }
+    return headers;
+  }
+
   // Trigger API Sync
   async syncProducts() {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/products`);
+      const response = await fetch(`${API_BASE_URL}/api/products`, {
+        headers: this.getHeaders(),
+      });
       if (!response.ok) throw new Error('API fetch error');
       const data = await response.json();
       
       this.products = data.map((p: any) => ({
         id: p.id.toString(),
+        storeId: p.store_id ? p.store_id.toString() : '1',
         name: p.name,
         price: parseFloat(p.price),
         costPrice: parseFloat(p.cost_price),
@@ -190,7 +258,6 @@ class ProductStore {
   }
 
   getProducts() {
-    // If not synced yet, request in background
     if (!this.isSynced) {
       this.syncProducts();
     }
@@ -205,7 +272,7 @@ class ProductStore {
     try {
       const response = await fetch(`${API_BASE_URL}/api/products`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({
           name: product.name,
           sku: product.sku.toUpperCase(),
@@ -239,7 +306,6 @@ class ProductStore {
 
   async updateProduct(id: string, updatedFields: Partial<Product>) {
     try {
-      // Map properties to backend naming
       const bodyPayload: any = {};
       if (updatedFields.name !== undefined) bodyPayload.name = updatedFields.name;
       if (updatedFields.sku !== undefined) bodyPayload.sku = updatedFields.sku;
@@ -254,7 +320,7 @@ class ProductStore {
 
       const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify(bodyPayload),
       });
 
@@ -273,53 +339,80 @@ class ProductStore {
     }
   }
 
-  async updateUserProfile(updatedFields: Partial<UserSession>) {
-    if (!this.currentUser) {
-      console.warn('Cannot update user: No active session');
-      return;
-    }
-
+  async deleteProduct(id: string) {
     try {
-      const bodyPayload: any = {};
-      if (updatedFields.shopName !== undefined) bodyPayload.shop_name = updatedFields.shopName;
-      if (updatedFields.ownerName !== undefined) bodyPayload.owner_name = updatedFields.ownerName;
-      if (updatedFields.shopCategory !== undefined) bodyPayload.shop_category = updatedFields.shopCategory;
-      if (updatedFields.phone !== undefined) bodyPayload.phone = updatedFields.phone;
-      if (updatedFields.email !== undefined) bodyPayload.email_or_username = updatedFields.email;
-      if (updatedFields.gstNumber !== undefined) bodyPayload.gst_number = updatedFields.gstNumber;
-      if (updatedFields.businessAddress !== undefined) bodyPayload.business_address = updatedFields.businessAddress;
-
-      const response = await fetch(`${API_BASE_URL}/api/users/${this.currentUser.id}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(bodyPayload),
+      const response = await fetch(`${API_BASE_URL}/api/products/${id}`, {
+        method: 'DELETE',
+        headers: this.getHeaders(),
       });
 
       if (!response.ok) {
         const errorDetail = await response.json();
-        throw new Error(errorDetail.detail || 'API user update error');
+        throw new Error(errorDetail.detail || 'API deletion error');
       }
 
-      const data = await response.json();
-      this.currentUser = {
-        id: data.id.toString(),
-        shopName: data.shop_name,
-        ownerName: data.owner_name,
-        shopCategory: data.shop_category,
-        phone: data.phone,
-        email: data.email_or_username,
-        gstNumber: data.gst_number || undefined,
-        businessAddress: data.business_address || undefined,
-      };
-      
+      await this.syncProducts();
+    } catch (err) {
+      console.warn('API delete failed, falling back to local simulation:', err);
+      this.products = this.products.filter((p) => p.id !== id);
       this.notify();
+    }
+  }
+
+  async updateUserProfile(updatedFields: Partial<UserSession>) {
+    if (!this._currentUser) return;
+
+    try {
+      // 1. Update Store Details
+      const storePayload: any = {};
+      if (updatedFields.shopName !== undefined) storePayload.name = updatedFields.shopName;
+      if (updatedFields.shopCategory !== undefined) storePayload.category = updatedFields.shopCategory;
+      if (updatedFields.storePhone !== undefined || updatedFields.phone !== undefined) {
+        storePayload.phone = updatedFields.storePhone || updatedFields.phone;
+      }
+      if (updatedFields.gstNumber !== undefined) storePayload.gst_number = updatedFields.gstNumber;
+      if (updatedFields.businessAddress !== undefined) storePayload.address = updatedFields.businessAddress;
+
+      await fetch(`${API_BASE_URL}/api/stores/${this._currentUser.storeId}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(storePayload),
+      });
+
+      // 2. Update User Details
+      const userPayload: any = {};
+      if (updatedFields.userName !== undefined) userPayload.name = updatedFields.userName;
+      if (updatedFields.phone !== undefined) userPayload.phone = updatedFields.phone;
+      if (updatedFields.email !== undefined) userPayload.email_or_username = updatedFields.email;
+
+      const userRes = await fetch(`${API_BASE_URL}/api/users/${this._currentUser.id}`, {
+        method: 'PUT',
+        headers: this.getHeaders(),
+        body: JSON.stringify(userPayload),
+      });
+
+      if (userRes.ok) {
+        const data = await userRes.json();
+        this.currentUser = {
+          id: data.id.toString(),
+          storeId: data.store_id.toString(),
+          userName: data.name,
+          role: data.role,
+          shopName: data.shop_name || 'SmartPOS Store',
+          shopCategory: data.shop_category || 'Retail',
+          phone: data.phone || '',
+          email: data.email_or_username,
+          gstNumber: data.gst_number || undefined,
+          businessAddress: data.business_address || undefined,
+          storePhone: data.store_phone || undefined,
+        };
+      }
     } catch (err) {
       console.warn('API user update failed, falling back to local simulation:', err);
       this.currentUser = {
-        ...this.currentUser,
+        ...this._currentUser,
         ...updatedFields,
       };
-      this.notify();
     }
   }
 
@@ -327,6 +420,7 @@ class ProductStore {
     try {
       const response = await fetch(`${API_BASE_URL}/api/products/${id}/restock?qty=${qtyToAdd}`, {
         method: 'POST',
+        headers: this.getHeaders(),
       });
       if (!response.ok) throw new Error('API restock error');
       await this.syncProducts();
@@ -339,17 +433,26 @@ class ProductStore {
     }
   }
 
-  // Unified Atomic checkout for billing screen
-  async checkoutOrder(subtotal: number, discount: number, tax: number, total: number, items: { product_id: string; quantity: number; price: number }[]) {
+  // Unified Checkout & Bill Generator API call
+  async checkoutOrder(
+    subtotal: number,
+    discount: number,
+    tax: number,
+    total: number,
+    items: { product_id: string; product_name?: string; quantity: number; price: number }[],
+    paymentMethod: string = 'CASH'
+  ): Promise<GeneratedBill> {
     try {
       const response = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: this.getHeaders(),
         body: JSON.stringify({
           subtotal,
           discount,
           tax,
           total,
+          payment_method: paymentMethod,
+          payment_status: 'PAID',
           items: items.map(item => ({
             product_id: parseInt(item.product_id, 10),
             quantity: item.quantity,
@@ -357,13 +460,41 @@ class ProductStore {
           }))
         })
       });
+
       if (!response.ok) {
         const errorDetail = await response.json();
         throw new Error(errorDetail.detail || 'API checkout error');
       }
+
+      const billDataRaw = await response.json();
+      const billData: GeneratedBill = {
+        store_id: billDataRaw.store_id,
+        invoice_number: billDataRaw.invoice_number,
+        shop_name: billDataRaw.shop_name,
+        shop_address: billDataRaw.shop_address,
+        shop_phone: billDataRaw.shop_phone,
+        gst_number: billDataRaw.gst_number,
+        cashier_name: billDataRaw.cashier_name,
+        payment_method: billDataRaw.payment_method,
+        payment_status: billDataRaw.payment_status,
+        subtotal: parseFloat(billDataRaw.subtotal) || 0,
+        discount: parseFloat(billDataRaw.discount) || 0,
+        tax: parseFloat(billDataRaw.tax) || 0,
+        total: parseFloat(billDataRaw.total) || 0,
+        created_at: billDataRaw.created_at,
+        items: (billDataRaw.items || []).map((i: any) => ({
+          id: i.id,
+          product_id: i.product_id,
+          product_name: i.product_name,
+          quantity: i.quantity,
+          price: parseFloat(i.price) || 0,
+        })),
+      };
       await this.syncProducts();
+      return billData;
     } catch (err) {
-      console.warn('API checkout failed, falling back to local simulation:', err);
+      console.warn('API checkout failed, falling back to local bill generation:', err);
+      
       // Fallback: local in-memory decrement
       items.forEach(item => {
         this.products = this.products.map(p =>
@@ -371,15 +502,31 @@ class ProductStore {
         );
       });
       this.notify();
-    }
-  }
 
-  checkoutProduct(id: string, qtyToSubtract: number) {
-    // Retained for backwards compatibility if needed directly
-    this.products = this.products.map((p) =>
-      p.id === id ? { ...p, stock: Math.max(0, p.stock - qtyToSubtract) } : p
-    );
-    this.notify();
+      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      return {
+        store_id: parseInt(this._currentUser?.storeId || '1', 10),
+        invoice_number: invoiceNumber,
+        shop_name: this._currentUser?.shopName || 'SmartPOS Store',
+        shop_address: this._currentUser?.businessAddress || '124 Market Avenue, Tech Park City',
+        shop_phone: this._currentUser?.phone || '+91 7010764469',
+        gst_number: this._currentUser?.gstNumber || '33AAACT1024K1Z0',
+        cashier_name: this._currentUser?.userName || 'Store Cashier',
+        payment_method: paymentMethod,
+        payment_status: 'PAID',
+        subtotal,
+        discount,
+        tax,
+        total,
+        created_at: new Date().toISOString(),
+        items: items.map(i => ({
+          product_id: parseInt(i.product_id, 10),
+          product_name: i.product_name || `Product #${i.product_id}`,
+          quantity: i.quantity,
+          price: i.price
+        }))
+      };
+    }
   }
 
   addScannedItem(productId: string, quantity: number = 1) {

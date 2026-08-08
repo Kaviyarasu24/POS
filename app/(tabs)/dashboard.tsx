@@ -36,7 +36,9 @@ export default function DashboardScreen() {
 
   const fetchDashboardMetrics = async () => {
     try {
-      const response = await fetch(`${API_BASE_URL}/api/dashboard`);
+      const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
+        headers: store.getHeaders(),
+      });
       if (!response.ok) throw new Error('Failed to fetch dashboard metrics');
       const data = await response.json();
       setMetrics({
@@ -239,9 +241,11 @@ export default function DashboardScreen() {
                       <MaterialIcons name="receipt-long" size={20} color="#434655" />
                     </View>
                     <View style={styles.transactionDetails}>
-                      <Text style={styles.transactionOrder}>Order #{tx.id}</Text>
+                      <Text style={styles.transactionOrder}>
+                        {tx.invoice_number || `Order #${tx.id}`}
+                      </Text>
                       <Text style={styles.transactionTime}>
-                        {timeString} • {tx.items_count} items
+                        {timeString} • {tx.items_count} items {tx.payment_method ? `• ${tx.payment_method}` : ''}
                       </Text>
                     </View>
                     <Text style={styles.transactionAmount}>

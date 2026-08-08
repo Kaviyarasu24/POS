@@ -22,9 +22,9 @@ export default function ProfileScreen() {
   // Load session or defaults
   const userSession = store.currentUser;
   const [shopName, setShopName] = useState(userSession?.shopName || 'Acme Retail');
-  const [ownerName, setOwnerName] = useState(userSession?.ownerName || 'John Doe');
+  const [ownerName, setOwnerName] = useState(userSession?.userName || 'Store User');
   const [phone, setPhone] = useState(userSession?.phone || '+91 98765 43210');
-  const [email, setEmail] = useState(userSession?.email || 'john.doe@example.com');
+  const [email, setEmail] = useState(userSession?.email || 'user@example.com');
 
   // Shop Info Details
   const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Electronics & Gadgets');
@@ -69,7 +69,7 @@ export default function ProfileScreen() {
     const updateFromStore = () => {
       if (store.currentUser) {
         setShopName(store.currentUser.shopName);
-        setOwnerName(store.currentUser.ownerName);
+        setOwnerName(store.currentUser.userName);
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
         setShopCategory(store.currentUser.shopCategory);
@@ -103,7 +103,7 @@ export default function ProfileScreen() {
 
     await store.updateUserProfile({
       shopName: tempShopName.trim(),
-      ownerName: tempOwnerName.trim(),
+      userName: tempOwnerName.trim(),
       phone: tempPhone.trim(),
       email: tempEmail.trim().toLowerCase(),
     });

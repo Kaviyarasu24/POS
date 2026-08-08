@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, Query, status
+from fastapi import FastAPI, Depends, HTTPException, Query, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
@@ -14,9 +14,9 @@ from database import get_db, engine
 # Create DB Tables if they don't exist yet (SQLAlchemy fallback)
 models.Base.metadata.create_all(bind=engine)
 
-app = FastAPI(title="SmartPOS API Backend", version="1.0.0")
+app = FastAPI(title="SmartPOS API Backend", version="2.0.0")
 
-# Enable CORS for all local environments
+# Enable CORS for all environments
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -28,52 +28,67 @@ app.add_middleware(
 def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
+def get_store_id(x_store_id: Optional[int] = Header(None)) -> int:
+    if x_store_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Store ID header missing (X-Store-ID)"
+        )
+    return x_store_id
+
+def get_user_id(x_user_id: Optional[int] = Header(None)) -> Optional[int]:
+    return x_user_id
+
+# --- Auth & Store Management Endpoints ---
+
 @app.post("/api/signup", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
-def signup(user: schemas.UserCreate, db: Session = Depends(get_db)):
-    # Check if user already exists
-    existing = db.query(models.User).filter(
-        models.User.email_or_username == user.email_or_username.lower().strip()
+def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
+    # Check if username or email already exists across users
+    existing_user = db.query(models.User).filter(
+        models.User.email_or_username == payload.email_or_username.lower().strip()
     ).first()
-    if existing:
+    if existing_user:
         raise HTTPException(status_code=400, detail="Username or Email already registered")
-        
+
+    # 1. Create Store
+    db_store = models.Store(
+        name=payload.shop_name.strip(),
+        category=payload.shop_category.strip(),
+        phone=payload.phone.strip(),
+        email=payload.email_or_username.lower().strip(),
+        gst_number=payload.gst_number.strip() if payload.gst_number else None,
+        address=payload.business_address.strip() if payload.business_address else None
+    )
+    db.add(db_store)
+    db.commit()
+    db.refresh(db_store)
+
+    # 2. Create Owner User linked to this Store
     db_user = models.User(
-        shop_name=user.shop_name.strip(),
-        owner_name=user.owner_name.strip(),
-        shop_category=user.shop_category.strip(),
-        phone=user.phone.strip(),
-        email_or_username=user.email_or_username.lower().strip(),
-        password=hash_password(user.password),
-        gst_number=user.gst_number,
-        business_address=user.business_address
+        store_id=db_store.id,
+        name=payload.owner_name.strip(),
+        email_or_username=payload.email_or_username.lower().strip(),
+        password=hash_password(payload.password),
+        role="owner",
+        phone=payload.phone.strip()
     )
     db.add(db_user)
     db.commit()
     db.refresh(db_user)
-    return db_user
 
-@app.put("/api/users/{user_id}", response_model=schemas.UserResponse)
-def update_user(user_id: int, updated_fields: schemas.UserUpdate, db: Session = Depends(get_db)):
-    db_user = db.query(models.User).filter(models.User.id == user_id).first()
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-        
-    if updated_fields.email_or_username:
-        new_email = updated_fields.email_or_username.lower().strip()
-        if new_email != db_user.email_or_username:
-            existing = db.query(models.User).filter(models.User.email_or_username == new_email).first()
-            if existing:
-                raise HTTPException(status_code=400, detail="Username or Email already registered")
-            db_user.email_or_username = new_email
-            
-    for key, value in updated_fields.model_dump(exclude_unset=True).items():
-        if key == "email_or_username":
-            continue
-        setattr(db_user, key, value)
-        
-    db.commit()
-    db.refresh(db_user)
-    return db_user
+    return schemas.UserResponse(
+        id=db_user.id,
+        store_id=db_store.id,
+        name=db_user.name,
+        email_or_username=db_user.email_or_username,
+        role=db_user.role,
+        phone=db_user.phone,
+        shop_name=db_store.name,
+        shop_category=db_store.category,
+        gst_number=db_store.gst_number,
+        business_address=db_store.address,
+        store_phone=db_store.phone
+    )
 
 @app.post("/api/login", response_model=schemas.UserResponse)
 def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
@@ -82,47 +97,173 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     ).first()
     if not db_user or db_user.password != hash_password(credentials.password):
         raise HTTPException(status_code=401, detail="Invalid username/email or password")
-    return db_user
+    
+    db_store = db.query(models.Store).filter(models.Store.id == db_user.store_id).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="Store associated with this account not found")
 
-# --- 1. Product Endpoints ---
+    return schemas.UserResponse(
+        id=db_user.id,
+        store_id=db_store.id,
+        name=db_user.name,
+        email_or_username=db_user.email_or_username,
+        role=db_user.role,
+        phone=db_user.phone,
+        shop_name=db_store.name,
+        shop_category=db_store.category,
+        gst_number=db_store.gst_number,
+        business_address=db_store.address,
+        store_phone=db_store.phone
+    )
+
+@app.post("/api/stores/{store_id}/staff", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
+def add_staff_user(
+    store_id: int, 
+    staff: schemas.StaffCreate, 
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    if store_id != x_store_id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this store")
+        
+    existing_user = db.query(models.User).filter(
+        models.User.email_or_username == staff.email_or_username.lower().strip()
+    ).first()
+    if existing_user:
+        raise HTTPException(status_code=400, detail="Username or email is already in use")
+
+    db_store = db.query(models.Store).filter(models.Store.id == store_id).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    db_user = models.User(
+        store_id=store_id,
+        name=staff.name.strip(),
+        email_or_username=staff.email_or_username.lower().strip(),
+        password=hash_password(staff.password),
+        role=staff.role.lower().strip(),
+        phone=staff.phone.strip() if staff.phone else None
+    )
+    db.add(db_user)
+    db.commit()
+    db.refresh(db_user)
+
+    return schemas.UserResponse(
+        id=db_user.id,
+        store_id=store_id,
+        name=db_user.name,
+        email_or_username=db_user.email_or_username,
+        role=db_user.role,
+        phone=db_user.phone,
+        shop_name=db_store.name,
+        shop_category=db_store.category,
+        gst_number=db_store.gst_number,
+        business_address=db_store.address,
+        store_phone=db_store.phone
+    )
+
+@app.put("/api/stores/{store_id}", response_model=schemas.StoreResponse)
+def update_store(
+    store_id: int,
+    updated_fields: schemas.StoreUpdate,
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    if store_id != x_store_id:
+        raise HTTPException(status_code=403, detail="Unauthorized access to this store")
+
+    db_store = db.query(models.Store).filter(models.Store.id == store_id).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="Store not found")
+
+    for key, value in updated_fields.model_dump(exclude_unset=True).items():
+        setattr(db_store, key, value)
+
+    db.commit()
+    db.refresh(db_store)
+    return db_store
+
+@app.put("/api/users/{user_id}", response_model=schemas.UserResponse)
+def update_user(
+    user_id: int,
+    updated_fields: schemas.UserUpdate,
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_user = db.query(models.User).filter(
+        models.User.id == user_id,
+        models.User.store_id == x_store_id
+    ).first()
+    if not db_user:
+        raise HTTPException(status_code=404, detail="User not found in this store")
+
+    if updated_fields.email_or_username:
+        new_email = updated_fields.email_or_username.lower().strip()
+        if new_email != db_user.email_or_username:
+            existing = db.query(models.User).filter(models.User.email_or_username == new_email).first()
+            if existing:
+                raise HTTPException(status_code=400, detail="Username or Email already registered")
+            db_user.email_or_username = new_email
+
+    for key, value in updated_fields.model_dump(exclude_unset=True).items():
+        if key == "email_or_username":
+            continue
+        setattr(db_user, key, value)
+
+    db.commit()
+    db.refresh(db_user)
+
+    db_store = db.query(models.Store).filter(models.Store.id == x_store_id).first()
+    return schemas.UserResponse(
+        id=db_user.id,
+        store_id=db_user.store_id,
+        name=db_user.name,
+        email_or_username=db_user.email_or_username,
+        role=db_user.role,
+        phone=db_user.phone,
+        shop_name=db_store.name if db_store else None,
+        shop_category=db_store.category if db_store else None,
+        gst_number=db_store.gst_number if db_store else None,
+        business_address=db_store.address if db_store else None,
+        store_phone=db_store.phone if db_store else None
+    )
+
+# --- Product Endpoints (Multi-tenant scoped by x_store_id) ---
 
 @app.get("/api/products", response_model=List[schemas.ProductResponse])
 def read_products(
     category: Optional[str] = Query(None),
     query: Optional[str] = Query(None),
+    x_store_id: int = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    q = db.query(models.Product)
-    
-    if category and category != "All" and category != "All Items":
+    q = db.query(models.Product).filter(models.Product.store_id == x_store_id)
+    if category and category != "All Items":
         q = q.filter(models.Product.category == category)
-        
     if query:
         search = f"%{query}%"
         q = q.filter(
-            (models.Product.name.like(search)) | 
-            (models.Product.sku.like(search))
+            (models.Product.name.ilike(search)) | (models.Product.sku.ilike(search))
         )
-        
-    return q.order_by(models.Product.id.desc()).all()
-
-@app.get("/api/products/{product_id}", response_model=schemas.ProductResponse)
-def read_product(product_id: int, db: Session = Depends(get_db)):
-    product = db.query(models.Product).filter(models.Product.id == product_id).first()
-    if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
-    return product
+    return q.order_by(models.Product.id.asc()).all()
 
 @app.post("/api/products", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
-def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)):
-    # Check uniqueness of SKU
-    existing = db.query(models.Product).filter(models.Product.sku == product.sku.upper()).first()
+def create_product(
+    product: schemas.ProductCreate, 
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    existing = db.query(models.Product).filter(
+        models.Product.sku == product.sku.upper(),
+        models.Product.store_id == x_store_id
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Product SKU already exists")
-        
+        raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
+
     db_product = models.Product(
-        name=product.name,
-        sku=product.sku.upper(),
+        store_id=x_store_id,
+        name=product.name.strip(),
+        sku=product.sku.upper().strip(),
         price=product.price,
         cost_price=product.cost_price,
         stock=product.stock,
@@ -141,17 +282,23 @@ def create_product(product: schemas.ProductCreate, db: Session = Depends(get_db)
 def update_product(
     product_id: int, 
     updated_fields: schemas.ProductUpdate, 
+    x_store_id: int = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+    db_product = db.query(models.Product).filter(
+        models.Product.id == product_id,
+        models.Product.store_id == x_store_id
+    ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
         
-    # Check unique SKU if changing
     if updated_fields.sku and updated_fields.sku.upper() != db_product.sku:
-        existing = db.query(models.Product).filter(models.Product.sku == updated_fields.sku.upper()).first()
+        existing = db.query(models.Product).filter(
+            models.Product.sku == updated_fields.sku.upper(),
+            models.Product.store_id == x_store_id
+        ).first()
         if existing:
-            raise HTTPException(status_code=400, detail="SKU code already exists")
+            raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
             
     for key, value in updated_fields.model_dump(exclude_unset=True).items():
         if key == "sku" and value:
@@ -164,8 +311,15 @@ def update_product(
     return db_product
 
 @app.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_product(product_id: int, db: Session = Depends(get_db)):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+def delete_product(
+    product_id: int,
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_product = db.query(models.Product).filter(
+        models.Product.id == product_id,
+        models.Product.store_id == x_store_id
+    ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     db.delete(db_product)
@@ -173,8 +327,16 @@ def delete_product(product_id: int, db: Session = Depends(get_db)):
     return None
 
 @app.post("/api/products/{product_id}/restock", response_model=schemas.ProductResponse)
-def restock_product(product_id: int, qty: int = Query(..., gt=0), db: Session = Depends(get_db)):
-    db_product = db.query(models.Product).filter(models.Product.id == product_id).first()
+def restock_product(
+    product_id: int,
+    qty: int = Query(..., gt=0),
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_product = db.query(models.Product).filter(
+        models.Product.id == product_id,
+        models.Product.store_id == x_store_id
+    ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     db_product.stock += qty
@@ -182,28 +344,58 @@ def restock_product(product_id: int, qty: int = Query(..., gt=0), db: Session = 
     db.refresh(db_product)
     return db_product
 
+# --- Checkout & Bill Generator Endpoints (Composite Primary Key: store_id, invoice_number) ---
 
-# --- 2. Checkout Endpoints ---
+@app.post("/api/checkout", response_model=schemas.BillResponse, status_code=status.HTTP_201_CREATED)
+def checkout(
+    order: schemas.CheckoutSchema,
+    x_store_id: int = Depends(get_store_id),
+    x_user_id: Optional[int] = Depends(get_user_id),
+    db: Session = Depends(get_db)
+):
+    db_store = db.query(models.Store).filter(models.Store.id == x_store_id).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="Store not found")
 
-@app.post("/api/checkout", status_code=status.HTTP_201_CREATED)
-def checkout(order: schemas.CheckoutSchema, db: Session = Depends(get_db)):
-    # 1. Create Transaction
+    cashier_name = None
+    if x_user_id:
+        db_user = db.query(models.User).filter(models.User.id == x_user_id).first()
+        if db_user:
+            cashier_name = db_user.name
+
+    # 1. Generate unique sequential invoice number per store for today
+    today_str = datetime.now().strftime("%Y%m%d")
+    today_count = db.query(models.Transaction).filter(
+        models.Transaction.store_id == x_store_id,
+        models.Transaction.invoice_number.like(f"INV-{today_str}-%")
+    ).count()
+    invoice_number = f"INV-{today_str}-{(today_count + 1):04d}"
+
+    # 2. Create Transaction with Composite PK (store_id, invoice_number)
     db_transaction = models.Transaction(
+        store_id=x_store_id,
+        invoice_number=invoice_number,
+        user_id=x_user_id,
+        payment_method=order.payment_method.upper().strip(),
+        payment_status=order.payment_status.upper().strip(),
         subtotal=order.subtotal,
         discount=order.discount,
         tax=order.tax,
         total=order.total
     )
     db.add(db_transaction)
-    db.commit()
-    db.refresh(db_transaction)
+    db.flush()
 
-    # 2. Add Items & Deduct Stock
+    # 3. Add Line Items & Decrement Stock
+    bill_items = []
     for item in order.items:
-        db_product = db.query(models.Product).filter(models.Product.id == item.product_id).first()
+        db_product = db.query(models.Product).filter(
+            models.Product.id == item.product_id,
+            models.Product.store_id == x_store_id
+        ).first()
         if not db_product:
             db.rollback()
-            raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found")
+            raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in store catalog")
             
         if db_product.stock < item.quantity:
             db.rollback()
@@ -215,82 +407,202 @@ def checkout(order: schemas.CheckoutSchema, db: Session = Depends(get_db)):
         db_product.stock -= item.quantity
         
         db_item = models.TransactionItem(
-            transaction_id=db_transaction.id,
+            store_id=x_store_id,
+            invoice_number=invoice_number,
             product_id=item.product_id,
+            product_name=db_product.name,
             quantity=item.quantity,
             price=item.price
         )
         db.add(db_item)
+        bill_items.append(schemas.TransactionItemResponse(
+            product_id=item.product_id,
+            product_name=db_product.name,
+            quantity=item.quantity,
+            price=item.price
+        ))
         
     db.commit()
-    return {"status": "success", "transaction_id": db_transaction.id}
 
+    return schemas.BillResponse(
+        store_id=x_store_id,
+        invoice_number=invoice_number,
+        shop_name=db_store.name,
+        shop_address=db_store.address,
+        shop_phone=db_store.phone,
+        gst_number=db_store.gst_number,
+        cashier_name=cashier_name,
+        payment_method=order.payment_method,
+        payment_status=order.payment_status,
+        subtotal=order.subtotal,
+        discount=order.discount,
+        tax=order.tax,
+        total=order.total,
+        created_at=datetime.now(),
+        items=bill_items
+    )
 
-# --- 3. Dashboard Analytics Endpoints ---
+@app.get("/api/bills/{invoice_number}", response_model=schemas.BillResponse)
+def get_bill(
+    invoice_number: str,
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_transaction = db.query(models.Transaction).filter(
+        models.Transaction.store_id == x_store_id,
+        models.Transaction.invoice_number == invoice_number
+    ).first()
+    if not db_transaction:
+        raise HTTPException(status_code=404, detail="Bill / Invoice not found")
+
+    db_store = db.query(models.Store).filter(models.Store.id == x_store_id).first()
+    
+    cashier_name = None
+    if db_transaction.user_id:
+        cashier = db.query(models.User).filter(models.User.id == db_transaction.user_id).first()
+        if cashier:
+            cashier_name = cashier.name
+
+    items = db.query(models.TransactionItem).filter(
+        models.TransactionItem.store_id == x_store_id,
+        models.TransactionItem.invoice_number == invoice_number
+    ).all()
+
+    return schemas.BillResponse(
+        store_id=x_store_id,
+        invoice_number=invoice_number,
+        shop_name=db_store.name if db_store else "SmartPOS",
+        shop_address=db_store.address if db_store else None,
+        shop_phone=db_store.phone if db_store else None,
+        gst_number=db_store.gst_number if db_store else None,
+        cashier_name=cashier_name,
+        payment_method=db_transaction.payment_method,
+        payment_status=db_transaction.payment_status,
+        subtotal=db_transaction.subtotal,
+        discount=db_transaction.discount,
+        tax=db_transaction.tax,
+        total=db_transaction.total,
+        created_at=db_transaction.created_at,
+        items=[
+            schemas.TransactionItemResponse(
+                id=item.id,
+                product_id=item.product_id,
+                product_name=item.product_name,
+                quantity=item.quantity,
+                price=item.price
+            ) for item in items
+        ]
+    )
+
+@app.get("/api/transactions", response_model=List[schemas.TransactionResponse])
+def get_transactions(
+    limit: int = Query(20, ge=1, le=100),
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    transactions = db.query(models.Transaction).filter(
+        models.Transaction.store_id == x_store_id
+    ).order_by(models.Transaction.created_at.desc()).limit(limit).all()
+
+    result = []
+    for tx in transactions:
+        items = db.query(models.TransactionItem).filter(
+            models.TransactionItem.store_id == x_store_id,
+            models.TransactionItem.invoice_number == tx.invoice_number
+        ).all()
+        result.append(schemas.TransactionResponse(
+            store_id=tx.store_id,
+            invoice_number=tx.invoice_number,
+            payment_method=tx.payment_method,
+            subtotal=tx.subtotal,
+            discount=tx.discount,
+            tax=tx.tax,
+            total=tx.total,
+            created_at=tx.created_at,
+            items=[
+                schemas.TransactionItemResponse(
+                    id=item.id,
+                    product_id=item.product_id,
+                    product_name=item.product_name,
+                    quantity=item.quantity,
+                    price=item.price
+                ) for item in items
+            ]
+        ))
+    return result
+
+# --- Dashboard Analytics Endpoints ---
 
 @app.get("/api/dashboard", response_model=schemas.DashboardMetricsResponse)
-def get_dashboard_metrics(db: Session = Depends(get_db)):
-    # Get today range bounds
+def get_dashboard_metrics(
+    x_store_id: int = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
     today = date.today()
     start_today = datetime.combine(today, time.min)
     end_today = datetime.combine(today, time.max)
 
-    # 1. Today's Sales total sum
+    # 1. Today's Sales total sum for this store
     today_sales_query = db.query(func.sum(models.Transaction.total)).filter(
+        models.Transaction.store_id == x_store_id,
         models.Transaction.created_at >= start_today,
         models.Transaction.created_at <= end_today
     ).scalar()
     today_sales = Decimal(str(today_sales_query)) if today_sales_query else Decimal("0.00")
 
-    # 2. Orders Count today
+    # 2. Orders Count today for this store
     orders_count = db.query(models.Transaction).filter(
+        models.Transaction.store_id == x_store_id,
         models.Transaction.created_at >= start_today,
         models.Transaction.created_at <= end_today
     ).count()
 
-    # 3. Calculate Today's Profit: sum(sales_price - cost_price * quantity)
-    # We join transactions, items and products to get the exact cost prices
+    # 3. Calculate Today's Profit for this store: sum(sales_price - cost_price * quantity)
     profit_query = db.query(
         func.sum((models.TransactionItem.price - models.Product.cost_price) * models.TransactionItem.quantity)
     ).join(
-        models.Transaction, models.Transaction.id == models.TransactionItem.transaction_id
+        models.Transaction,
+        (models.Transaction.store_id == models.TransactionItem.store_id) & 
+        (models.Transaction.invoice_number == models.TransactionItem.invoice_number)
     ).join(
         models.Product, models.Product.id == models.TransactionItem.product_id
     ).filter(
+        models.Transaction.store_id == x_store_id,
         models.Transaction.created_at >= start_today,
         models.Transaction.created_at <= end_today
     ).scalar()
-    
     profit = Decimal(str(profit_query)) if profit_query else Decimal("0.00")
 
-    # 4. Low Stock Alerts list (stock <= low_stock_alert)
-    low_stock_items = db.query(models.Product).filter(
+    # 4. Low stock alerts
+    low_stock = db.query(models.Product).filter(
+        models.Product.store_id == x_store_id,
         models.Product.stock <= models.Product.low_stock_alert
-    ).all()
-    
+    ).order_by(models.Product.stock.asc()).limit(5).all()
+
     low_stock_alerts = [
         schemas.LowStockAlert(id=p.id, name=p.name, stock=p.stock)
-        for p in low_stock_items
+        for p in low_stock
     ]
 
-    # 5. 10 Recent Transactions
-    recent_txs = db.query(models.Transaction).order_by(
-        models.Transaction.id.desc()
-    ).limit(10).all()
+    # 5. Recent transactions
+    recent_txs = db.query(models.Transaction).filter(
+        models.Transaction.store_id == x_store_id
+    ).order_by(models.Transaction.created_at.desc()).limit(5).all()
 
     recent_transactions = []
     for tx in recent_txs:
-        # Get count of items in this transaction
-        item_qty_sum = db.query(func.sum(models.TransactionItem.quantity)).filter(
-            models.TransactionItem.transaction_id == tx.id
+        items_count = db.query(func.sum(models.TransactionItem.quantity)).filter(
+            models.TransactionItem.store_id == x_store_id,
+            models.TransactionItem.invoice_number == tx.invoice_number
         ).scalar() or 0
-        
         recent_transactions.append(
             schemas.RecentTransaction(
-                id=tx.id,
+                store_id=tx.store_id,
+                invoice_number=tx.invoice_number,
                 created_at=tx.created_at,
-                items_count=int(item_qty_sum),
-                total=tx.total
+                items_count=int(items_count),
+                total=tx.total,
+                payment_method=tx.payment_method
             )
         )
 

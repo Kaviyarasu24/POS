@@ -3,6 +3,78 @@ from typing import List, Optional
 from decimal import Decimal
 from datetime import datetime
 
+# --- Store Schemas ---
+class StoreBase(BaseModel):
+    name: str
+    category: str
+    phone: str
+    email: Optional[str] = None
+    gst_number: Optional[str] = None
+    address: Optional[str] = None
+
+class StoreCreate(StoreBase):
+    pass
+
+class StoreUpdate(BaseModel):
+    name: Optional[str] = None
+    category: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    gst_number: Optional[str] = None
+    address: Optional[str] = None
+
+class StoreResponse(StoreBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+# --- User & Staff Schemas ---
+class UserCreate(BaseModel):
+    shop_name: str
+    owner_name: str
+    shop_category: str
+    phone: str
+    email_or_username: str
+    password: str
+    gst_number: Optional[str] = None
+    business_address: Optional[str] = None
+
+class StaffCreate(BaseModel):
+    name: str
+    email_or_username: str
+    password: str
+    role: str = "cashier"  # cashier, manager
+    phone: Optional[str] = None
+
+class UserUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+    email_or_username: Optional[str] = None
+    role: Optional[str] = None
+
+class UserLogin(BaseModel):
+    email_or_username: str
+    password: str
+
+class UserResponse(BaseModel):
+    id: int
+    store_id: int
+    name: str
+    email_or_username: str
+    role: str
+    phone: Optional[str] = None
+    # Store Details embedded for instant frontend store setup
+    shop_name: Optional[str] = None
+    shop_category: Optional[str] = None
+    gst_number: Optional[str] = None
+    business_address: Optional[str] = None
+    store_phone: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
 # --- Product Schemas ---
 class ProductBase(BaseModel):
     name: str
@@ -33,11 +105,12 @@ class ProductUpdate(BaseModel):
 
 class ProductResponse(ProductBase):
     id: int
+    store_id: int
 
     class Config:
         from_attributes = True
 
-# --- Checkout Schemas ---
+# --- Checkout & Bill Schemas ---
 class CartItemSchema(BaseModel):
     product_id: int
     quantity: int
@@ -48,20 +121,44 @@ class CheckoutSchema(BaseModel):
     discount: Decimal
     tax: Decimal
     total: Decimal
+    payment_method: str = "CASH"  # CASH, UPI, CARD
+    payment_status: str = "PAID"
     items: List[CartItemSchema]
 
-# --- Transaction History Schemas ---
 class TransactionItemResponse(BaseModel):
+    id: Optional[int] = None
     product_id: int
+    product_name: str
     quantity: int
     price: Decimal
-    product_name: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+class BillResponse(BaseModel):
+    store_id: int
+    invoice_number: str
+    shop_name: str
+    shop_address: Optional[str] = None
+    shop_phone: Optional[str] = None
+    gst_number: Optional[str] = None
+    cashier_name: Optional[str] = None
+    payment_method: str
+    payment_status: str
+    subtotal: Decimal
+    discount: Decimal
+    tax: Decimal
+    total: Decimal
+    created_at: datetime
+    items: List[TransactionItemResponse]
 
     class Config:
         from_attributes = True
 
 class TransactionResponse(BaseModel):
-    id: int
+    store_id: int
+    invoice_number: str
+    payment_method: str
     subtotal: Decimal
     discount: Decimal
     tax: Decimal
@@ -79,10 +176,12 @@ class LowStockAlert(BaseModel):
     stock: int
 
 class RecentTransaction(BaseModel):
-    id: int
+    store_id: int
+    invoice_number: str
     created_at: datetime
     items_count: int
     total: Decimal
+    payment_method: str
 
 class DashboardMetricsResponse(BaseModel):
     today_sales: Decimal
@@ -90,40 +189,3 @@ class DashboardMetricsResponse(BaseModel):
     profit: Decimal
     low_stock_alerts: List[LowStockAlert]
     recent_transactions: List[RecentTransaction]
-
-# --- User Authentication Schemas ---
-class UserCreate(BaseModel):
-    shop_name: str
-    owner_name: str
-    shop_category: str
-    phone: str
-    email_or_username: str
-    password: str
-    gst_number: Optional[str] = None
-    business_address: Optional[str] = None
-
-class UserUpdate(BaseModel):
-    shop_name: Optional[str] = None
-    owner_name: Optional[str] = None
-    shop_category: Optional[str] = None
-    phone: Optional[str] = None
-    email_or_username: Optional[str] = None
-    gst_number: Optional[str] = None
-    business_address: Optional[str] = None
-
-class UserLogin(BaseModel):
-    email_or_username: str
-    password: str
-
-class UserResponse(BaseModel):
-    id: int
-    shop_name: str
-    owner_name: str
-    shop_category: str
-    phone: str
-    email_or_username: str
-    gst_number: Optional[str] = None
-    business_address: Optional[str] = None
-
-    class Config:
-        from_attributes = True
