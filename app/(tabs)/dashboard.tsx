@@ -19,19 +19,14 @@ export default function DashboardScreen() {
 
   // Dashboard metrics state
   const [metrics, setMetrics] = useState({
-    today_sales: 4289.50,
-    orders_count: 142,
-    profit: 1104.00,
-    low_stock_alerts: [
-      { id: 1, name: 'Artisan Coffee Beans', stock: 2 },
-      { id: 2, name: 'Organic Oat Milk', stock: 5 },
-      { id: 3, name: 'Reusable Cups', stock: 8 },
-    ] as any[],
-    recent_transactions: [
-      { id: 4921, created_at: '2026-08-07T10:42:00Z', items_count: 3, total: 24.50 },
-      { id: 4920, created_at: '2026-08-07T10:15:00Z', items_count: 1, total: 4.50 },
-      { id: 4919, created_at: '2026-08-07T09:58:00Z', items_count: 5, total: 42.00 },
-    ] as any[],
+    today_sales: 0,
+    yesterday_sales: 0,
+    sales_growth_percentage: 0,
+    orders_count: 0,
+    profit: 0,
+    low_stock_alerts: [] as any[],
+    recent_transactions: [] as any[],
+    weekly_trend: [] as { day: string; date: string; amount: number }[],
   });
 
   const fetchDashboardMetrics = async () => {
@@ -42,11 +37,18 @@ export default function DashboardScreen() {
       if (!response.ok) throw new Error('Failed to fetch dashboard metrics');
       const data = await response.json();
       setMetrics({
-        today_sales: parseFloat(data.today_sales),
-        orders_count: data.orders_count,
-        profit: parseFloat(data.profit),
-        low_stock_alerts: data.low_stock_alerts,
-        recent_transactions: data.recent_transactions,
+        today_sales: parseFloat(data.today_sales || 0),
+        yesterday_sales: parseFloat(data.yesterday_sales || 0),
+        sales_growth_percentage: Number(data.sales_growth_percentage || 0),
+        orders_count: Number(data.orders_count || 0),
+        profit: parseFloat(data.profit || 0),
+        low_stock_alerts: data.low_stock_alerts || [],
+        recent_transactions: data.recent_transactions || [],
+        weekly_trend: (data.weekly_trend || []).map((item: any) => ({
+          day: item.day,
+          date: item.date,
+          amount: parseFloat(item.amount || 0),
+        })),
       });
     } catch (err) {
       console.warn("Could not load backend metrics, using dashboard mock fallbacks:", err);
@@ -61,6 +63,41 @@ export default function DashboardScreen() {
     });
     return unsubscribe;
   }, []);
+
+  // Generate SVG paths for dynamic 7-day revenue trend
+  const generateChartPaths = () => {
+    const data = metrics.weekly_trend || [];
+    if (data.length === 0) {
+      return {
+        areaPath: 'M 0 100 L 350 100 L 350 120 L 0 120 Z',
+        linePath: 'M 0 100 L 350 100',
+      };
+    }
+    const amounts = data.map((d) => Number(d.amount) || 0);
+    const maxVal = Math.max(...amounts, 1);
+    const width = 350;
+    const paddingBottom = 20;
+    const paddingTop = 15;
+    const chartHeight = 120 - paddingBottom - paddingTop;
+
+    const stepX = data.length > 1 ? width / (data.length - 1) : width;
+    const points = amounts.map((val, idx) => {
+      const x = idx * stepX;
+      const normalizedY = maxVal === 0 ? 0 : val / maxVal;
+      const y = (120 - paddingBottom) - (normalizedY * chartHeight);
+      return { x, y };
+    });
+
+    const linePath = points.reduce((acc, pt, idx) => {
+      return idx === 0 ? `M ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}` : `${acc} L ${pt.x.toFixed(1)} ${pt.y.toFixed(1)}`;
+    }, '');
+
+    const areaPath = `${linePath} L ${width} 120 L 0 120 Z`;
+    return { areaPath, linePath };
+  };
+
+  const { areaPath, linePath } = generateChartPaths();
+  const isPositiveGrowth = metrics.sales_growth_percentage >= 0;
 
   return (
     <SafeAreaView style={styles.outerContainer}>
@@ -96,8 +133,20 @@ export default function DashboardScreen() {
               <Text style={styles.bentoLabel}>{"Today's Sales"}</Text>
               <Text style={styles.salesValue}>₹{metrics.today_sales.toFixed(2)}</Text>
               <View style={styles.trendContainer}>
-                <MaterialIcons name="trending-up" size={16} color="#006329" />
-                <Text style={styles.trendText}>+12.5% vs yesterday</Text>
+                <MaterialIcons
+                  name={isPositiveGrowth ? "trending-up" : "trending-down"}
+                  size={16}
+                  color={isPositiveGrowth ? "#006329" : "#ba1a1a"}
+                />
+                <Text
+                  style={[
+                    styles.trendText,
+                    { color: isPositiveGrowth ? "#006329" : "#ba1a1a" },
+                  ]}
+                >
+                  {isPositiveGrowth && metrics.sales_growth_percentage > 0 ? '+' : ''}
+                  {metrics.sales_growth_percentage.toFixed(1)}% vs yesterday
+                </Text>
               </View>
             </View>
 
@@ -193,12 +242,12 @@ export default function DashboardScreen() {
                 </Defs>
                 {/* Area under the line */}
                 <Path
-                  d="M 0 68 L 58.3 62 L 116.7 54 L 175 64 L 233.3 48 L 291.7 26 L 350 28 L 350 120 L 0 120 Z"
+                  d={areaPath}
                   fill="url(#chartGrad)"
                 />
                 {/* Line Path */}
                 <Path
-                  d="M 0 68 L 58.3 62 L 116.7 54 L 175 64 L 233.3 48 L 291.7 26 L 350 28"
+                  d={linePath}
                   fill="none"
                   stroke="#2563eb"
                   strokeWidth="3"
@@ -206,13 +255,17 @@ export default function DashboardScreen() {
               </Svg>
             </View>
             <View style={styles.chartLabelsRow}>
-              <Text style={styles.chartLabel}>Mon</Text>
-              <Text style={styles.chartLabel}>Tue</Text>
-              <Text style={styles.chartLabel}>Wed</Text>
-              <Text style={styles.chartLabel}>Thu</Text>
-              <Text style={styles.chartLabel}>Fri</Text>
-              <Text style={styles.chartLabel}>Sat</Text>
-              <Text style={styles.chartLabel}>Sun</Text>
+              {metrics.weekly_trend.length > 0 ? (
+                metrics.weekly_trend.map((trendItem, idx) => (
+                  <Text key={idx} style={styles.chartLabel}>
+                    {trendItem.day}
+                  </Text>
+                ))
+              ) : (
+                ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d, idx) => (
+                  <Text key={idx} style={styles.chartLabel}>{d}</Text>
+                ))
+              )}
             </View>
           </View>
 

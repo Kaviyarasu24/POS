@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from typing import List, Optional
-from datetime import datetime, date, time
+from datetime import datetime, date, time, timedelta
 from decimal import Decimal
 import hashlib
 import re
@@ -630,6 +630,25 @@ def get_dashboard_metrics(
     ).scalar()
     today_sales = Decimal(str(today_sales_query)) if today_sales_query else Decimal("0.00")
 
+    # 1b. Yesterday's Sales total sum for comparison
+    yesterday = today - timedelta(days=1)
+    start_yesterday = datetime.combine(yesterday, time.min)
+    end_yesterday = datetime.combine(yesterday, time.max)
+
+    yesterday_sales_query = db.query(func.sum(models.Transaction.total)).filter(
+        models.Transaction.store_id == x_store_id,
+        models.Transaction.created_at >= start_yesterday,
+        models.Transaction.created_at <= end_yesterday
+    ).scalar()
+    yesterday_sales = Decimal(str(yesterday_sales_query)) if yesterday_sales_query else Decimal("0.00")
+
+    if yesterday_sales > Decimal("0.00"):
+        sales_growth_percentage = float(round(((today_sales - yesterday_sales) / yesterday_sales) * Decimal("100.0"), 1))
+    elif today_sales > Decimal("0.00"):
+        sales_growth_percentage = 100.0
+    else:
+        sales_growth_percentage = 0.0
+
     # 2. Orders Count today for this store
     orders_count = db.query(models.Transaction).filter(
         models.Transaction.store_id == x_store_id,
@@ -686,10 +705,33 @@ def get_dashboard_metrics(
             )
         )
 
+    # 6. Weekly sales trend (last 7 days)
+    weekly_trend = []
+    for i in range(6, -1, -1):
+        target_date = today - timedelta(days=i)
+        start_d = datetime.combine(target_date, time.min)
+        end_d = datetime.combine(target_date, time.max)
+        day_sales_query = db.query(func.sum(models.Transaction.total)).filter(
+            models.Transaction.store_id == x_store_id,
+            models.Transaction.created_at >= start_d,
+            models.Transaction.created_at <= end_d
+        ).scalar()
+        day_amt = Decimal(str(day_sales_query)) if day_sales_query else Decimal("0.00")
+        weekly_trend.append(
+            schemas.DailySalesTrend(
+                day=target_date.strftime("%a"),
+                date=target_date.isoformat(),
+                amount=day_amt
+            )
+        )
+
     return schemas.DashboardMetricsResponse(
         today_sales=today_sales,
+        yesterday_sales=yesterday_sales,
+        sales_growth_percentage=sales_growth_percentage,
         orders_count=orders_count,
         profit=profit,
         low_stock_alerts=low_stock_alerts,
-        recent_transactions=recent_transactions
+        recent_transactions=recent_transactions,
+        weekly_trend=weekly_trend
     )

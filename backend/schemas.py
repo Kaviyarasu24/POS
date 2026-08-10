@@ -185,9 +185,17 @@ class RecentTransaction(BaseModel):
     total: Decimal
     payment_method: str
 
+class DailySalesTrend(BaseModel):
+    day: str
+    date: str
+    amount: Decimal
+
 class DashboardMetricsResponse(BaseModel):
     today_sales: Decimal
+    yesterday_sales: Decimal
+    sales_growth_percentage: float
     orders_count: int
     profit: Decimal
     low_stock_alerts: List[LowStockAlert]
     recent_transactions: List[RecentTransaction]
+    weekly_trend: List[DailySalesTrend]
