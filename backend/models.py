@@ -36,11 +36,32 @@ class User(Base):
     transactions = relationship("Transaction", back_populates="cashier")
 
 
+class GlobalProduct(Base):
+    __tablename__ = "global_products"
+
+    id = Column(Integer, primary_key=True, index=True)
+    barcode = Column(String(100), unique=True, index=True, nullable=False)
+    name = Column(String(255), nullable=False)
+    brand = Column(String(100), nullable=True)
+    category = Column(String(100), nullable=False)
+    unit = Column(String(50), nullable=True, default="pcs")
+    default_price = Column(DECIMAL(10, 2), nullable=True)
+    default_cost_price = Column(DECIMAL(10, 2), nullable=True)
+    default_tax_rate = Column(DECIMAL(5, 2), nullable=False, default=8.00)
+    image = Column(Text, nullable=True)
+    description = Column(Text, nullable=True)
+    is_active = Column(Integer, default=1)  # 1: active, 0: inactive
+    created_at = Column(DateTime, server_default=func.now())
+
+    store_inventories = relationship("Product", back_populates="global_product")
+
+
 class Product(Base):
     __tablename__ = "products"
 
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+    global_product_id = Column(Integer, ForeignKey("global_products.id", ondelete="SET NULL"), nullable=True)
     name = Column(String(255), nullable=False)
     sku = Column(String(100), index=True, nullable=False)
     price = Column(DECIMAL(10, 2), nullable=False)
@@ -55,7 +76,8 @@ class Product(Base):
 
     __table_args__ = (UniqueConstraint('store_id', 'sku', name='unique_store_sku'),)
 
-    store = relationship("Product", back_populates="products", foreign_keys=[store_id]) if False else relationship("Store", back_populates="products")
+    store = relationship("Store", back_populates="products")
+    global_product = relationship("GlobalProduct", back_populates="store_inventories")
 
 
 class Transaction(Base):

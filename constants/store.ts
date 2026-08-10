@@ -1,8 +1,25 @@
 import { API_BASE_URL } from './config';
 
+export interface GlobalProduct {
+  id: number;
+  barcode: string;
+  name: string;
+  brand?: string;
+  category: string;
+  unit?: string;
+  default_price?: number;
+  default_cost_price?: number;
+  default_tax_rate: number;
+  image?: string;
+  description?: string;
+  is_active: number;
+}
+
 export interface Product {
   id: string;
   storeId?: string;
+  globalProductId?: number;
+  brand?: string;
   name: string;
   price: number;
   costPrice: number;
@@ -304,6 +321,8 @@ class ProductStore {
       this.products = data.map((p: any) => ({
         id: p.id.toString(),
         storeId: p.store_id ? p.store_id.toString() : 'TGM-1001',
+        globalProductId: p.global_product_id,
+        brand: p.brand || undefined,
         name: p.name,
         price: parseFloat(p.price),
         costPrice: parseFloat(p.cost_price),
@@ -320,6 +339,61 @@ class ProductStore {
       this.notify();
     } catch (err) {
       console.warn('API sync failed, using local store:', err);
+    }
+  }
+
+  // --- Global Master Catalog Integration ---
+  async fetchGlobalProducts(query?: string, category?: string): Promise<GlobalProduct[]> {
+    try {
+      const params = new URLSearchParams();
+      if (query) params.append('query', query);
+      if (category && category !== 'All Items') params.append('category', category);
+      
+      const response = await fetch(`${API_BASE_URL}/api/global-products?${params.toString()}`);
+      if (!response.ok) return [];
+      return await response.json();
+    } catch (err) {
+      console.warn('Failed to fetch global products:', err);
+      return [];
+    }
+  }
+
+  async fetchGlobalProductByBarcode(barcode: string): Promise<GlobalProduct | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/global-products/barcode/${encodeURIComponent(barcode)}`);
+      if (!response.ok) return null;
+      return await response.json();
+    } catch (err) {
+      console.warn('Failed to fetch global product by barcode:', err);
+      return null;
+    }
+  }
+
+  async importGlobalProduct(params: {
+    global_product_id: number;
+    stock: number;
+    price?: number;
+    cost_price?: number;
+    low_stock_alert?: number;
+    tax_rate?: number;
+  }) {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/products/import-global`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(params),
+      });
+
+      if (!response.ok) {
+        const errDetail = await response.json();
+        throw new Error(errDetail.detail || 'Failed to import master product');
+      }
+
+      await this.syncProducts();
+      return true;
+    } catch (err: any) {
+      console.error('Import global product failed:', err);
+      throw err;
     }
   }
 

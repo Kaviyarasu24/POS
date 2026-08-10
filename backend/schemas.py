@@ -32,12 +32,16 @@ class StoreResponse(StoreBase):
 
 # --- User & Staff Schemas ---
 class UserCreate(BaseModel):
-    shop_name: str
     owner_name: str
-    shop_category: str
-    phone: str
     email_or_username: str
     password: str
+    phone: str
+    # If joining existing store with join code
+    store_id: Optional[str] = None
+    role: Optional[str] = None  # e.g. "cashier", "manager", "owner"
+    # If creating a new store
+    shop_name: Optional[str] = None
+    shop_category: Optional[str] = None
     gst_number: Optional[str] = None
     business_address: Optional[str] = None
 
@@ -77,6 +81,51 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True
 
+# --- Global Product Schemas ---
+class GlobalProductBase(BaseModel):
+    barcode: str
+    name: str
+    brand: Optional[str] = None
+    category: str
+    unit: Optional[str] = "pcs"
+    default_price: Optional[Decimal] = None
+    default_cost_price: Optional[Decimal] = None
+    default_tax_rate: Decimal = Decimal("8.00")
+    image: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[int] = 1
+
+class GlobalProductCreate(GlobalProductBase):
+    pass
+
+class GlobalProductUpdate(BaseModel):
+    barcode: Optional[str] = None
+    name: Optional[str] = None
+    brand: Optional[str] = None
+    category: Optional[str] = None
+    unit: Optional[str] = None
+    default_price: Optional[Decimal] = None
+    default_cost_price: Optional[Decimal] = None
+    default_tax_rate: Optional[Decimal] = None
+    image: Optional[str] = None
+    description: Optional[str] = None
+    is_active: Optional[int] = None
+
+class GlobalProductResponse(GlobalProductBase):
+    id: int
+    created_at: Optional[datetime] = None
+
+    class Config:
+        from_attributes = True
+
+class ImportGlobalProductRequest(BaseModel):
+    global_product_id: int
+    price: Optional[Decimal] = None
+    cost_price: Optional[Decimal] = None
+    stock: int = 0
+    low_stock_alert: int = 5
+    tax_rate: Optional[Decimal] = None
+
 # --- Product Schemas ---
 class ProductBase(BaseModel):
     name: str
@@ -89,6 +138,7 @@ class ProductBase(BaseModel):
     unit: Optional[str] = None
     tax_rate: Decimal = Decimal("8.00")
     image: Optional[str] = None
+    global_product_id: Optional[int] = None
 
 class ProductCreate(ProductBase):
     pass
@@ -104,10 +154,12 @@ class ProductUpdate(BaseModel):
     unit: Optional[str] = None
     tax_rate: Optional[Decimal] = None
     image: Optional[str] = None
+    global_product_id: Optional[int] = None
 
 class ProductResponse(ProductBase):
     id: int
     store_id: str
+    brand: Optional[str] = None
 
     class Config:
         from_attributes = True

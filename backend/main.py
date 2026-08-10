@@ -55,6 +55,21 @@ def get_user_id(x_user_id: Optional[int] = Header(None)) -> Optional[int]:
 
 # --- Auth & Store Management Endpoints ---
 
+@app.get("/api/stores/verify/{store_id}")
+def verify_store_join_code(store_id: str, db: Session = Depends(get_db)):
+    clean_id = store_id.strip().upper()
+    db_store = db.query(models.Store).filter(
+        (models.Store.id == clean_id) | (models.Store.id == store_id.strip())
+    ).first()
+    if not db_store:
+        raise HTTPException(status_code=404, detail="No store found with this Join Code / Store ID")
+    return {
+        "id": db_store.id,
+        "name": db_store.name,
+        "category": db_store.category,
+        "phone": db_store.phone
+    }
+
 @app.post("/api/signup", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
 def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     # Check if username or email already exists across users
@@ -63,6 +78,53 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     ).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="Username or Email already registered")
+
+    # Case A: User is joining an existing store using Store ID / Join Code
+    if payload.store_id and payload.store_id.strip():
+        join_code = payload.store_id.strip()
+        db_store = db.query(models.Store).filter(
+            (models.Store.id == join_code.upper()) | (models.Store.id == join_code)
+        ).first()
+        if not db_store:
+            raise HTTPException(
+                status_code=404, 
+                detail=f"Store not found with Join Code '{join_code}'. Please check with your store owner/manager."
+            )
+
+        assigned_role = (payload.role.lower().strip() if payload.role else "cashier")
+
+        db_user = models.User(
+            store_id=db_store.id,
+            name=payload.owner_name.strip(),
+            email_or_username=payload.email_or_username.lower().strip(),
+            password=hash_password(payload.password),
+            role=assigned_role,
+            phone=payload.phone.strip() if payload.phone else None
+        )
+        db.add(db_user)
+        db.commit()
+        db.refresh(db_user)
+
+        return schemas.UserResponse(
+            id=db_user.id,
+            store_id=db_store.id,
+            name=db_user.name,
+            email_or_username=db_user.email_or_username,
+            role=db_user.role,
+            phone=db_user.phone,
+            image=db_user.image,
+            shop_name=db_store.name,
+            shop_category=db_store.category,
+            gst_number=db_store.gst_number,
+            business_address=db_store.address,
+            store_phone=db_store.phone
+        )
+
+    # Case B: User is registering a new Store
+    if not payload.shop_name or not payload.shop_name.strip():
+        raise HTTPException(status_code=400, detail="Shop Name is required to register a new store")
+    if not payload.shop_category or not payload.shop_category.strip():
+        raise HTTPException(status_code=400, detail="Shop Category is required to register a new store")
 
     # 1. Generate Alphanumeric Store ID & Create Store
     new_store_id = generate_store_id(payload.shop_name, db)
@@ -308,7 +370,172 @@ def update_user(
         store_phone=db_store.phone if db_store else None
     )
 
-# --- Product Endpoints (Multi-tenant scoped by x_store_id) ---
+# --- Global Product Master Catalog Endpoints (Centralized Library) ---
+
+@app.get("/api/global-products", response_model=List[schemas.GlobalProductResponse])
+def get_global_products(
+    query: Optional[str] = Query(None),
+    category: Optional[str] = Query(None),
+    brand: Optional[str] = Query(None),
+    is_active: Optional[int] = Query(1),
+    skip: int = 0,
+    limit: int = 100,
+    db: Session = Depends(get_db)
+):
+    q = db.query(models.GlobalProduct)
+    if is_active is not None:
+        q = q.filter(models.GlobalProduct.is_active == is_active)
+    if category and category != "All Items":
+        q = q.filter(models.GlobalProduct.category == category)
+    if brand:
+        q = q.filter(models.GlobalProduct.brand.ilike(f"%{brand}%"))
+    if query:
+        search = f"%{query}%"
+        q = q.filter(
+            (models.GlobalProduct.name.ilike(search)) |
+            (models.GlobalProduct.barcode.ilike(search)) |
+            (models.GlobalProduct.brand.ilike(search))
+        )
+    return q.order_by(models.GlobalProduct.name.asc()).offset(skip).limit(limit).all()
+
+@app.get("/api/global-products/barcode/{barcode}", response_model=schemas.GlobalProductResponse)
+def get_global_product_by_barcode(
+    barcode: str,
+    db: Session = Depends(get_db)
+):
+    prod = db.query(models.GlobalProduct).filter(
+        models.GlobalProduct.barcode == barcode.strip().upper(),
+        models.GlobalProduct.is_active == 1
+    ).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Global product not found for this barcode")
+    return prod
+
+@app.get("/api/global-products/{id}", response_model=schemas.GlobalProductResponse)
+def get_global_product(
+    id: int,
+    db: Session = Depends(get_db)
+):
+    prod = db.query(models.GlobalProduct).filter(models.GlobalProduct.id == id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Global product not found")
+    return prod
+
+@app.post("/api/global-products", response_model=schemas.GlobalProductResponse, status_code=status.HTTP_201_CREATED)
+def create_global_product(
+    payload: schemas.GlobalProductCreate,
+    db: Session = Depends(get_db)
+):
+    existing = db.query(models.GlobalProduct).filter(
+        models.GlobalProduct.barcode == payload.barcode.strip().upper()
+    ).first()
+    if existing:
+        raise HTTPException(status_code=400, detail="A global product with this barcode already exists")
+
+    new_prod = models.GlobalProduct(
+        barcode=payload.barcode.strip().upper(),
+        name=payload.name.strip(),
+        brand=payload.brand.strip() if payload.brand else None,
+        category=payload.category.strip(),
+        unit=payload.unit.strip() if payload.unit else "pcs",
+        default_price=payload.default_price,
+        default_cost_price=payload.default_cost_price,
+        default_tax_rate=payload.default_tax_rate,
+        image=payload.image,
+        description=payload.description,
+        is_active=payload.is_active if payload.is_active is not None else 1
+    )
+    db.add(new_prod)
+    db.commit()
+    db.refresh(new_prod)
+    return new_prod
+
+@app.put("/api/global-products/{id}", response_model=schemas.GlobalProductResponse)
+def update_global_product(
+    id: int,
+    payload: schemas.GlobalProductUpdate,
+    db: Session = Depends(get_db)
+):
+    prod = db.query(models.GlobalProduct).filter(models.GlobalProduct.id == id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Global product not found")
+
+    if payload.barcode and payload.barcode.strip().upper() != prod.barcode:
+        existing = db.query(models.GlobalProduct).filter(
+            models.GlobalProduct.barcode == payload.barcode.strip().upper()
+        ).first()
+        if existing:
+            raise HTTPException(status_code=400, detail="A global product with this barcode already exists")
+        prod.barcode = payload.barcode.strip().upper()
+
+    for key, value in payload.model_dump(exclude_unset=True).items():
+        if key != "barcode":
+            setattr(prod, key, value)
+
+    db.commit()
+    db.refresh(prod)
+    return prod
+
+@app.delete("/api/global-products/{id}", status_code=status.HTTP_204_NO_CONTENT)
+def delete_global_product(
+    id: int,
+    db: Session = Depends(get_db)
+):
+    prod = db.query(models.GlobalProduct).filter(models.GlobalProduct.id == id).first()
+    if not prod:
+        raise HTTPException(status_code=404, detail="Global product not found")
+    # Soft delete: set inactive
+    prod.is_active = 0
+    db.commit()
+    return None
+
+# --- Store Product & Inventory Endpoints (Multi-tenant scoped by x_store_id) ---
+
+@app.post("/api/products/import-global", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
+def import_global_product_to_store(
+    payload: schemas.ImportGlobalProductRequest,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    # 1. Check if global product exists
+    global_prod = db.query(models.GlobalProduct).filter(
+        models.GlobalProduct.id == payload.global_product_id,
+        models.GlobalProduct.is_active == 1
+    ).first()
+    if not global_prod:
+        raise HTTPException(status_code=404, detail="Master product not found in Global Catalog")
+
+    # 2. Check if store already has this product
+    existing_store_prod = db.query(models.Product).filter(
+        models.Product.store_id == x_store_id,
+        (models.Product.global_product_id == global_prod.id) | (models.Product.sku == global_prod.barcode)
+    ).first()
+    if existing_store_prod:
+        raise HTTPException(status_code=400, detail="This product already exists in your store inventory")
+
+    # 3. Create Store Product using Global defaults or store overrides
+    price = payload.price if payload.price is not None else (global_prod.default_price or Decimal("0.00"))
+    cost_price = payload.cost_price if payload.cost_price is not None else (global_prod.default_cost_price or Decimal("0.00"))
+    tax_rate = payload.tax_rate if payload.tax_rate is not None else global_prod.default_tax_rate
+
+    store_prod = models.Product(
+        store_id=x_store_id,
+        global_product_id=global_prod.id,
+        name=global_prod.name,
+        sku=global_prod.barcode,
+        price=price,
+        cost_price=cost_price,
+        stock=payload.stock,
+        low_stock_alert=payload.low_stock_alert,
+        category=global_prod.category,
+        unit=global_prod.unit,
+        tax_rate=tax_rate,
+        image=global_prod.image
+    )
+    db.add(store_prod)
+    db.commit()
+    db.refresh(store_prod)
+    return store_prod
 
 @app.get("/api/products", response_model=List[schemas.ProductResponse])
 def read_products(
@@ -325,7 +552,28 @@ def read_products(
         q = q.filter(
             (models.Product.name.ilike(search)) | (models.Product.sku.ilike(search))
         )
-    return q.order_by(models.Product.id.asc()).all()
+    products = q.order_by(models.Product.id.asc()).all()
+    # Enrich with brand if linked to global product
+    res = []
+    for p in products:
+        item_dict = {
+            "id": p.id,
+            "store_id": p.store_id,
+            "global_product_id": p.global_product_id,
+            "name": p.name,
+            "sku": p.sku,
+            "price": p.price,
+            "cost_price": p.cost_price,
+            "stock": p.stock,
+            "low_stock_alert": p.low_stock_alert,
+            "category": p.category,
+            "unit": p.unit,
+            "tax_rate": p.tax_rate,
+            "image": p.image,
+            "brand": p.global_product.brand if p.global_product else None
+        }
+        res.append(schemas.ProductResponse(**item_dict))
+    return res
 
 @app.post("/api/products", response_model=schemas.ProductResponse, status_code=status.HTTP_201_CREATED)
 def create_product(
