@@ -161,7 +161,7 @@ export default function InventoryScreen() {
                   <Text style={styles.itemSku}>SKU: {item.sku}</Text>
                   <View style={styles.itemMetaRow}>
                     <Text style={[styles.itemPrice, isOutOfStock && styles.textSecondary]}>
-                      ₹{item.price.toFixed(2)}
+                      ₹{item.price.toFixed(2)}<Text style={{ fontSize: 11, fontWeight: '500', color: '#64748b' }}>/{item.unit || 'pc'}</Text>
                     </Text>
 
                     {/* Stock status badge */}
@@ -173,12 +173,12 @@ export default function InventoryScreen() {
                     ) : isLowStock ? (
                       <View style={[styles.badge, styles.badgeWarning]}>
                         <MaterialIcons name="warning" size={12} color="#854d0e" />
-                        <Text style={styles.badgeTextWarning}>{item.stock} in stock</Text>
+                        <Text style={styles.badgeTextWarning}>{item.stock} {item.unit || 'pcs'} left</Text>
                       </View>
                     ) : (
                       <View style={[styles.badge, styles.badgeSuccess]}>
                         <MaterialIcons name="check-circle" size={12} color="#166534" />
-                        <Text style={styles.badgeTextSuccess}>{item.stock} in stock</Text>
+                        <Text style={styles.badgeTextSuccess}>{item.stock} {item.unit || 'pcs'}</Text>
                       </View>
                     )}
                   </View>

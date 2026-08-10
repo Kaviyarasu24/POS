@@ -15,13 +15,23 @@ import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
 
-const CATEGORIES = ['Grocery', 'Snacks', 'Beverages', 'Dairy', 'Other'];
+const CATEGORIES = ['Grocery', 'Snacks', 'Beverages', 'Dairy', 'Produce', 'Apparel', 'Electronics', 'Other'];
+
+const UNIT_OPTIONS = [
+  { label: 'Piece (pcs)', value: 'pcs', type: 'count', icon: 'check-box-outline-blank' },
+  { label: 'Kilogram (kg)', value: 'kg', type: 'weight', icon: 'scale' },
+  { label: 'Gram (g)', value: 'g', type: 'weight', icon: 'scale' },
+  { label: 'Packet (pkt)', value: 'pack', type: 'count', icon: 'inventory' },
+  { label: 'Box (box)', value: 'box', type: 'count', icon: 'all-inbox' },
+  { label: 'Litre (L)', value: 'l', type: 'volume', icon: 'water-drop' },
+  { label: 'MilliLitre (ml)', value: 'ml', type: 'volume', icon: 'opacity' },
+];
 
 interface FloatingInputProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
-  keyboardType?: 'default' | 'numeric';
+  keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   iconLeft?: string;
   iconRight?: string;
   onIconRightPress?: () => void;
@@ -93,6 +103,7 @@ export default function AddProductScreen() {
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('');
+  const [unit, setUnit] = useState('pcs');
   const [costPrice, setCostPrice] = useState('');
   const [sellingPrice, setSellingPrice] = useState('');
   const [taxRate, setTaxRate] = useState('8');
@@ -104,6 +115,9 @@ export default function AddProductScreen() {
   // Dropdown state for category selection
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
+  // Determine whether current unit is weight/decimal-based
+  const isWeightOrVolume = ['kg', 'g', 'l', 'ml'].includes(unit);
+
   // Load existing product if in edit mode
   useEffect(() => {
     if (isEdit && id) {
@@ -112,6 +126,7 @@ export default function AddProductScreen() {
         setName(product.name);
         setSku(product.sku);
         setCategory(product.category);
+        setUnit(product.unit || 'pcs');
         setCostPrice(product.costPrice.toString());
         setSellingPrice(product.price.toString());
         setTaxRate(product.taxRate.toString());
@@ -142,15 +157,15 @@ export default function AddProductScreen() {
       return;
     }
 
-    const stockNum = parseInt(initialStock, 10);
+    const stockNum = parseFloat(initialStock);
     if (isNaN(stockNum) || stockNum < 0) {
-      setError('Stock level must be a valid non-negative integer.');
+      setError(`Stock level must be a valid non-negative ${isWeightOrVolume ? 'number' : 'integer'}.`);
       return;
     }
 
-    const lowStockAlertNum = lowStock.trim() ? parseInt(lowStock, 10) : 5;
+    const lowStockAlertNum = lowStock.trim() ? parseFloat(lowStock) : (isWeightOrVolume ? 2.0 : 5);
     if (isNaN(lowStockAlertNum) || lowStockAlertNum < 0) {
-      setError('Low stock alert must be a valid non-negative integer.');
+      setError('Low stock alert must be a valid non-negative number.');
       return;
     }
 
@@ -180,6 +195,7 @@ export default function AddProductScreen() {
         name: name.trim(),
         sku: sku.trim().toUpperCase(),
         category,
+        unit,
         costPrice: costNum,
         price: priceNum,
         taxRate: taxRateNum,
@@ -193,6 +209,7 @@ export default function AddProductScreen() {
         name: name.trim(),
         sku: sku.trim().toUpperCase(),
         category,
+        unit,
         costPrice: costNum,
         price: priceNum,
         taxRate: taxRateNum,
@@ -338,25 +355,62 @@ export default function AddProductScreen() {
             )}
           </View>
 
-          {/* Pricing Section */}
+          {/* Pricing & Unit Measurement Section */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Pricing</Text>
-            <View style={styles.rowInputs}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <Text style={styles.sectionHeader}>Pricing & Unit Type</Text>
+              <View style={styles.unitTypeBadge}>
+                <MaterialIcons
+                  name={isWeightOrVolume ? 'scale' : 'check-box-outline-blank'}
+                  size={14}
+                  color="#004ac6"
+                />
+                <Text style={styles.unitTypeBadgeText}>
+                  {isWeightOrVolume ? 'Sold by Weight / Volume' : 'Sold by Piece'}
+                </Text>
+              </View>
+            </View>
+
+            {/* Measurement Unit Selector Chips */}
+            <Text style={styles.subLabel}>Select Measurement Unit *</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.unitChipsContainer}>
+              {UNIT_OPTIONS.map((opt) => {
+                const isSelected = unit === opt.value;
+                return (
+                  <TouchableOpacity
+                    key={opt.value}
+                    style={[styles.unitChip, isSelected && styles.unitChipSelected]}
+                    onPress={() => setUnit(opt.value)}
+                  >
+                    <MaterialIcons
+                      name={opt.icon as any}
+                      size={16}
+                      color={isSelected ? '#ffffff' : '#434655'}
+                    />
+                    <Text style={[styles.unitChipText, isSelected && styles.unitChipTextSelected]}>
+                      {opt.label}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={[styles.rowInputs, { marginTop: 16 }]}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <FloatingInput
-                  label="Cost Price"
+                  label={`Cost Price (per ${unit})`}
                   value={costPrice}
                   onChangeText={setCostPrice}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <FloatingInput
-                  label="Selling Price *"
+                  label={`Selling Price (per ${unit}) *`}
                   value={sellingPrice}
                   onChangeText={setSellingPrice}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
               </View>
@@ -366,7 +420,7 @@ export default function AddProductScreen() {
               label="GST / Tax Rate (%)"
               value={taxRate}
               onChangeText={setTaxRate}
-              keyboardType="numeric"
+              keyboardType="decimal-pad"
               iconRight="percent"
             />
           </View>
@@ -377,18 +431,18 @@ export default function AddProductScreen() {
             <View style={styles.rowInputs}>
               <View style={{ flex: 1, marginRight: 12 }}>
                 <FloatingInput
-                  label="Initial Stock *"
+                  label={`Initial Stock (${unit}) *`}
                   value={initialStock}
                   onChangeText={setInitialStock}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <FloatingInput
-                  label="Low Stock Alert"
+                  label={`Low Stock Alert (${unit})`}
                   value={lowStock}
                   onChangeText={setLowStock}
-                  keyboardType="numeric"
+                  keyboardType="decimal-pad"
                 />
               </View>
             </View>
@@ -452,46 +506,97 @@ const styles = StyleSheet.create({
   },
   formScroll: {
     padding: 16,
-    paddingBottom: 96,
-    gap: 16,
+    paddingBottom: 100,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffdad6',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 12,
+    marginBottom: 16,
     gap: 8,
   },
   errorText: {
-    fontSize: 13,
     color: '#ba1a1a',
+    fontSize: 14,
     fontWeight: '500',
+    flex: 1,
   },
   sectionCard: {
     backgroundColor: '#ffffff',
+    borderRadius: 16,
     padding: 16,
-    borderRadius: 12,
+    marginBottom: 16,
     borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.3)',
+    borderColor: '#c3c6d7',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.02,
-    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
     elevation: 1,
   },
   sectionHeader: {
     fontSize: 16,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#131b2e',
-    marginBottom: 16,
+    marginBottom: 8,
+  },
+  subLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#434655',
+    marginBottom: 8,
+  },
+  unitTypeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  unitTypeBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#004ac6',
+  },
+  unitChipsContainer: {
+    flexDirection: 'row',
+    gap: 8,
+    paddingBottom: 4,
+  },
+  unitChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+  },
+  unitChipSelected: {
+    backgroundColor: '#004ac6',
+    borderColor: '#004ac6',
+  },
+  unitChipText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#334155',
+  },
+  unitChipTextSelected: {
+    color: '#ffffff',
+    fontWeight: '700',
   },
   imageUploadArea: {
-    height: 120,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
+    height: 100,
+    borderRadius: 12,
+    borderWidth: 2,
     borderColor: '#c3c6d7',
+    borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#faf8ff',
@@ -499,86 +604,94 @@ const styles = StyleSheet.create({
   uploadText: {
     fontSize: 13,
     color: '#737686',
+    marginTop: 6,
     fontWeight: '500',
-    marginTop: 8,
   },
   inputContainer: {
-    position: 'relative',
     height: 56,
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: '#c3c6d7',
-    borderRadius: 8,
+    marginBottom: 16,
     justifyContent: 'center',
-    paddingHorizontal: 16,
-    marginTop: 16,
+    position: 'relative',
+    backgroundColor: '#faf8ff',
   },
   input: {
-    fontSize: 15,
-    color: '#131b2e',
     height: '100%',
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    fontSize: 16,
+    color: '#131b2e',
   },
   inputLabel: {
     position: 'absolute',
     left: 16,
-    fontSize: 15,
     color: '#737686',
-    backgroundColor: '#ffffff',
-    paddingHorizontal: 4,
+    fontWeight: '500',
   },
   inputLabelCenter: {
-    top: 16,
+    top: 18,
+    fontSize: 16,
   },
   inputLabelTop: {
-    top: -10,
+    top: 6,
     fontSize: 11,
-    fontWeight: '500',
   },
   iconLeftText: {
     position: 'absolute',
-    left: 16,
+    left: 14,
+    top: 22,
     fontSize: 16,
     color: '#434655',
-    top: 24, // aligns with text
+    fontWeight: '600',
   },
   iconRightButton: {
     position: 'absolute',
-    right: 12,
-    padding: 4,
-  },
-  selectTrigger: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    height: '100%',
-    paddingTop: 12,
-  },
-  selectText: {
-    fontSize: 15,
-    color: '#131b2e',
-  },
-  categoryDropdown: {
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-    borderRadius: 8,
-    backgroundColor: '#ffffff',
-    marginTop: 4,
-    overflow: 'hidden',
-  },
-  categoryOption: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f3ff',
-  },
-  categoryOptionText: {
-    fontSize: 14,
-    color: '#131b2e',
+    right: 14,
+    top: 16,
   },
   rowInputs: {
     flexDirection: 'row',
+  },
+  selectTrigger: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    height: '100%',
+  },
+  selectText: {
+    fontSize: 16,
+    color: '#131b2e',
+  },
+  categoryDropdown: {
+    marginTop: -8,
+    marginBottom: 16,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#c3c6d7',
+    overflow: 'hidden',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  categoryOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  categoryOptionText: {
+    fontSize: 15,
+    color: '#131b2e',
   },
   bottomBar: {
     position: 'absolute',
@@ -586,23 +699,22 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     backgroundColor: '#ffffff',
+    padding: 16,
     borderTopWidth: 1,
     borderTopColor: 'rgba(195,198,215,0.2)',
-    padding: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
   },
   saveButton: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#004ac6',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563eb',
-    height: 48,
-    borderRadius: 24,
     gap: 8,
   },
   saveButtonText: {
     color: '#ffffff',
-    fontSize: 14,
+    fontSize: 15,
     fontWeight: '600',
   },
 });

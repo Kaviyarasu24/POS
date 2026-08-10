@@ -87,10 +87,10 @@ class ProductBase(BaseModel):
     sku: str
     price: Decimal
     cost_price: Decimal
-    stock: int
-    low_stock_alert: int
+    stock: Decimal
+    low_stock_alert: Decimal = Decimal("5.000")
     category: str
-    unit: Optional[str] = None
+    unit: Optional[str] = "pcs"
     tax_rate: Decimal = Decimal("8.00")
     image: Optional[str] = None
 
@@ -102,8 +102,8 @@ class ProductUpdate(BaseModel):
     sku: Optional[str] = None
     price: Optional[Decimal] = None
     cost_price: Optional[Decimal] = None
-    stock: Optional[int] = None
-    low_stock_alert: Optional[int] = None
+    stock: Optional[Decimal] = None
+    low_stock_alert: Optional[Decimal] = None
     category: Optional[str] = None
     unit: Optional[str] = None
     tax_rate: Optional[Decimal] = None
@@ -119,7 +119,7 @@ class ProductResponse(ProductBase):
 # --- Checkout & Bill Schemas ---
 class CartItemSchema(BaseModel):
     product_id: int
-    quantity: int
+    quantity: Decimal
     price: Decimal
 
 class CheckoutSchema(BaseModel):
@@ -135,7 +135,7 @@ class TransactionItemResponse(BaseModel):
     id: Optional[int] = None
     product_id: int
     product_name: str
-    quantity: int
+    quantity: Decimal
     price: Decimal
 
     class Config:
@@ -179,7 +179,8 @@ class TransactionResponse(BaseModel):
 class LowStockAlert(BaseModel):
     id: int
     name: str
-    stock: int
+    stock: Decimal
+    unit: Optional[str] = "pcs"
 
 class RecentTransaction(BaseModel):
     store_id: str

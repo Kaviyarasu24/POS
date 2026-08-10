@@ -45,10 +45,10 @@ class Product(Base):
     sku = Column(String(100), index=True, nullable=False)
     price = Column(DECIMAL(10, 2), nullable=False)
     cost_price = Column(DECIMAL(10, 2), nullable=False)
-    stock = Column(Integer, nullable=False, default=0)
-    low_stock_alert = Column(Integer, nullable=False, default=5)
+    stock = Column(DECIMAL(10, 3), nullable=False, default=0.000)
+    low_stock_alert = Column(DECIMAL(10, 3), nullable=False, default=5.000)
     category = Column(String(100), nullable=False)
-    unit = Column(String(50), nullable=True)
+    unit = Column(String(50), nullable=True, default="pcs")
     tax_rate = Column(DECIMAL(5, 2), nullable=False, default=8.00)
     image = Column(Text, nullable=True)
     created_at = Column(DateTime, server_default=func.now())
@@ -90,7 +90,7 @@ class TransactionItem(Base):
     invoice_number = Column(String(100), nullable=False)
     product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
     product_name = Column(String(255), nullable=False)
-    quantity = Column(Integer, nullable=False)
+    quantity = Column(DECIMAL(10, 3), nullable=False)
     price = Column(DECIMAL(10, 2), nullable=False)
 
     __table_args__ = (

@@ -741,7 +741,7 @@ def get_dashboard_metrics(
     ).order_by(models.Product.stock.asc()).limit(5).all()
 
     low_stock_alerts = [
-        schemas.LowStockAlert(id=p.id, name=p.name, stock=p.stock)
+        schemas.LowStockAlert(id=p.id, name=p.name, stock=p.stock, unit=p.unit or "pcs")
         for p in low_stock
     ]
 

@@ -53,6 +53,11 @@ export default function BillingScreen() {
   const [discountInput, setDiscountInput] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
 
+  // Weight & Volume Measurement Modal States
+  const [weightModalProduct, setWeightModalProduct] = useState<Product | null>(null);
+  const [weightInput, setWeightInput] = useState('0.5');
+  const [weightUnitMode, setWeightUnitMode] = useState<'kg' | 'g'>('kg');
+
   // Payment & Bill Generator States
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('CASH');
@@ -61,6 +66,9 @@ export default function BillingScreen() {
   // Generated Bill State
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [generatedBill, setGeneratedBill] = useState<GeneratedBill | null>(null);
+
+  // Helper check for loose weight / volume items
+  const isWeightItem = (unit?: string) => ['kg', 'g', 'l', 'ml'].includes(unit || '');
 
   // Subscribe to store updates
   useEffect(() => {
@@ -116,7 +124,7 @@ export default function BillingScreen() {
     const taxableSubtotal = Math.max(0, subtotal - discountAmount);
     const tax = taxableSubtotal * 0.08;
     const total = taxableSubtotal + tax;
-    const totalItems = cart.reduce((acc, item) => acc + item.quantity, 0);
+    const totalItems = cart.reduce((acc, item) => acc + (isWeightItem(item.product.unit) ? 1 : item.quantity), 0);
 
     return {
       subtotal,
@@ -148,6 +156,27 @@ export default function BillingScreen() {
     return quantities;
   }, [cart]);
 
+  // Handle Product Tap
+  const handleProductPress = (product: Product) => {
+    if (product.stock <= 0) {
+      Alert.alert('Out of Stock', `${product.name} is currently out of stock.`);
+      return;
+    }
+
+    if (isWeightItem(product.unit)) {
+      setWeightModalProduct(product);
+      const existing = cart.find((i) => i.product.id === product.id);
+      if (existing) {
+        setWeightInput(existing.quantity.toString());
+      } else {
+        setWeightInput(product.unit === 'g' ? '250' : '0.5');
+      }
+      setWeightUnitMode(product.unit === 'g' ? 'g' : 'kg');
+    } else {
+      addToCart(product);
+    }
+  };
+
   // Cart operations
   const addToCart = (product: Product) => {
     if (product.stock <= 0) {
@@ -169,6 +198,36 @@ export default function BillingScreen() {
     });
   };
 
+  const handleConfirmWeight = () => {
+    if (!weightModalProduct) return;
+    let val = parseFloat(weightInput);
+    if (isNaN(val) || val <= 0) {
+      Alert.alert('Invalid Weight', 'Please enter a valid weight or quantity greater than 0.');
+      return;
+    }
+
+    if (weightUnitMode === 'g' && weightModalProduct.unit === 'kg') {
+      val = val / 1000;
+    }
+
+    if (val > weightModalProduct.stock) {
+      Alert.alert('Stock Limit', `Only ${weightModalProduct.stock} ${weightModalProduct.unit || 'kg'} available in stock.`);
+      return;
+    }
+
+    setCart((prev) => {
+      const existingIdx = prev.findIndex((i) => i.product.id === weightModalProduct.id);
+      if (existingIdx > -1) {
+        const newCart = [...prev];
+        newCart[existingIdx].quantity = val;
+        return newCart;
+      }
+      return [...prev, { product: weightModalProduct, quantity: val }];
+    });
+
+    setWeightModalProduct(null);
+  };
+
   const removeFromCart = (productId: string) => {
     setCart((prev) => prev.filter((item) => item.product.id !== productId));
   };
@@ -177,13 +236,17 @@ export default function BillingScreen() {
     const product = products.find((p) => p.id === productId);
     if (!product) return;
 
+    const isWeight = isWeightItem(product.unit);
+    const step = isWeight ? (product.unit === 'g' ? 50 : 0.25) : 1;
+    const actualDelta = delta > 0 ? step : -step;
+
     setCart((prev) => {
       return prev
         .map((item) => {
           if (item.product.id === productId) {
-            const nextQty = item.quantity + delta;
+            const nextQty = Math.round((item.quantity + actualDelta) * 1000) / 1000;
             if (nextQty > product.stock) {
-              Alert.alert('Limit Reached', `Only ${product.stock} units available in stock.`);
+              Alert.alert('Limit Reached', `Only ${product.stock} ${product.unit || 'units'} available in stock.`);
               return item;
             }
             return { ...item, quantity: nextQty };
@@ -382,7 +445,7 @@ export default function BillingScreen() {
                   isOutOfStock && styles.productCardDisabled,
                 ]}
                 activeOpacity={0.7}
-                onPress={() => addToCart(item)}
+                onPress={() => handleProductPress(item)}
                 disabled={isOutOfStock}
               >
                 <View style={styles.imageWrapper}>
@@ -400,7 +463,9 @@ export default function BillingScreen() {
                   )}
                   {qtyInCart > 0 && (
                     <View style={styles.quantityBadge}>
-                      <Text style={styles.quantityBadgeText}>{qtyInCart}</Text>
+                      <Text style={styles.quantityBadgeText}>
+                        {isWeightItem(item.unit) ? `${qtyInCart} ${item.unit}` : qtyInCart}
+                      </Text>
                     </View>
                   )}
                   {isOutOfStock && (
@@ -416,8 +481,13 @@ export default function BillingScreen() {
                   </Text>
                   <Text style={styles.productSku}>{item.sku}</Text>
                   <View style={styles.priceRow}>
-                    <Text style={styles.productPrice}>₹{item.price.toFixed(2)}</Text>
-                    <Text style={styles.productStock}>Stock: {item.stock}</Text>
+                    <Text style={styles.productPrice}>
+                      ₹{item.price.toFixed(2)}
+                      <Text style={{ fontSize: 10, color: '#737686' }}>/{item.unit || 'pc'}</Text>
+                    </Text>
+                    <Text style={styles.productStock}>
+                      {item.stock} {item.unit || 'pcs'}
+                    </Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -504,39 +574,51 @@ export default function BillingScreen() {
 
           {/* Cart Item List */}
           <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
-            {cart.map((item) => (
-              <View key={item.product.id} style={styles.cartItemRow}>
-                <View style={styles.cartItemInfo}>
-                  <Text style={styles.cartItemName} numberOfLines={1}>
-                    {item.product.name}
-                  </Text>
-                  <Text style={styles.cartItemPrice}>
-                    ₹{item.product.price.toFixed(2)} each
-                  </Text>
-                </View>
-
-                <View style={styles.cartItemActions}>
-                  <View style={styles.qtyControl}>
-                    <TouchableOpacity
-                      style={styles.cartQtyBtn}
-                      onPress={() => updateQuantity(item.product.id, -1)}
-                    >
-                      <MaterialIcons name="remove" size={16} color="#004ac6" />
-                    </TouchableOpacity>
-                    <Text style={styles.cartQtyTextVal}>{item.quantity}</Text>
-                    <TouchableOpacity
-                      style={styles.cartQtyBtn}
-                      onPress={() => updateQuantity(item.product.id, 1)}
-                    >
-                      <MaterialIcons name="add" size={16} color="#004ac6" />
-                    </TouchableOpacity>
+            {cart.map((item) => {
+              const isWeight = isWeightItem(item.product.unit);
+              return (
+                <View key={item.product.id} style={styles.cartItemRow}>
+                  <View style={styles.cartItemInfo}>
+                    <Text style={styles.cartItemName} numberOfLines={1}>
+                      {item.product.name}
+                    </Text>
+                    <Text style={styles.cartItemPrice}>
+                      ₹{item.product.price.toFixed(2)} / {item.product.unit || 'pc'}
+                    </Text>
                   </View>
-                  <Text style={styles.cartItemTotal}>
-                    ₹{(item.product.price * item.quantity).toFixed(2)}
-                  </Text>
+
+                  <View style={styles.cartItemActions}>
+                    <View style={styles.qtyControl}>
+                      <TouchableOpacity
+                        style={styles.cartQtyBtn}
+                        onPress={() => updateQuantity(item.product.id, -1)}
+                      >
+                        <MaterialIcons name="remove" size={16} color="#004ac6" />
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        onPress={() => isWeight && handleProductPress(item.product)}
+                        disabled={!isWeight}
+                      >
+                        <Text style={[styles.cartQtyTextVal, isWeight && { color: '#004ac6', textDecorationLine: 'underline' }]}>
+                          {item.quantity} {item.product.unit || 'pcs'}
+                        </Text>
+                      </TouchableOpacity>
+
+                      <TouchableOpacity
+                        style={styles.cartQtyBtn}
+                        onPress={() => updateQuantity(item.product.id, 1)}
+                      >
+                        <MaterialIcons name="add" size={16} color="#004ac6" />
+                      </TouchableOpacity>
+                    </View>
+                    <Text style={styles.cartItemTotal}>
+                      ₹{(item.product.price * item.quantity).toFixed(2)}
+                    </Text>
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+            })}
             {cart.length === 0 && (
               <View style={styles.emptyCart}>
                 <MaterialIcons name="remove-shopping-cart" size={40} color="#c3c6d7" />
@@ -860,6 +942,197 @@ export default function BillingScreen() {
               </TouchableOpacity>
             </View>
           </View>
+        </View>
+      </Modal>
+
+      {/* Weight / Measurement Quantity Modal */}
+      <Modal
+        visible={!!weightModalProduct}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setWeightModalProduct(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <KeyboardAvoidingView
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            style={styles.weightModalContainer}
+          >
+            {weightModalProduct && (
+              <>
+                <View style={styles.weightModalHeader}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.weightModalTitle}>{weightModalProduct.name}</Text>
+                    <Text style={styles.weightModalSubtitle}>
+                      Rate: ₹{weightModalProduct.price.toFixed(2)} / {weightModalProduct.unit || 'kg'} • Stock: {weightModalProduct.stock} {weightModalProduct.unit || 'kg'}
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    onPress={() => setWeightModalProduct(null)}
+                    style={styles.modalCloseBtn}
+                  >
+                    <MaterialIcons name="close" size={20} color="#737686" />
+                  </TouchableOpacity>
+                </View>
+
+                {/* Quick Unit Toggle for Kg vs Grams */}
+                {weightModalProduct.unit === 'kg' && (
+                  <View style={styles.unitToggleRow}>
+                    <TouchableOpacity
+                      style={[styles.unitToggleBtn, weightUnitMode === 'kg' && styles.unitToggleBtnActive]}
+                      onPress={() => {
+                        if (weightUnitMode !== 'kg') {
+                          const gVal = parseFloat(weightInput) || 0;
+                          setWeightInput((gVal / 1000).toString());
+                          setWeightUnitMode('kg');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.unitToggleText, weightUnitMode === 'kg' && styles.unitToggleTextActive]}>
+                        Kilograms (kg)
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.unitToggleBtn, weightUnitMode === 'g' && styles.unitToggleBtnActive]}
+                      onPress={() => {
+                        if (weightUnitMode !== 'g') {
+                          const kgVal = parseFloat(weightInput) || 0;
+                          setWeightInput((kgVal * 1000).toString());
+                          setWeightUnitMode('g');
+                        }
+                      }}
+                    >
+                      <Text style={[styles.unitToggleText, weightUnitMode === 'g' && styles.unitToggleTextActive]}>
+                        Grams (g)
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+
+                {/* Quick Presets */}
+                <Text style={styles.presetsLabel}>Quick Presets:</Text>
+                <View style={styles.presetChipsRow}>
+                  {weightModalProduct.unit === 'kg' ? (
+                    <>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('g');
+                          setWeightInput('100');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>100g</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('g');
+                          setWeightInput('250');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>250g</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('g');
+                          setWeightInput('500');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>500g</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('g');
+                          setWeightInput('750');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>750g</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('kg');
+                          setWeightInput('1');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>1 kg</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity
+                        style={styles.presetChip}
+                        onPress={() => {
+                          setWeightUnitMode('kg');
+                          setWeightInput('2');
+                        }}
+                      >
+                        <Text style={styles.presetChipText}>2 kg</Text>
+                      </TouchableOpacity>
+                    </>
+                  ) : (
+                    <>
+                      <TouchableOpacity style={styles.presetChip} onPress={() => setWeightInput('0.25')}>
+                        <Text style={styles.presetChipText}>0.25</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.presetChip} onPress={() => setWeightInput('0.5')}>
+                        <Text style={styles.presetChipText}>0.5</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.presetChip} onPress={() => setWeightInput('1')}>
+                        <Text style={styles.presetChipText}>1.0</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity style={styles.presetChip} onPress={() => setWeightInput('2')}>
+                        <Text style={styles.presetChipText}>2.0</Text>
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </View>
+
+                {/* Weight Input Box */}
+                <View style={styles.weightInputWrapper}>
+                  <TextInput
+                    style={styles.weightTextInput}
+                    keyboardType="decimal-pad"
+                    placeholder="0.0"
+                    value={weightInput}
+                    onChangeText={setWeightInput}
+                    autoFocus
+                  />
+                  <Text style={styles.weightUnitSuffix}>
+                    {weightModalProduct.unit === 'kg' ? weightUnitMode : (weightModalProduct.unit || 'units')}
+                  </Text>
+                </View>
+
+                {/* Live Subtotal Preview */}
+                {(() => {
+                  const pInput = parseFloat(weightInput) || 0;
+                  const eQty = weightUnitMode === 'g' && weightModalProduct.unit === 'kg' ? pInput / 1000 : pInput;
+                  const calcTotal = weightModalProduct.price * eQty;
+                  return (
+                    <View style={styles.weightPreviewBox}>
+                      <Text style={styles.weightPreviewLabel}>Calculated Amount:</Text>
+                      <Text style={styles.weightPreviewTotal}>₹{calcTotal.toFixed(2)}</Text>
+                    </View>
+                  );
+                })()}
+
+                {/* Action Buttons */}
+                <View style={styles.modalButtons}>
+                  <TouchableOpacity
+                    style={styles.modalCancelBtn}
+                    onPress={() => setWeightModalProduct(null)}
+                  >
+                    <Text style={styles.modalCancelText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.modalConfirmBtn, { backgroundColor: '#004ac6' }]}
+                    onPress={handleConfirmWeight}
+                  >
+                    <MaterialIcons name="add-shopping-cart" size={18} color="#ffffff" style={{ marginRight: 4 }} />
+                    <Text style={styles.modalConfirmText}>Add to Cart</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
+          </KeyboardAvoidingView>
         </View>
       </Modal>
     </SafeAreaView>
@@ -1764,5 +2037,139 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
+  },
+  // Weight Modal Styles
+  weightModalContainer: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    width: '90%',
+    maxWidth: 420,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  weightModalHeader: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+    paddingBottom: 10,
+  },
+  weightModalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#131b2e',
+  },
+  weightModalSubtitle: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+    fontWeight: '500',
+  },
+  unitToggleRow: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 12,
+    gap: 4,
+  },
+  unitToggleBtn: {
+    flex: 1,
+    paddingVertical: 6,
+    alignItems: 'center',
+    borderRadius: 6,
+  },
+  unitToggleBtnActive: {
+    backgroundColor: '#ffffff',
+    elevation: 1,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+  },
+  unitToggleText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  unitToggleTextActive: {
+    color: '#004ac6',
+    fontWeight: '700',
+  },
+  presetsLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#434655',
+    marginBottom: 6,
+  },
+  presetChipsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 14,
+  },
+  presetChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#eff6ff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  presetChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#004ac6',
+  },
+  weightInputWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: '#004ac6',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    height: 52,
+    backgroundColor: '#f8fafc',
+    marginBottom: 12,
+  },
+  weightTextInput: {
+    flex: 1,
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#0f172a',
+    padding: 0,
+  },
+  weightUnitSuffix: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#004ac6',
+    marginLeft: 8,
+  },
+  weightPreviewBox: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderRadius: 8,
+    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  weightPreviewLabel: {
+    fontSize: 13,
+    color: '#166534',
+    fontWeight: '600',
+  },
+  weightPreviewTotal: {
+    fontSize: 17,
+    fontWeight: '800',
+    color: '#15803d',
   },
 });
