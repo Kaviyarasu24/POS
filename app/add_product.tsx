@@ -49,14 +49,23 @@ function FloatingInput({
   editable = true,
 }: FloatingInputProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const showLabelOnTop = isFocused || value.length > 0;
+  const inputRef = React.useRef<TextInput>(null);
+  const showLabelOnTop = isFocused || (value !== undefined && value !== null && value.length > 0);
 
   return (
-    <View style={styles.inputContainer}>
+    <TouchableOpacity
+      activeOpacity={1}
+      onPress={() => inputRef.current?.focus()}
+      style={[
+        styles.inputContainer,
+        isFocused && { borderColor: '#004ac6', backgroundColor: '#ffffff' },
+      ]}
+    >
       {iconLeft && (
-        <Text style={styles.iconLeftText}>{iconLeft}</Text>
+        <Text pointerEvents="none" style={styles.iconLeftText}>{iconLeft}</Text>
       )}
       <TextInput
+        ref={inputRef}
         style={[
           styles.input,
           iconLeft && { paddingLeft: 32 },
@@ -72,11 +81,12 @@ function FloatingInput({
         editable={editable}
       />
       <Text
+        pointerEvents="none"
         style={[
           styles.inputLabel,
           showLabelOnTop ? styles.inputLabelTop : styles.inputLabelCenter,
           iconLeft && !showLabelOnTop && { left: 32 },
-          isFocused && { color: '#004ac6' },
+          isFocused && { color: '#004ac6', fontWeight: '700' },
         ]}
       >
         {label}
@@ -90,7 +100,7 @@ function FloatingInput({
           <MaterialIcons name={iconRight as any} size={20} color="#434655" />
         </TouchableOpacity>
       )}
-    </View>
+    </TouchableOpacity>
   );
 }
 
