@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   SafeAreaView,
-  ActivityIndicator,
   ScrollView,
 } from 'react-native';
 import { Image } from 'expo-image';
@@ -26,7 +25,6 @@ export default function ProductsScreen() {
   const [selectedFilter, setSelectedFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
   const [sortIndex, setSortIndex] = useState(0); // Index in SORT_MODES
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Subscribe to store updates
   useEffect(() => {
@@ -74,15 +72,6 @@ export default function ProductsScreen() {
     setSortIndex((prev) => (prev + 1) % SORT_MODES.length);
   };
 
-  // Simulate loading more products
-  const handleLoadMore = () => {
-    if (loadingMore) return;
-    setLoadingMore(true);
-    setTimeout(() => {
-      setLoadingMore(false);
-    }, 1200);
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       {/* Top Header */}
@@ -102,8 +91,6 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollContainer}
         stickyHeaderIndices={[0]}
-        onEndReached={handleLoadMore}
-        onEndReachedThreshold={0.1}
         ListHeaderComponent={
           /* Search & Filter Sticky Bar */
           <View style={styles.toolbarWrapper}>
@@ -218,13 +205,6 @@ export default function ProductsScreen() {
             <MaterialIcons name="search-off" size={48} color="#c3c6d7" />
             <Text style={styles.emptyText}>No products found matching your filters.</Text>
           </View>
-        }
-        ListFooterComponent={
-          loadingMore ? (
-            <View style={styles.loaderFooter}>
-              <ActivityIndicator size="small" color="#004ac6" />
-            </View>
-          ) : null
         }
       />
 
