@@ -41,6 +41,7 @@ export default function ProfileScreen() {
   const userSession = store.currentUser;
   const [shopName, setShopName] = useState(userSession?.shopName || 'TGM Supermart');
   const [ownerName, setOwnerName] = useState(userSession?.userName || 'Store User');
+  const [storeId, setStoreId] = useState(userSession?.storeId || 'TGM-1001');
   const [phone, setPhone] = useState(userSession?.phone || '+91 7010764469');
   const [email, setEmail] = useState(userSession?.email || 'rithes07@gmail.com');
   const [avatarImage, setAvatarImage] = useState<string | null>(userSession?.image || null);
@@ -91,6 +92,7 @@ export default function ProfileScreen() {
       if (store.currentUser) {
         setShopName(store.currentUser.shopName);
         setOwnerName(store.currentUser.userName);
+        setStoreId(store.currentUser.storeId || 'TGM-1001');
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
         setAvatarImage(store.currentUser.image || null);
@@ -108,6 +110,16 @@ export default function ProfileScreen() {
     });
     return unsubscribe;
   }, []);
+
+  const handleCopyStoreId = () => {
+    const code = storeId || 'TGM-1001';
+    if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
+      navigator.clipboard.writeText(code);
+      Alert.alert('Copied!', `Store ID (Join Code) "${code}" copied to clipboard.\nShare this with users so they can join your store.`);
+    } else {
+      Alert.alert('Store ID / Join Code', `Store ID: ${code}\nShare this code with your staff/cashiers during signup to join this store.`);
+    }
+  };
 
   // Open Avatar Selection Modal
   const openAvatarPicker = () => {
@@ -304,6 +316,22 @@ export default function ProfileScreen() {
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Shop Information</Text>
             <View style={styles.infoCard}>
+              {/* Store ID / Join Code */}
+              <TouchableOpacity style={styles.rowItem} onPress={handleCopyStoreId}>
+                <View style={styles.rowLeft}>
+                  <View style={styles.iconBackground}>
+                    <MaterialIcons name="vpn-key" size={20} color="#004ac6" />
+                  </View>
+                  <View>
+                    <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
+                    <Text style={[styles.rowSubLabel, { fontWeight: '600', color: '#004ac6' }]}>
+                      {storeId || 'TGM-1001'} • Tap to copy
+                    </Text>
+                  </View>
+                </View>
+                <MaterialIcons name="content-copy" size={18} color="#004ac6" />
+              </TouchableOpacity>
+
               {/* Category */}
               <TouchableOpacity style={styles.rowItem} onPress={openShopInfo}>
                 <View style={styles.rowLeft}>
