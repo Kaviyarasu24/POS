@@ -331,7 +331,7 @@ export default function SignupScreen() {
                 <Text style={styles.sectionTitle}>Join Existing Store</Text>
               </View>
               <Text style={styles.sectionSubtitle}>
-                Enter the alphanumeric Store ID / Join Code provided by your store owner (e.g. TGM-1001).
+                Enter the unique letter-based Join Code provided by your store owner (e.g. TGMPOS, MARTABC).
               </Text>
 
               <View style={styles.inputGroup}>
@@ -339,7 +339,7 @@ export default function SignupScreen() {
                 <View style={[styles.inputWrapper, verifiedStore && styles.inputWrapperSuccess]}>
                   <TextInput
                     style={[styles.input, { letterSpacing: 1.5, fontWeight: '600' }]}
-                    placeholder="e.g. TGM-1001"
+                    placeholder="e.g. TGMPOS"
                     placeholderTextColor={theme.icon}
                     value={joinStoreId}
                     onChangeText={handleVerifyJoinCode}

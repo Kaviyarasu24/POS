@@ -8,6 +8,7 @@ from decimal import Decimal
 import hashlib
 import re
 import random
+import string
 
 import models
 import schemas
@@ -31,15 +32,16 @@ def hash_password(password: str) -> str:
     return hashlib.sha256(password.encode()).hexdigest()
 
 def generate_store_id(store_name: str, db: Session) -> str:
-    """Generate a clean alphanumeric store identifier e.g. TGM-1001"""
-    clean_prefix = re.sub(r'[^A-Za-z0-9]', '', store_name.upper())[:4]
-    if not clean_prefix or len(clean_prefix) < 2:
-        clean_prefix = "STR"
-    random_num = random.randint(1000, 9999)
-    candidate_id = f"{clean_prefix}-{random_num}"
+    """Generate a clean full-character store identifier e.g. TGMPOS, TGMAEX, MARTABC (3-4 letters from shop name + 3 random uppercase letters)"""
+    clean_prefix = re.sub(r'[^A-Z]', '', store_name.upper())[:4]
+    if len(clean_prefix) < 3:
+        clean_prefix = (clean_prefix + "STR")[:3]
+    
+    random_suffix = ''.join(random.choices(string.ascii_uppercase, k=3))
+    candidate_id = f"{clean_prefix}{random_suffix}"
     while db.query(models.Store).filter(models.Store.id == candidate_id).first():
-        random_num = random.randint(1000, 9999)
-        candidate_id = f"{clean_prefix}-{random_num}"
+        random_suffix = ''.join(random.choices(string.ascii_uppercase, k=3))
+        candidate_id = f"{clean_prefix}{random_suffix}"
     return candidate_id
 
 def get_store_id(x_store_id: Optional[str] = Header(None)) -> str:
