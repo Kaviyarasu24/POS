@@ -193,6 +193,14 @@ export default function DashboardScreen() {
                 <MaterialIcons name="inventory" size={24} color="#131b2e" style={styles.actionIcon} />
                 <Text style={styles.actionText}>Stock Entry</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push('/transactions' as any)}
+              >
+                <MaterialIcons name="receipt-long" size={24} color="#131b2e" style={styles.actionIcon} />
+                <Text style={styles.actionText}>History</Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
 
@@ -273,7 +281,7 @@ export default function DashboardScreen() {
           <View style={styles.transactionsCard}>
             <View style={styles.transactionsHeader}>
               <Text style={styles.transactionsTitle}>Recent Transactions</Text>
-              <TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/transactions' as any)}>
                 <Text style={styles.seeAllLink}>See All</Text>
               </TouchableOpacity>
             </View>
@@ -283,15 +291,16 @@ export default function DashboardScreen() {
                 const dateObj = new Date(tx.created_at);
                 const timeString = dateObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
                 return (
-                  <View
-                    key={tx.id}
+                  <TouchableOpacity
+                    key={tx.invoice_number || idx}
                     style={[
                       styles.transactionItem,
                       idx === metrics.recent_transactions.length - 1 && styles.lastTransactionItem,
                     ]}
+                    onPress={() => router.push({ pathname: '/transactions' as any, params: { invoice: tx.invoice_number } })}
                   >
                     <View style={styles.transactionIconContainer}>
-                      <MaterialIcons name="receipt-long" size={20} color="#434655" />
+                      <MaterialIcons name="receipt-long" size={20} color="#004ac6" />
                     </View>
                     <View style={styles.transactionDetails}>
                       <Text style={styles.transactionOrder}>
@@ -304,7 +313,7 @@ export default function DashboardScreen() {
                     <Text style={styles.transactionAmount}>
                       ₹{parseFloat(tx.total).toFixed(2)}
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                 );
               })}
               {metrics.recent_transactions.length === 0 && (

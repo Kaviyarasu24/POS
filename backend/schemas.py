@@ -164,7 +164,13 @@ class BillResponse(BaseModel):
 class TransactionResponse(BaseModel):
     store_id: str
     invoice_number: str
+    shop_name: Optional[str] = None
+    shop_address: Optional[str] = None
+    shop_phone: Optional[str] = None
+    gst_number: Optional[str] = None
+    cashier_name: Optional[str] = None
     payment_method: str
+    payment_status: str = "PAID"
     subtotal: Decimal
     discount: Decimal
     tax: Decimal

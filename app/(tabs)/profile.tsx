@@ -458,6 +458,23 @@ export default function ProfileScreen() {
                 />
               </View>
 
+              {/* Transaction History & Receipts */}
+              <TouchableOpacity
+                style={styles.rowItem}
+                onPress={() => router.push('/transactions' as any)}
+              >
+                <View style={styles.rowLeft}>
+                  <View style={styles.iconBackground}>
+                    <MaterialIcons name="receipt-long" size={20} color="#004ac6" />
+                  </View>
+                  <View>
+                    <Text style={styles.rowLabel}>Transaction History</Text>
+                    <Text style={styles.rowSubLabel}>View, search & reprint bills</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#004ac6" />
+              </TouchableOpacity>
+
               {/* Printer Settings */}
               <TouchableOpacity
                 style={styles.rowItem}

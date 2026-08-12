@@ -501,6 +501,117 @@ class ProductStore {
     }
   }
 
+  private localTransactions: GeneratedBill[] = [];
+
+  // Fetch all or filtered transactions
+  async fetchTransactions(filters?: {
+    query?: string;
+    paymentMethod?: string;
+    startDate?: string;
+    endDate?: string;
+    limit?: number;
+  }): Promise<GeneratedBill[]> {
+    try {
+      const params = new URLSearchParams();
+      if (filters?.query) params.append('query', filters.query);
+      if (filters?.paymentMethod && filters.paymentMethod !== 'ALL') params.append('payment_method', filters.paymentMethod);
+      if (filters?.startDate) params.append('start_date', filters.startDate);
+      if (filters?.endDate) params.append('end_date', filters.endDate);
+      if (filters?.limit) params.append('limit', filters.limit.toString());
+
+      const url = `${API_BASE_URL}/api/transactions${params.toString() ? `?${params.toString()}` : ''}`;
+      const response = await fetch(url, {
+        headers: this.getHeaders(),
+      });
+
+      if (!response.ok) throw new Error('Failed to fetch transactions from server');
+      const data = await response.json();
+
+      const serverList: GeneratedBill[] = data.map((t: any) => ({
+        store_id: t.store_id,
+        invoice_number: t.invoice_number,
+        shop_name: t.shop_name || this._currentUser?.shopName || 'SmartPOS Store',
+        shop_address: t.shop_address || this._currentUser?.businessAddress,
+        shop_phone: t.shop_phone || this._currentUser?.phone,
+        gst_number: t.gst_number || this._currentUser?.gstNumber,
+        cashier_name: t.cashier_name || 'Cashier',
+        payment_method: t.payment_method,
+        payment_status: t.payment_status || 'PAID',
+        subtotal: parseFloat(t.subtotal) || 0,
+        discount: parseFloat(t.discount) || 0,
+        tax: parseFloat(t.tax) || 0,
+        total: parseFloat(t.total) || 0,
+        created_at: t.created_at,
+        items: (t.items || []).map((i: any) => ({
+          id: i.id,
+          product_id: i.product_id,
+          product_name: i.product_name,
+          quantity: parseFloat(i.quantity) || 1,
+          price: parseFloat(i.price) || 0,
+        })),
+      }));
+
+      // Combine with any local non-synced transactions
+      const existingInvoices = new Set(serverList.map((s) => s.invoice_number));
+      const unsynced = this.localTransactions.filter((l) => !existingInvoices.has(l.invoice_number));
+      return [...unsynced, ...serverList];
+    } catch (err) {
+      console.warn('API transactions fetch failed, using local in-memory fallback:', err);
+      let results = [...this.localTransactions];
+      if (filters?.paymentMethod && filters.paymentMethod !== 'ALL') {
+        results = results.filter(
+          (t) => t.payment_method.toUpperCase() === filters.paymentMethod?.toUpperCase()
+        );
+      }
+      if (filters?.query) {
+        const q = filters.query.toLowerCase();
+        results = results.filter(
+          (t) =>
+            t.invoice_number.toLowerCase().includes(q) ||
+            t.items.some((i) => i.product_name.toLowerCase().includes(q))
+        );
+      }
+      return results;
+    }
+  }
+
+  async fetchBill(invoiceNumber: string): Promise<GeneratedBill | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/bills/${encodeURIComponent(invoiceNumber)}`, {
+        headers: this.getHeaders(),
+      });
+      if (response.ok) {
+        const data = await response.json();
+        return {
+          store_id: data.store_id,
+          invoice_number: data.invoice_number,
+          shop_name: data.shop_name,
+          shop_address: data.shop_address,
+          shop_phone: data.shop_phone,
+          gst_number: data.gst_number,
+          cashier_name: data.cashier_name,
+          payment_method: data.payment_method,
+          payment_status: data.payment_status,
+          subtotal: parseFloat(data.subtotal) || 0,
+          discount: parseFloat(data.discount) || 0,
+          tax: parseFloat(data.tax) || 0,
+          total: parseFloat(data.total) || 0,
+          created_at: data.created_at,
+          items: (data.items || []).map((i: any) => ({
+            id: i.id,
+            product_id: i.product_id,
+            product_name: i.product_name,
+            quantity: parseFloat(i.quantity) || 1,
+            price: parseFloat(i.price) || 0,
+          })),
+        };
+      }
+    } catch (e) {
+      console.warn('Fetch bill API error:', e);
+    }
+    return this.localTransactions.find((t) => t.invoice_number === invoiceNumber) || null;
+  }
+
   // Unified Checkout & Bill Generator API call
   async checkoutOrder(
     subtotal: number,
@@ -558,7 +669,9 @@ class ProductStore {
           price: parseFloat(i.price) || 0,
         })),
       };
+      this.localTransactions.unshift(billData);
       await this.syncProducts();
+      this.notify();
       return billData;
     } catch (err) {
       console.warn('API checkout failed, falling back to local bill generation:', err);
@@ -569,10 +682,9 @@ class ProductStore {
           p.id === item.product_id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p
         );
       });
-      this.notify();
 
       const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
-      return {
+      const fallbackBill: GeneratedBill = {
         store_id: this._currentUser?.storeId || 'TGM-1001',
         invoice_number: invoiceNumber,
         shop_name: this._currentUser?.shopName || 'SmartPOS Store',
@@ -594,6 +706,9 @@ class ProductStore {
           price: i.price
         }))
       };
+      this.localTransactions.unshift(fallbackBill);
+      this.notify();
+      return fallbackBill;
     }
   }
 

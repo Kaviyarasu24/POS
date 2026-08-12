@@ -640,24 +640,66 @@ def get_bill(
 
 @app.get("/api/transactions", response_model=List[schemas.TransactionResponse])
 def get_transactions(
-    limit: int = Query(20, ge=1, le=100),
+    query: Optional[str] = None,
+    payment_method: Optional[str] = None,
+    start_date: Optional[str] = None,
+    end_date: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
     x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    transactions = db.query(models.Transaction).filter(
-        models.Transaction.store_id == x_store_id
-    ).order_by(models.Transaction.created_at.desc()).limit(limit).all()
+    q = db.query(models.Transaction).filter(models.Transaction.store_id == x_store_id)
+
+    if payment_method and isinstance(payment_method, str) and payment_method.upper() != "ALL":
+        q = q.filter(models.Transaction.payment_method == payment_method.upper())
+
+    if start_date and isinstance(start_date, str):
+        try:
+            sd = datetime.fromisoformat(start_date)
+            q = q.filter(models.Transaction.created_at >= sd)
+        except Exception:
+            pass
+
+    if end_date and isinstance(end_date, str):
+        try:
+            ed = datetime.fromisoformat(end_date)
+            q = q.filter(models.Transaction.created_at <= ed)
+        except Exception:
+            pass
+
+    if query and isinstance(query, str) and query.strip():
+        search = f"%{query.strip()}%"
+        q = q.filter(models.Transaction.invoice_number.ilike(search))
+
+    transactions = q.order_by(models.Transaction.created_at.desc()).offset(offset).limit(limit).all()
+
+    # Pre-fetch store info
+    db_store = db.query(models.Store).filter(models.Store.id == x_store_id).first()
 
     result = []
     for tx in transactions:
+        cashier_name = None
+        if tx.user_id:
+            cashier = db.query(models.User).filter(models.User.id == tx.user_id).first()
+            if cashier:
+                cashier_name = cashier.name
+
         items = db.query(models.TransactionItem).filter(
             models.TransactionItem.store_id == x_store_id,
             models.TransactionItem.invoice_number == tx.invoice_number
         ).all()
+
         result.append(schemas.TransactionResponse(
             store_id=tx.store_id,
             invoice_number=tx.invoice_number,
+            shop_name=db_store.name if db_store else "SmartPOS Store",
+            shop_address=db_store.address if db_store else None,
+            shop_phone=db_store.phone if db_store else None,
+            gst_number=db_store.gst_number if db_store else None,
+            cashier_name=cashier_name,
             payment_method=tx.payment_method,
+            payment_status=tx.payment_status or "PAID",
             subtotal=tx.subtotal,
             discount=tx.discount,
             tax=tx.tax,

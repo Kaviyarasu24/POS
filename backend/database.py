@@ -7,11 +7,16 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database Configuration
-# You can update the username, password, host, and port as needed for your local environment
-DATABASE_URL = os.getenv(
+raw_db_url = os.getenv(
     "DATABASE_URL", 
     "mysql+pymysql://root:root@localhost:3306/smartpossystem"
 )
+
+# Render provides postgres:// which SQLAlchemy 2.0 requires as postgresql://
+if raw_db_url.startswith("postgres://"):
+    raw_db_url = raw_db_url.replace("postgres://", "postgresql://", 1)
+
+DATABASE_URL = raw_db_url
 
 engine = create_engine(
     DATABASE_URL,
