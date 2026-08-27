@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,12 +9,19 @@ import {
   ActivityIndicator,
   Modal,
   Pressable,
+  Platform,
+  Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import Svg, { Path } from 'react-native-svg';
 import { Colors } from '@/constants/theme';
 import { API_BASE_URL } from '@/constants/config';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const categories = [
   { label: 'Retail / Apparel', value: 'retail', icon: 'shopping-bag' },
@@ -34,40 +41,115 @@ const countryCodes = [
   { name: 'United Arab Emirates', code: '+971', flag: '🇦🇪' },
 ];
 
+const THEME = {
+  primary: '#2563EB',
+  primaryDark: '#1D4ED8',
+  primaryLight: '#EFF6FF',
+  background: '#F8FAFC',
+  card: '#FFFFFF',
+  textPrimary: '#0F172A',
+  textSecondary: '#64748B',
+  border: '#E2E8F0',
+  errorBackground: '#FEF2F2',
+  errorBorder: '#FECACA',
+  errorText: '#DC2626',
+  success: '#16A34A',
+};
+
+// Step progress dots and lines component
+const StepProgress = ({ currentStep }: { currentStep: number }) => {
+  const steps = [
+    { num: 1, label: 'Account\nType' },
+    { num: 2, label: 'Shop\nInfo' },
+    { num: 3, label: 'Owner\nDetails' },
+    { num: 4, label: 'Password\nSetup' },
+    { num: 5, label: 'Complete' },
+  ];
+
+  return (
+    <View style={styles.stepProgressContainer}>
+      <View style={styles.stepLinesRow}>
+        {/* Background base grey line */}
+        <View style={styles.stepLineBg} />
+        {/* Foreground active blue line overlay */}
+        <View style={[styles.stepLineActive, { width: `${((Math.min(5, currentStep) - 1) / 4) * 88 + 6}%` }]} />
+        
+        {steps.map((s) => {
+          const isActive = s.num === currentStep;
+          const isCompleted = s.num < currentStep;
+          return (
+            <View key={s.num} style={styles.stepCircleWrapper}>
+              <View style={[
+                styles.stepCircle,
+                isActive && styles.stepCircleActive,
+                isCompleted && styles.stepCircleCompleted
+              ]}>
+                {isCompleted ? (
+                  <MaterialIcons name="check" size={14} color="#ffffff" />
+                ) : (
+                  <Text style={[
+                    styles.stepCircleText,
+                    isActive && styles.stepCircleTextActive,
+                    isCompleted && styles.stepCircleTextCompleted
+                  ]}>{s.num}</Text>
+                )}
+              </View>
+              <Text style={[
+                styles.stepLabel,
+                isActive && styles.stepLabelActive,
+                isCompleted && styles.stepLabelCompleted
+              ]}>{s.label}</Text>
+            </View>
+          );
+        })}
+      </View>
+    </View>
+  );
+};
+
 export default function SignupScreen() {
   const router = useRouter();
   const theme = Colors.light;
 
+  // Wizard state: ranges from 1 to 5
+  const [currentStep, setCurrentStep] = useState(1);
+
   // Signup Mode: 'new_store' | 'join_store'
   const [signupMode, setSignupMode] = useState<'new_store' | 'join_store'>('new_store');
 
-  // New Store Form states
+  // Step 2: New Store Form states
   const [shopName, setShopName] = useState('');
   const [shopCategory, setShopCategory] = useState('');
   const [gstNumber, setGstNumber] = useState('');
   const [businessAddress, setBusinessAddress] = useState('');
 
-  // Join Existing Store Form states
+  // Step 2: Join Existing Store Form states
   const [joinStoreId, setJoinStoreId] = useState('');
   const [joinRole, setJoinRole] = useState<'cashier' | 'manager'>('cashier');
   const [verifiedStore, setVerifiedStore] = useState<{ id: string; name: string; category: string } | null>(null);
   const [isVerifyingStore, setIsVerifyingStore] = useState(false);
   const [storeVerifyError, setStoreVerifyError] = useState('');
 
-  // Personal details
+  // Step 3: Owner Details
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
   const [countryCode, setCountryCode] = useState('+91');
+
+  // Step 4: Security
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
 
-  // Modals & password visibility states
+  // Modals & navigation loader states
   const [showCategoryModal, setShowCategoryModal] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Animation values for content slides
+  const contentFadeAnim = useRef(new Animated.Value(1)).current;
+  const contentTranslateX = useRef(new Animated.Value(0)).current;
 
   // Real-time verify Join Code / Store ID
   const handleVerifyJoinCode = async (code: string) => {
@@ -91,48 +173,164 @@ export default function SignupScreen() {
       }
     } catch (e) {
       setVerifiedStore(null);
-      setStoreVerifyError('Unable to verify store code. Check your connection and try again.');
+      setStoreVerifyError('Unable to verify store code. Check your connection.');
     } finally {
       setIsVerifyingStore(false);
     }
   };
 
-  // Validations & Submission
-  const handleSignup = async () => {
+  // Animate step transition
+  const animateStepTransition = (nextStep: number) => {
+    // Slide left and fade out
+    Animated.parallel([
+      Animated.timing(contentFadeAnim, {
+        toValue: 0,
+        duration: 150,
+        useNativeDriver: true,
+      }),
+      Animated.timing(contentTranslateX, {
+        toValue: -30,
+        duration: 150,
+        useNativeDriver: true,
+      })
+    ]).start(() => {
+      setCurrentStep(nextStep);
+      setErrorMessage('');
+      
+      // Reset position to right and slide back in
+      contentTranslateX.setValue(30);
+      Animated.parallel([
+        Animated.timing(contentFadeAnim, {
+          toValue: 1,
+          duration: 200,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentTranslateX, {
+          toValue: 0,
+          duration: 200,
+          easing: Easing.out(Easing.quad),
+          useNativeDriver: true,
+        })
+      ]).start();
+    });
+  };
+
+  // Custom step validation before continuing
+  const handleContinue = async () => {
     setErrorMessage('');
 
-    if (signupMode === 'new_store') {
-      if (!shopName.trim() || !shopCategory) {
-        setErrorMessage('Please provide your shop name and category.');
+    if (currentStep === 1) {
+      animateStepTransition(2);
+      return;
+    }
+
+    if (currentStep === 2) {
+      if (signupMode === 'new_store') {
+        if (!shopName.trim()) {
+          setErrorMessage('Please enter your Shop Name.');
+          return;
+        }
+        if (!shopCategory) {
+          setErrorMessage('Please select a Shop Category.');
+          return;
+        }
+      } else {
+        if (!joinStoreId.trim()) {
+          setErrorMessage('Please enter the Store ID / Join Code.');
+          return;
+        }
+        if (!verifiedStore) {
+          setErrorMessage('Please enter a valid, verified Store ID.');
+          return;
+        }
+      }
+      animateStepTransition(3);
+      return;
+    }
+
+    if (currentStep === 3) {
+      if (!fullName.trim()) {
+        setErrorMessage('Please enter your Full Name.');
         return;
       }
+      if (!email.trim()) {
+        setErrorMessage('Please enter your Email Address.');
+        return;
+      }
+      const emailRegex = /\S+@\S+\.\S+/;
+      if (!emailRegex.test(email.trim())) {
+        setErrorMessage('Please enter a valid Email Address.');
+        return;
+      }
+      if (!phone.trim()) {
+        setErrorMessage('Please enter your Phone Number.');
+        return;
+      }
+      animateStepTransition(4);
+      return;
+    }
+
+    if (currentStep === 4) {
+      if (!password || !confirmPassword) {
+        setErrorMessage('Please fill in both password fields.');
+        return;
+      }
+      if (password.length < 6) {
+        setErrorMessage('Password must be at least 6 characters.');
+        return;
+      }
+      if (password !== confirmPassword) {
+        setErrorMessage('Passwords do not match.');
+        return;
+      }
+
+      // Execute signup submission
+      await submitSignup();
+    }
+  };
+
+  const handleBack = () => {
+    if (currentStep === 5) return; // Complete page cannot go back
+    if (currentStep > 1) {
+      // Slide right and fade out
+      Animated.parallel([
+        Animated.timing(contentFadeAnim, {
+          toValue: 0,
+          duration: 150,
+          useNativeDriver: true,
+        }),
+        Animated.timing(contentTranslateX, {
+          toValue: 30,
+          duration: 150,
+          useNativeDriver: true,
+        })
+      ]).start(() => {
+        setCurrentStep(currentStep - 1);
+        setErrorMessage('');
+        
+        // Reset position to left and slide back in
+        contentTranslateX.setValue(-30);
+        Animated.parallel([
+          Animated.timing(contentFadeAnim, {
+            toValue: 1,
+            duration: 200,
+            useNativeDriver: true,
+          }),
+          Animated.timing(contentTranslateX, {
+            toValue: 0,
+            duration: 200,
+            easing: Easing.out(Easing.quad),
+            useNativeDriver: true,
+          })
+        ]).start();
+      });
     } else {
-      if (!joinStoreId.trim()) {
-        setErrorMessage('Please enter the Store ID / Join Code provided by your store owner.');
-        return;
-      }
+      router.back();
     }
+  };
 
-    if (!fullName.trim() || !email.trim() || !phone.trim() || !password || !confirmPassword) {
-      setErrorMessage('Please fill in all personal details.');
-      return;
-    }
-    const emailRegex = /\S+@\S+\.\S+/;
-    if (!emailRegex.test(email.trim())) {
-      setErrorMessage('Please enter a valid email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setErrorMessage('Password must be at least 6 characters.');
-      return;
-    }
-    if (password !== confirmPassword) {
-      setErrorMessage('Passwords do not match.');
-      return;
-    }
-
+  const submitSignup = async () => {
     setIsLoading(true);
-
     try {
       const payload: any = {
         owner_name: fullName.trim(),
@@ -165,248 +363,214 @@ export default function SignupScreen() {
         return;
       }
 
-      const registeredUser = await response.json();
-      const storeNameDisplay = registeredUser.shop_name || (signupMode === 'new_store' ? shopName : joinStoreId);
-      
-      alert(`Success!\nAccount created successfully for ${storeNameDisplay}.\nRole: ${registeredUser.role.toUpperCase()}\nPlease sign in.`);
-      router.push('/login');
+      // Successful signup, move to complete screen
+      animateStepTransition(5);
     } catch (err) {
       console.warn("Signup request failed:", err);
       setIsLoading(false);
-      setErrorMessage('Unable to reach the server. Check your connection and try again.');
+      setErrorMessage('Unable to reach the server. Check your connection.');
     }
   };
 
-  return (
-    <SafeAreaView style={styles.outerContainer} edges={['top', 'bottom']}>
-      {/* Top App Bar */}
-      <View style={styles.header}>
-        <TouchableOpacity
-          aria-label="Go back"
-          style={styles.backButton}
-          onPress={() => router.back()}
-        >
-          <MaterialIcons name="arrow-back" size={24} color={theme.text} />
-        </TouchableOpacity>
-        <Text style={[styles.headerTitle, { color: theme.text }]}>Create Account</Text>
-      </View>
+  // Render Wizard Pages
+  const renderStepContent = () => {
+    switch (currentStep) {
+      case 1:
+        return (
+          <View style={styles.stepBlock}>
+            <Text style={styles.stepTitle}>Choose Account Type</Text>
+            <Text style={styles.stepSubtitle}>Select how you want to start with SmartPOS</Text>
 
-      {/* Main Content Scroll View */}
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-      >
-        <View style={styles.formContainer}>
-          {/* Mode Switcher Tabs */}
-          <View style={styles.tabContainer}>
+            {/* Register new store card */}
             <TouchableOpacity
-              style={[styles.tabButton, signupMode === 'new_store' && styles.tabButtonActive]}
-              onPress={() => {
-                setSignupMode('new_store');
-                setErrorMessage('');
-              }}
+              style={[styles.radioCard, signupMode === 'new_store' && styles.radioCardActive]}
+              onPress={() => setSignupMode('new_store')}
+              activeOpacity={0.8}
             >
+              <View style={[styles.radioIconBox, signupMode === 'new_store' && styles.radioIconBoxActive]}>
+                <MaterialIcons name="storefront" size={24} color={signupMode === 'new_store' ? '#2563eb' : '#64748b'} />
+              </View>
+              <View style={styles.radioTextBox}>
+                <Text style={[styles.radioTitle, signupMode === 'new_store' && styles.radioTitleActive]}>Register New Store</Text>
+                <Text style={styles.radioDescription}>Create a new store and start managing your business</Text>
+              </View>
               <MaterialIcons
-                name="storefront"
-                size={18}
-                color={signupMode === 'new_store' ? '#004ac6' : '#64748b'}
+                name={signupMode === 'new_store' ? 'radio-button-on' : 'radio-button-off'}
+                size={22}
+                color={signupMode === 'new_store' ? '#2563eb' : '#c3c6d7'}
               />
-              <Text
-                style={[
-                  styles.tabButtonText,
-                  signupMode === 'new_store' && styles.tabButtonTextActive,
-                ]}
-              >
-                Register New Store
-              </Text>
             </TouchableOpacity>
 
+            {/* Join existing store card */}
             <TouchableOpacity
-              style={[styles.tabButton, signupMode === 'join_store' && styles.tabButtonActive]}
-              onPress={() => {
-                setSignupMode('join_store');
-                setErrorMessage('');
-              }}
+              style={[styles.radioCard, signupMode === 'join_store' && styles.radioCardActive]}
+              onPress={() => setSignupMode('join_store')}
+              activeOpacity={0.8}
             >
+              <View style={[styles.radioIconBox, signupMode === 'join_store' && styles.radioIconBoxActive]}>
+                <MaterialIcons name="people-outline" size={24} color={signupMode === 'join_store' ? '#2563eb' : '#64748b'} />
+              </View>
+              <View style={styles.radioTextBox}>
+                <Text style={[styles.radioTitle, signupMode === 'join_store' && styles.radioTitleActive]}>Join with Store ID</Text>
+                <Text style={styles.radioDescription}>Already have a store? Join with your store ID</Text>
+              </View>
               <MaterialIcons
-                name="group-add"
-                size={18}
-                color={signupMode === 'join_store' ? '#004ac6' : '#64748b'}
+                name={signupMode === 'join_store' ? 'radio-button-on' : 'radio-button-off'}
+                size={22}
+                color={signupMode === 'join_store' ? '#2563eb' : '#c3c6d7'}
               />
-              <Text
-                style={[
-                  styles.tabButtonText,
-                  signupMode === 'join_store' && styles.tabButtonTextActive,
-                ]}
-              >
-                Join with Store ID
-              </Text>
             </TouchableOpacity>
           </View>
+        );
 
-          {errorMessage ? (
-            <View style={styles.errorContainer}>
-              <MaterialIcons name="error-outline" size={16} color="#ef4444" />
-              <Text style={styles.errorText}>{errorMessage}</Text>
-            </View>
-          ) : null}
+      case 2:
+        return signupMode === 'new_store' ? (
+          <View style={styles.stepBlock}>
+            <Text style={styles.stepTitle}>Shop Information</Text>
+            <Text style={styles.stepSubtitle}>Enter details of the shop you want to register</Text>
 
-          {/* Section 1: Store Information / Join Code */}
-          {signupMode === 'new_store' ? (
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="storefront" size={20} color="#004ac6" />
-                <Text style={styles.sectionTitle}>Shop Information</Text>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Shop Name *</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. Acme Retail & Mart"
-                    placeholderTextColor={theme.icon}
-                    value={shopName}
-                    onChangeText={(text) => {
-                      setShopName(text);
-                      if (errorMessage) setErrorMessage('');
-                    }}
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Category *</Text>
-                <TouchableOpacity
-                  style={[styles.inputWrapper, styles.dropdownTrigger]}
-                  onPress={() => setShowCategoryModal(true)}
-                  activeOpacity={0.7}
-                >
-                  <Text style={[styles.input, { color: shopCategory ? theme.text : theme.icon }]}>
-                    {shopCategory
-                      ? categories.find((c) => c.value === shopCategory)?.label
-                      : 'Select category'}
-                  </Text>
-                  <MaterialIcons name="arrow-drop-down" size={24} color={theme.icon} />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>GST Number (Optional)</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 22AAAAA0000A1Z5"
-                    placeholderTextColor={theme.icon}
-                    value={gstNumber}
-                    onChangeText={setGstNumber}
-                    autoCapitalize="characters"
-                  />
-                </View>
-              </View>
-
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Shop Address (Optional)</Text>
-                <View style={styles.inputWrapper}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="e.g. 124 Market Avenue, Tech Park City"
-                    placeholderTextColor={theme.icon}
-                    value={businessAddress}
-                    onChangeText={setBusinessAddress}
-                  />
-                </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Shop Name *</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="e.g. Acme Supermart"
+                  placeholderTextColor="#94a3b8"
+                  value={shopName}
+                  onChangeText={(text) => {
+                    setShopName(text);
+                    if (errorMessage) setErrorMessage('');
+                  }}
+                />
               </View>
             </View>
-          ) : (
-            <View style={styles.sectionCard}>
-              <View style={styles.sectionHeader}>
-                <MaterialIcons name="vpn-key" size={20} color="#004ac6" />
-                <Text style={styles.sectionTitle}>Join Existing Store</Text>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Category *</Text>
+              <TouchableOpacity
+                style={[styles.inputWrapper, styles.dropdownTrigger]}
+                onPress={() => setShowCategoryModal(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.input, { color: shopCategory ? THEME.textPrimary : '#94a3b8' }]}>
+                  {shopCategory
+                    ? categories.find((c) => c.value === shopCategory)?.label
+                    : 'Select Shop Category'}
+                </Text>
+                <MaterialIcons name="arrow-drop-down" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>GST Number (Optional)</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="e.g. 22AAAAA0000A1Z5"
+                  placeholderTextColor="#94a3b8"
+                  value={gstNumber}
+                  onChangeText={setGstNumber}
+                  autoCapitalize="characters"
+                />
               </View>
-              <Text style={styles.sectionSubtitle}>
-                Enter the unique letter-based Join Code provided by your store owner (e.g. TGMPOS, MARTABC).
-              </Text>
+            </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Store ID / Join Code *</Text>
-                <View style={[styles.inputWrapper, verifiedStore && styles.inputWrapperSuccess]}>
-                  <TextInput
-                    style={[styles.input, { letterSpacing: 1.5, fontWeight: '600' }]}
-                    placeholder="e.g. TGMPOS"
-                    placeholderTextColor={theme.icon}
-                    value={joinStoreId}
-                    onChangeText={handleVerifyJoinCode}
-                    autoCapitalize="characters"
-                  />
-                  {isVerifyingStore ? (
-                    <ActivityIndicator size="small" color="#004ac6" style={{ marginRight: 8 }} />
-                  ) : verifiedStore ? (
-                    <MaterialIcons name="check-circle" size={22} color="#16a34a" style={{ marginRight: 8 }} />
-                  ) : null}
-                </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Business Address (Optional)</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="e.g. 124 Market Avenue, Tech Park"
+                  placeholderTextColor="#94a3b8"
+                  value={businessAddress}
+                  onChangeText={setBusinessAddress}
+                />
+              </View>
+            </View>
+          </View>
+        ) : (
+          <View style={styles.stepBlock}>
+            <Text style={styles.stepTitle}>Enter Store ID</Text>
+            <Text style={styles.stepSubtitle}>Provide the join code issued by your store owner</Text>
 
-                {verifiedStore ? (
-                  <View style={styles.verifiedBadge}>
-                    <MaterialIcons name="store" size={16} color="#15803d" />
-                    <Text style={styles.verifiedBadgeText}>
-                      Store Found: <Text style={{ fontWeight: '700' }}>{verifiedStore.name}</Text> ({verifiedStore.category})
-                    </Text>
-                  </View>
-                ) : storeVerifyError && joinStoreId.length >= 3 ? (
-                  <Text style={styles.verifyErrorText}>⚠️ {storeVerifyError}</Text>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Store ID / Join Code *</Text>
+              <View style={[styles.inputWrapper, verifiedStore && styles.inputWrapperSuccess]}>
+                <TextInput
+                  style={[styles.input, { letterSpacing: 1.5, fontWeight: '700' }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="e.g. MARTABC"
+                  placeholderTextColor="#94a3b8"
+                  value={joinStoreId}
+                  onChangeText={handleVerifyJoinCode}
+                  autoCapitalize="characters"
+                />
+                {isVerifyingStore ? (
+                  <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 8 }} />
+                ) : verifiedStore ? (
+                  <MaterialIcons name="check-circle" size={22} color="#16a34a" style={{ marginRight: 8 }} />
                 ) : null}
               </View>
 
-              <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Your Role in Store</Text>
-                <View style={styles.rolePickerRow}>
-                  <TouchableOpacity
-                    style={[styles.roleChip, joinRole === 'cashier' && styles.roleChipActive]}
-                    onPress={() => setJoinRole('cashier')}
-                  >
-                    <MaterialIcons
-                      name="point-of-sale"
-                      size={16}
-                      color={joinRole === 'cashier' ? '#004ac6' : '#64748b'}
-                    />
-                    <Text style={[styles.roleChipText, joinRole === 'cashier' && styles.roleChipTextActive]}>
-                      Cashier / Billing
-                    </Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={[styles.roleChip, joinRole === 'manager' && styles.roleChipActive]}
-                    onPress={() => setJoinRole('manager')}
-                  >
-                    <MaterialIcons
-                      name="manage-accounts"
-                      size={16}
-                      color={joinRole === 'manager' ? '#004ac6' : '#64748b'}
-                    />
-                    <Text style={[styles.roleChipText, joinRole === 'manager' && styles.roleChipTextActive]}>
-                      Manager / Staff
-                    </Text>
-                  </TouchableOpacity>
+              {verifiedStore ? (
+                <View style={styles.verifiedBadge}>
+                  <MaterialIcons name="store" size={16} color="#16a34a" />
+                  <Text style={styles.verifiedBadgeText}>
+                    Verified: <Text style={{ fontWeight: '700' }}>{verifiedStore.name}</Text>
+                  </Text>
                 </View>
+              ) : storeVerifyError && joinStoreId.length >= 3 ? (
+                <Text style={styles.verifyErrorText}>⚠️ {storeVerifyError}</Text>
+              ) : null}
+            </View>
+
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Select Your Role</Text>
+              <View style={styles.rolePickerRow}>
+                <TouchableOpacity
+                  style={[styles.roleChip, joinRole === 'cashier' && styles.roleChipActive]}
+                  onPress={() => setJoinRole('cashier')}
+                >
+                  <MaterialIcons
+                    name="point-of-sale"
+                    size={16}
+                    color={joinRole === 'cashier' ? '#2563eb' : '#64748b'}
+                  />
+                  <Text style={[styles.roleChipText, joinRole === 'cashier' && styles.roleChipTextActive]}>
+                    Cashier
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.roleChip, joinRole === 'manager' && styles.roleChipActive]}
+                  onPress={() => setJoinRole('manager')}
+                >
+                  <MaterialIcons
+                    name="manage-accounts"
+                    size={16}
+                    color={joinRole === 'manager' ? '#2563eb' : '#64748b'}
+                  />
+                  <Text style={[styles.roleChipText, joinRole === 'manager' && styles.roleChipTextActive]}>
+                    Manager
+                  </Text>
+                </TouchableOpacity>
               </View>
             </View>
-          )}
+          </View>
+        );
 
-          {/* Section 2: Personal Details */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <MaterialIcons name="person" size={20} color="#004ac6" />
-              <Text style={styles.sectionTitle}>Personal Details</Text>
-            </View>
+      case 3:
+        return (
+          <View style={styles.stepBlock}>
+            <Text style={styles.stepTitle}>Owner Details</Text>
+            <Text style={styles.stepSubtitle}>Provide personal details to secure your profile</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Full Name *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.input}
-                  placeholder="e.g. Alex Morgan"
-                  placeholderTextColor={theme.icon}
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="e.g. John Doe"
+                  placeholderTextColor="#94a3b8"
                   value={fullName}
                   onChangeText={(text) => {
                     setFullName(text);
@@ -420,9 +584,9 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Email Address *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.input}
-                  placeholder="alex@example.com"
-                  placeholderTextColor={theme.icon}
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="john@example.com"
+                  placeholderTextColor="#94a3b8"
                   value={email}
                   onChangeText={(text) => {
                     setEmail(text);
@@ -442,13 +606,13 @@ export default function SignupScreen() {
                   onPress={() => setShowCountryModal(true)}
                 >
                   <Text style={styles.countryCodeText}>{countryCode}</Text>
-                  <MaterialIcons name="arrow-drop-down" size={20} color={theme.icon} />
+                  <MaterialIcons name="arrow-drop-down" size={20} color="#64748b" />
                 </TouchableOpacity>
                 <View style={styles.verticalDivider} />
                 <TextInput
-                  style={[styles.input, { paddingHorizontal: 12 }]}
-                  placeholder="(555) 000-0000"
-                  placeholderTextColor={theme.icon}
+                  style={[styles.input, { paddingHorizontal: 12 }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  placeholder="5550199"
+                  placeholderTextColor="#94a3b8"
                   value={phone}
                   onChangeText={(text) => {
                     setPhone(text);
@@ -459,21 +623,21 @@ export default function SignupScreen() {
               </View>
             </View>
           </View>
+        );
 
-          {/* Section 3: Security */}
-          <View style={styles.sectionCard}>
-            <View style={styles.sectionHeader}>
-              <MaterialIcons name="lock" size={20} color="#004ac6" />
-              <Text style={styles.sectionTitle}>Security</Text>
-            </View>
+      case 4:
+        return (
+          <View style={styles.stepBlock}>
+            <Text style={styles.stepTitle}>Password Setup</Text>
+            <Text style={styles.stepSubtitle}>Create a secure password for logging in</Text>
 
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Password *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.icon}
+                  placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
                   value={password}
                   onChangeText={(text) => {
@@ -486,7 +650,7 @@ export default function SignupScreen() {
                   <MaterialIcons
                     name={showPassword ? 'visibility' : 'visibility-off'}
                     size={20}
-                    color={theme.icon}
+                    color="#64748b"
                   />
                 </TouchableOpacity>
               </View>
@@ -496,9 +660,9 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Confirm Password *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={styles.input}
+                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
                   placeholder="••••••••"
-                  placeholderTextColor={theme.icon}
+                  placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
                   value={confirmPassword}
                   onChangeText={(text) => {
@@ -510,36 +674,153 @@ export default function SignupScreen() {
               </View>
             </View>
           </View>
+        );
 
-          {/* Submit Area */}
-          <View style={styles.submitArea}>
-            <TouchableOpacity
-              style={[styles.primaryButton, { backgroundColor: theme.tint }]}
-              onPress={handleSignup}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#ffffff" />
-              ) : (
-                <View style={styles.buttonContent}>
-                  <Text style={styles.primaryButtonText}>
-                    {signupMode === 'new_store' ? 'Register Store & Owner' : 'Join Store'}
-                  </Text>
-                  <MaterialIcons name="arrow-forward" size={18} color="#ffffff" />
-                </View>
-              )}
-            </TouchableOpacity>
-
-            <TouchableOpacity onPress={() => router.push('/')} style={styles.loginLinkButton}>
-              <Text style={styles.loginLinkLabel}>
-                Already have an account? <Text style={styles.loginLinkText}>Login</Text>
-              </Text>
-            </TouchableOpacity>
+      case 5:
+        return (
+          <View style={[styles.stepBlock, styles.successBlock]}>
+            <View style={styles.successIconOuter}>
+              <View style={styles.successIconInner}>
+                <MaterialIcons name="check" size={48} color="#ffffff" />
+              </View>
+            </View>
+            <Text style={styles.successTitle}>Account Created!</Text>
+            <Text style={styles.successSubtitle}>
+              {signupMode === 'new_store'
+                ? `Your store "${shopName}" is registered. You are logged as Owner.`
+                : `You joined store successfully. Profile role: ${joinRole.toUpperCase()}`}
+            </Text>
+            <Text style={styles.successMeta}>
+              Please return to the login screen and log in with your email or username to start.
+            </Text>
           </View>
+        );
+
+      default:
+        return null;
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.outerContainer} edges={['top', 'bottom']}>
+      {/* Header bar with Back arrow */}
+      <View style={styles.header}>
+        {currentStep < 5 ? (
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={handleBack}
+            accessibilityLabel="Go back"
+          >
+            <MaterialIcons name="arrow-back" size={24} color={THEME.textPrimary} />
+          </TouchableOpacity>
+        ) : (
+          <View style={{ width: 44 }} />
+        )}
+        <View style={styles.headerTitleContainer}>
+          <Text style={styles.headerTitle}>Create Account</Text>
+        </View>
+        <View style={{ width: 44 }} />
+      </View>
+
+      <ScrollView
+        contentContainerStyle={styles.scrollContainer}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <View style={styles.formContainer}>
+          
+          {/* Brand header branding */}
+          {currentStep < 5 && (
+            <View style={styles.brandingHeader}>
+              <View style={styles.logoRow}>
+                <Svg width={24} height={24} viewBox="0 0 28 28" style={{ marginRight: 6 }}>
+                  <Path
+                    d="M 3 6 H 7.5 L 9.8 17.5 H 21.5 L 23.5 9 H 8.5"
+                    stroke="#2563eb"
+                    strokeWidth={2.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <Circle cx={11.5} cy={22.5} r={2.2} fill="#2563eb" />
+                  <Circle cx={19.5} cy={22.5} r={2.2} fill="#2563eb" />
+                </Svg>
+                <Text style={styles.logoText}>Smart<Text style={{ color: '#1e293b', fontWeight: '800' }}>POS</Text></Text>
+              </View>
+              <Text style={styles.brandPrompt}>Create your account to get started</Text>
+            </View>
+          )}
+
+          {/* 5-step Horizontal Progress bar */}
+          <StepProgress currentStep={currentStep} />
+
+          {/* Inline shakeable error banner */}
+          {errorMessage ? (
+            <View style={styles.errorContainer}>
+              <MaterialIcons name="error-outline" size={16} color="#ef4444" />
+              <Text style={styles.errorText}>{errorMessage}</Text>
+            </View>
+          ) : null}
+
+          {/* Wizard screen anim content */}
+          <Animated.View
+            style={[
+              styles.wizardCard,
+              {
+                opacity: contentFadeAnim,
+                transform: [{ translateX: contentTranslateX }],
+              },
+            ]}
+          >
+            {renderStepContent()}
+          </Animated.View>
+
+          {/* Navigation action buttons */}
+          <View style={styles.actionArea}>
+            {currentStep < 5 ? (
+              <TouchableOpacity
+                style={[styles.primaryButton, isLoading && { opacity: 0.8 }]}
+                onPress={handleContinue}
+                disabled={isLoading}
+                activeOpacity={0.8}
+              >
+                {isLoading ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <View style={styles.btnContent}>
+                    <Text style={styles.primaryButtonText}>
+                      {currentStep === 4 ? 'Submit Details' : 'Continue'}
+                    </Text>
+                    <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+                  </View>
+                )}
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={styles.primaryButton}
+                onPress={() => router.replace('/login')}
+                activeOpacity={0.8}
+              >
+                <View style={styles.btnContent}>
+                  <Text style={styles.primaryButtonText}>Go to Sign In</Text>
+                  <MaterialIcons name="login" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+                </View>
+              </TouchableOpacity>
+            )}
+
+            {currentStep < 5 && (
+              <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginLink}>
+                <Text style={styles.loginLinkLabel}>
+                  Already have an account? <Text style={styles.loginLinkText}>Login</Text>
+                </Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
         </View>
       </ScrollView>
 
-      {/* Category Picker Modal */}
+      {/* Category Selection Modal */}
       <Modal
         visible={showCategoryModal}
         transparent
@@ -550,7 +831,7 @@ export default function SignupScreen() {
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <MaterialIcons name="category" size={22} color="#004ac6" />
+                <MaterialIcons name="category" size={22} color="#2563eb" />
                 <Text style={styles.modalTitle}>Select Shop Category</Text>
               </View>
               <TouchableOpacity onPress={() => setShowCategoryModal(false)} style={styles.modalCloseBtn}>
@@ -558,7 +839,7 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 340 }}>
+            <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
               {categories.map((item) => {
                 const isSelected = shopCategory === item.value;
                 return (
@@ -576,7 +857,7 @@ export default function SignupScreen() {
                         <MaterialIcons
                           name={item.icon as any}
                           size={18}
-                          color={isSelected ? '#004ac6' : '#64748b'}
+                          color={isSelected ? '#2563eb' : '#64748b'}
                         />
                       </View>
                       <Text style={[styles.modalOptionText, isSelected && styles.modalOptionTextSelected]}>
@@ -584,7 +865,7 @@ export default function SignupScreen() {
                       </Text>
                     </View>
                     {isSelected && (
-                      <MaterialIcons name="check-circle" size={20} color="#004ac6" />
+                      <MaterialIcons name="check-circle" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
                 );
@@ -594,7 +875,7 @@ export default function SignupScreen() {
         </Pressable>
       </Modal>
 
-      {/* Country Code Picker Modal */}
+      {/* Country Code Modal Selection */}
       <Modal
         visible={showCountryModal}
         transparent
@@ -605,7 +886,7 @@ export default function SignupScreen() {
           <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
             <View style={styles.modalHeader}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                <MaterialIcons name="flag" size={22} color="#004ac6" />
+                <MaterialIcons name="flag" size={22} color="#2563eb" />
                 <Text style={styles.modalTitle}>Select Country Code</Text>
               </View>
               <TouchableOpacity onPress={() => setShowCountryModal(false)} style={styles.modalCloseBtn}>
@@ -613,7 +894,7 @@ export default function SignupScreen() {
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={{ maxHeight: 340 }}>
+            <ScrollView style={{ maxHeight: 340 }} showsVerticalScrollIndicator={false}>
               {countryCodes.map((item) => {
                 const isSelected = countryCode === item.code;
                 return (
@@ -632,7 +913,7 @@ export default function SignupScreen() {
                       </Text>
                     </View>
                     {isSelected && (
-                      <MaterialIcons name="check-circle" size={20} color="#004ac6" />
+                      <MaterialIcons name="check-circle" size={20} color="#2563eb" />
                     )}
                   </TouchableOpacity>
                 );
@@ -648,167 +929,288 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#faf8ff',
+    backgroundColor: THEME.background,
   },
   header: {
-    height: 64,
-    backgroundColor: 'rgba(250, 248, 255, 0.8)',
+    height: 56,
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#c3c6d7',
+    borderBottomColor: '#e2e8f0',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingHorizontal: 8,
   },
   backButton: {
     width: 44,
     height: 44,
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 8,
+  },
+  headerTitleContainer: {
+    flex: 1,
+    alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+    color: THEME.textPrimary,
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'flex-start',
     alignItems: 'center',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 20,
   },
   formContainer: {
     width: '100%',
-    maxWidth: 600,
-    gap: 20,
+    maxWidth: 500,
+    gap: 16,
   },
-  tabContainer: {
-    flexDirection: 'row',
-    backgroundColor: '#f1f5f9',
-    padding: 4,
-    borderRadius: 12,
-    gap: 6,
-    width: '100%',
+  brandingHeader: {
+    alignItems: 'center',
+    marginBottom: 8,
   },
-  tabButton: {
-    flex: 1,
+  logoRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
-    gap: 6,
   },
-  tabButtonActive: {
+  logoText: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#2563eb',
+    letterSpacing: -0.5,
+  },
+  brandPrompt: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '600',
+    marginTop: 4,
+  },
+  stepProgressContainer: {
+    width: '100%',
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  stepLinesRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    position: 'relative',
+    width: '100%',
+  },
+  stepLineBg: {
+    position: 'absolute',
+    left: '8%',
+    right: '8%',
+    height: 2,
+    backgroundColor: '#e2e8f0',
+    top: 14,
+    zIndex: 1,
+  },
+  stepLineActive: {
+    position: 'absolute',
+    left: '8%',
+    height: 2,
+    backgroundColor: '#2563eb',
+    top: 14,
+    zIndex: 2,
+  },
+  stepCircleWrapper: {
+    alignItems: 'center',
+    zIndex: 3,
+    width: '18%',
+  },
+  stepCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#ffffff',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.08,
-    shadowRadius: 2,
-    elevation: 2,
+    borderWidth: 2,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  tabButtonText: {
-    fontSize: 14,
-    fontWeight: '500',
+  stepCircleActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#ffffff',
+  },
+  stepCircleCompleted: {
+    backgroundColor: '#2563eb',
+    borderColor: '#2563eb',
+  },
+  stepCircleText: {
+    fontSize: 11,
+    fontWeight: '700',
     color: '#64748b',
   },
-  tabButtonTextActive: {
-    color: '#004ac6',
+  stepCircleTextActive: {
+    color: '#2563eb',
+  },
+  stepCircleTextCompleted: {
+    color: '#ffffff',
+  },
+  stepLabel: {
+    fontSize: 10,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: 6,
+    lineHeight: 12,
+    fontWeight: '500',
+  },
+  stepLabelActive: {
+    color: '#2563eb',
     fontWeight: '700',
+  },
+  stepLabelCompleted: {
+    color: '#0f172a',
   },
   errorContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
+    backgroundColor: THEME.errorBackground,
     borderWidth: 1,
-    borderColor: '#fca5a5',
+    borderColor: THEME.errorBorder,
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     gap: 8,
-    width: '100%',
   },
   errorText: {
-    color: '#b91c1c',
+    color: THEME.errorText,
     fontSize: 13,
     fontWeight: '500',
     flex: 1,
   },
-  sectionCard: {
+  wizardCard: {
+    width: '100%',
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    borderRadius: 18,
     borderWidth: 1,
-    borderColor: '#dae2fd',
-    shadowColor: 'rgba(0,0,0,0.04)',
-    shadowOffset: { width: 0, height: 1 },
+    borderColor: '#e2e8f0',
+    padding: 20,
+    shadowColor: 'rgba(15, 23, 42, 0.04)',
+    shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
-    shadowRadius: 4,
-    elevation: 1,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  stepBlock: {
     width: '100%',
   },
-  sectionHeader: {
+  stepTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: THEME.textPrimary,
+    marginBottom: 4,
+  },
+  stepSubtitle: {
+    fontSize: 13,
+    color: THEME.textSecondary,
+    marginBottom: 20,
+    fontWeight: '500',
+  },
+  radioCard: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
-    gap: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 16,
+    backgroundColor: '#ffffff',
+    marginBottom: 12,
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#004ac6',
+  radioCardActive: {
+    borderColor: '#2563eb',
+    backgroundColor: '#eff6ff',
   },
-  sectionSubtitle: {
-    fontSize: 13,
-    color: '#64748b',
-    marginBottom: 16,
-    lineHeight: 18,
+  radioIconBox: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 14,
+  },
+  radioIconBoxActive: {
+    backgroundColor: '#dbeafe',
+  },
+  radioTextBox: {
+    flex: 1,
+    paddingRight: 6,
+  },
+  radioTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: THEME.textPrimary,
+    marginBottom: 2,
+  },
+  radioTitleActive: {
+    color: '#2563eb',
+  },
+  radioDescription: {
+    fontSize: 12,
+    color: THEME.textSecondary,
+    lineHeight: 16,
   },
   inputGroup: {
     marginBottom: 16,
     width: '100%',
   },
   inputLabel: {
-    fontSize: 14,
-    color: '#434655',
-    fontWeight: '500',
+    fontSize: 13,
+    color: THEME.textPrimary,
+    fontWeight: '600',
     marginBottom: 6,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#c3c6d7',
-    borderRadius: 8,
-    paddingHorizontal: 16,
+    borderColor: THEME.border,
+    borderRadius: 10,
     height: 48,
-    backgroundColor: '#faf8ff',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 14,
   },
   inputWrapperSuccess: {
     borderColor: '#16a34a',
     backgroundColor: '#f0fdf4',
   },
+  input: {
+    flex: 1,
+    height: '100%',
+    fontSize: 15,
+    color: THEME.textPrimary,
+    padding: 0,
+    borderWidth: 0,
+  },
+  dropdownTrigger: {
+    justifyContent: 'space-between',
+  },
   verifiedBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     marginTop: 6,
-    gap: 6,
+    gap: 4,
     paddingHorizontal: 4,
   },
   verifiedBadgeText: {
-    fontSize: 13,
-    color: '#15803d',
+    fontSize: 12,
+    color: '#16a34a',
+    fontWeight: '600',
   },
   verifyErrorText: {
     fontSize: 12,
-    color: '#dc2626',
-    marginTop: 4,
+    color: '#ef4444',
+    marginTop: 6,
+    fontWeight: '500',
     paddingHorizontal: 4,
   },
   rolePickerRow: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 4,
+    marginTop: 2,
   },
   roleChip: {
     flex: 1,
@@ -818,76 +1220,22 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 12,
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#e2e8f0',
     borderRadius: 8,
-    backgroundColor: '#f8fafc',
+    backgroundColor: '#ffffff',
     gap: 6,
   },
   roleChipActive: {
-    borderColor: '#004ac6',
+    borderColor: '#2563eb',
     backgroundColor: '#eff6ff',
   },
   roleChipText: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#64748b',
   },
   roleChipTextActive: {
-    color: '#004ac6',
-    fontWeight: '600',
-  },
-  dropdownTrigger: {
-    justifyContent: 'space-between',
-  },
-  input: {
-    flex: 1,
-    height: '100%',
-    fontSize: 16,
-    color: '#131b2e',
-    padding: 0,
-    textAlignVertical: 'center',
-  },
-  eyeIcon: {
-    padding: 4,
-  },
-  submitArea: {
-    width: '100%',
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  primaryButton: {
-    width: '100%',
-    height: 48,
-    borderRadius: 8,
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: 'rgba(37,99,235,0.2)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 12,
-    elevation: 2,
-    marginBottom: 16,
-  },
-  buttonContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  primaryButtonText: {
-    color: '#ffffff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  loginLinkButton: {
-    paddingVertical: 8,
-  },
-  loginLinkLabel: {
-    fontSize: 14,
-    color: '#434655',
-  },
-  loginLinkText: {
-    color: '#004ac6',
-    fontWeight: '600',
+    color: '#2563eb',
   },
   countryCodeSelector: {
     flexDirection: 'row',
@@ -896,34 +1244,105 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   countryCodeText: {
-    fontSize: 16,
-    color: '#131b2e',
+    fontSize: 15,
+    color: THEME.textPrimary,
     marginRight: 2,
+    fontWeight: '600',
   },
   verticalDivider: {
     width: 1,
-    height: 24,
-    backgroundColor: '#c3c6d7',
+    height: 20,
+    backgroundColor: '#e2e8f0',
   },
-  // Modal Styles
+  eyeIcon: {
+    padding: 4,
+  },
+  successBlock: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  successIconOuter: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#dcfce7',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  successIconInner: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#16a34a',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  successMeta: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    marginTop: 12,
+  },
+  actionArea: {
+    width: '100%',
+    alignItems: 'center',
+    marginTop: 6,
+  },
+  primaryButton: {
+    width: '100%',
+    height: 50,
+    borderRadius: 12,
+    backgroundColor: '#2563eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: 'rgba(37, 99, 235, 0.2)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
+    marginBottom: 16,
+  },
+  btnContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  primaryButtonText: {
+    color: '#ffffff',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  loginLink: {
+    paddingVertical: 6,
+  },
+  loginLinkLabel: {
+    fontSize: 14,
+    color: THEME.textSecondary,
+  },
+  loginLinkText: {
+    color: '#2563eb',
+    fontWeight: '700',
+  },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
   },
   modalContent: {
     width: '100%',
-    maxWidth: 440,
+    maxWidth: 400,
     backgroundColor: '#ffffff',
     borderRadius: 16,
     padding: 20,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.15,
-    shadowRadius: 24,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   modalHeader: {
     flexDirection: 'row',
@@ -935,9 +1354,9 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9',
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
-    color: '#0f172a',
+    color: THEME.textPrimary,
   },
   modalCloseBtn: {
     padding: 4,
@@ -946,9 +1365,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
     marginBottom: 6,
     backgroundColor: '#f8fafc',
   },
@@ -960,7 +1379,7 @@ const styles = StyleSheet.create({
   modalOptionIconBox: {
     width: 32,
     height: 32,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
@@ -969,12 +1388,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#dbeafe',
   },
   modalOptionText: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '500',
-    color: '#334155',
+    color: '#475569',
   },
   modalOptionTextSelected: {
-    color: '#004ac6',
+    color: '#2563eb',
     fontWeight: '700',
   },
 });

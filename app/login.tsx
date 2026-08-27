@@ -13,18 +13,21 @@ import {
   Platform,
   Animated,
   Easing,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import Svg, { Path, Circle, Ellipse, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { API_BASE_URL } from '@/constants/config';
 import { store } from '@/constants/store';
 
-// Specified premium fintech color system
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+
 const THEME = {
   primary: '#2563EB',
   primaryDark: '#1D4ED8',
-  primaryLight: '#DBEAFE',
+  primaryLight: '#EFF6FF',
   background: '#F8FAFC',
   card: '#FFFFFF',
   textPrimary: '#0F172A',
@@ -38,10 +41,32 @@ const THEME = {
 
 const AnimatedMaterialIcon = Animated.createAnimatedComponent(MaterialIcons);
 
+const TerminalIllustration = () => (
+  <Svg width={110} height={100} viewBox="0 0 110 100">
+    <Ellipse cx={55} cy={82} rx={32} ry={6} fill="rgba(37, 99, 235, 0.1)" />
+    <Path d="M 42 62 L 68 62 L 62 80 L 48 80 Z" fill="#cbd5e1" />
+    <Path d="M 42 62 L 48 80 L 45 80 L 39 62 Z" fill="#94a3b8" />
+    <Path d="M 36 38 L 74 38 L 70 65 L 40 65 Z" fill="#1e293b" />
+    <Path d="M 68 25 L 82 25 L 78 40 L 64 40 Z" fill="#0f172a" />
+    <Path d="M 69 12 C 69 12, 70 8, 73 8 H 83 C 86 8, 87 12, 87 12 V 25 H 69 Z" fill="#ffffff" />
+    <Path d="M 72 15 H 84" stroke="#e2e8f0" strokeWidth={1} />
+    <Path d="M 72 19 H 80" stroke="#e2e8f0" strokeWidth={1} />
+    <Path d="M 28 32 C 28 30, 30 28, 33 28 H 77 C 80 28, 82 30, 82 32 V 62 C 82 64, 80 66, 77 66 H 33 C 30 66, 28 64, 28 62 Z" fill="#2563eb" />
+    <Path d="M 31 34 H 79 V 60 H 31 Z" fill="#0f172a" />
+    <Path d="M 33 36 H 77 V 57 H 33 Z" fill="#eff6ff" />
+    <Circle cx={55} cy={46} r={6} fill="#dbeafe" />
+    <Path d="M 52 43 H 53.5 L 55 47.5 H 58.5 L 59.5 45" stroke="#2563eb" strokeWidth={1} fill="none" strokeLinecap="round" strokeLinejoin="round" />
+    <Circle cx={55} cy={49.5} r={0.8} fill="#2563eb" />
+    <Circle cx={57.5} cy={49.5} r={0.8} fill="#2563eb" />
+    <Path d="M 18 20 L 23 24" stroke="#2563eb" strokeWidth={2.5} strokeLinecap="round" />
+    <Path d="M 14 31 H 21" stroke="#2563eb" strokeWidth={2.5} strokeLinecap="round" />
+    <Path d="M 18 42 L 23 38" stroke="#2563eb" strokeWidth={2.5} strokeLinecap="round" />
+  </Svg>
+);
+
 export default function LoginScreen() {
   const router = useRouter();
 
-  // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -49,171 +74,50 @@ export default function LoginScreen() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
-  // 1. Entrance animation values
-  const fadeCard = useRef(new Animated.Value(0)).current;
-  const translateCardY = useRef(new Animated.Value(25)).current;
-  const scaleCard = useRef(new Animated.Value(0.97)).current;
+  const fadeContent = useRef(new Animated.Value(0)).current;
+  const translateContentY = useRef(new Animated.Value(20)).current;
+  const fadeHeader = useRef(new Animated.Value(0)).current;
+  const translateHeaderY = useRef(new Animated.Value(-15)).current;
 
-  const fadeIcon = useRef(new Animated.Value(0)).current;
-  const scaleIcon = useRef(new Animated.Value(0.85)).current;
-  const floatIcon = useRef(new Animated.Value(0)).current;
-
-  const fadeTitle = useRef(new Animated.Value(0)).current;
-  const translateTitleY = useRef(new Animated.Value(8)).current;
-
-  const fadeSubtitle = useRef(new Animated.Value(0)).current;
-  const translateSubtitleY = useRef(new Animated.Value(8)).current;
-
-  const fadeForm = useRef(new Animated.Value(0)).current;
-  const translateFormY = useRef(new Animated.Value(12)).current;
-
-  // 2. Input Focus animation values
   const emailFocusAnim = useRef(new Animated.Value(0)).current;
   const passwordFocusAnim = useRef(new Animated.Value(0)).current;
 
-  // 3. Micro scale press values for inputs
-  const emailPressScale = useRef(new Animated.Value(1)).current;
-  const passwordPressScale = useRef(new Animated.Value(1)).current;
-
-  // 4. Password eye visibility rotation / fade
-  const eyeVisibilityAnim = useRef(new Animated.Value(0)).current;
-
-  // 5. Tactile press feedback values for links
-  const forgotPressScale = useRef(new Animated.Value(1)).current;
-  const signupPressScale = useRef(new Animated.Value(1)).current;
-  const supportPressScale = useRef(new Animated.Value(1)).current;
-
-  // 6. Login button press animation (scale & shadow/color interpolation)
-  const buttonPressAnim = useRef(new Animated.Value(0)).current;
-
-  // 7. Error slide & shake animation values
+  const buttonPressScale = useRef(new Animated.Value(1)).current;
   const errorOpacityAnim = useRef(new Animated.Value(0)).current;
   const errorTranslateY = useRef(new Animated.Value(-8)).current;
   const errorShakeAnim = useRef(new Animated.Value(0)).current;
 
-  // 8. Auth success checkpoint scaling
   const successOpacityAnim = useRef(new Animated.Value(0)).current;
   const successScaleAnim = useRef(new Animated.Value(0.4)).current;
 
-  // Entrance Choreography Sequence
   useEffect(() => {
     Animated.parallel([
-      // Card Entrance (0ms)
-      Animated.timing(fadeCard, {
+      Animated.timing(fadeHeader, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateHeaderY, {
+        toValue: 0,
+        duration: 500,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(fadeContent, {
         toValue: 1,
         duration: 600,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(translateCardY, {
+      Animated.timing(translateContentY, {
         toValue: 0,
         duration: 600,
         easing: Easing.out(Easing.cubic),
         useNativeDriver: true,
       }),
-      Animated.timing(scaleCard, {
-        toValue: 1,
-        duration: 600,
-        easing: Easing.out(Easing.cubic),
-        useNativeDriver: true,
-      }),
-
-      // POS Icon Entrance (200ms delay)
-      Animated.sequence([
-        Animated.delay(200),
-        Animated.parallel([
-          Animated.timing(fadeIcon, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleIcon, {
-            toValue: 1,
-            duration: 450,
-            easing: Easing.out(Easing.back(1.5)),
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-
-      // Title Entrance (350ms delay)
-      Animated.sequence([
-        Animated.delay(350),
-        Animated.parallel([
-          Animated.timing(fadeTitle, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateTitleY, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-
-      // Subtitle Entrance (450ms delay)
-      Animated.sequence([
-        Animated.delay(450),
-        Animated.parallel([
-          Animated.timing(fadeSubtitle, {
-            toValue: 1,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateSubtitleY, {
-            toValue: 0,
-            duration: 400,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-
-      // Form Elements Entrance (550ms delay)
-      Animated.sequence([
-        Animated.delay(550),
-        Animated.parallel([
-          Animated.timing(fadeForm, {
-            toValue: 1,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-          Animated.timing(translateFormY, {
-            toValue: 0,
-            duration: 500,
-            useNativeDriver: true,
-          }),
-        ]),
-      ]),
-    ]).start(() => {
-      // Loop slowly for gentle floating POS icon
-      startIconFloat();
-    });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    ]).start();
   }, []);
 
-  // Gentle POS Icon Floating Loop
-  const startIconFloat = () => {
-    Animated.loop(
-      Animated.sequence([
-        Animated.timing(floatIcon, {
-          toValue: -3,
-          duration: 2200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-        Animated.timing(floatIcon, {
-          toValue: 3,
-          duration: 2200,
-          easing: Easing.inOut(Easing.quad),
-          useNativeDriver: true,
-        }),
-      ])
-    ).start();
-  };
-
-  // Handler for custom inline validation alert animations
   const triggerErrorShake = () => {
     errorShakeAnim.setValue(0);
     errorTranslateY.setValue(-8);
@@ -232,7 +136,6 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Horizontal subtle shake sequence (approx 350ms total)
       Animated.sequence([
         Animated.timing(errorShakeAnim, { toValue: -6, duration: 60, useNativeDriver: true }),
         Animated.timing(errorShakeAnim, { toValue: 6, duration: 60, useNativeDriver: true }),
@@ -248,7 +151,6 @@ export default function LoginScreen() {
     triggerErrorShake();
   };
 
-  // Handler for success checkpoints before exit navigation
   const triggerSuccessSequence = (callback: () => void) => {
     setIsSuccess(true);
     Animated.parallel([
@@ -264,84 +166,28 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start(() => {
-      // Wait for success check visualization (600ms)
       setTimeout(() => {
-        // Exit screen animation (fade card and scale down slightly)
-        Animated.parallel([
-          Animated.timing(fadeCard, {
-            toValue: 0.85,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-          Animated.timing(scaleCard, {
-            toValue: 0.98,
-            duration: 250,
-            useNativeDriver: true,
-          }),
-        ]).start(() => {
-          callback();
-        });
+        Animated.timing(fadeContent, {
+          toValue: 0,
+          duration: 200,
+          useNativeDriver: true,
+        }).start(callback);
       }, 600);
     });
   };
 
-  // Input Focus Animations
   const animateInputFocus = (anim: Animated.Value, isFocused: boolean) => {
     Animated.timing(anim, {
       toValue: isFocused ? 1 : 0,
-      duration: 220,
-      useNativeDriver: false, // Required for border & background color interpolation
-    }).start();
-  };
-
-  // Micro scale press transitions on inputs
-  const animateInputPress = (scaleVal: Animated.Value, isPressing: boolean) => {
-    Animated.timing(scaleVal, {
-      toValue: isPressing ? 0.992 : 1,
-      duration: 100,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // Password visibility toggle click rotation
-  const toggleShowPassword = () => {
-    const nextVal = !showPassword;
-    Animated.timing(eyeVisibilityAnim, {
-      toValue: nextVal ? 1 : 0,
       duration: 200,
-      useNativeDriver: true,
-    }).start(() => {
-      setShowPassword(nextVal);
-    });
-  };
-
-  // Tactile press animations for links
-  const animateLinkPress = (scaleVal: Animated.Value, isPressing: boolean) => {
-    Animated.timing(scaleVal, {
-      toValue: isPressing ? 0.96 : 1,
-      duration: 100,
-      useNativeDriver: true,
-    }).start();
-  };
-
-  // Primary Button active press styling animations
-  const handleButtonPressIn = () => {
-    Animated.timing(buttonPressAnim, {
-      toValue: 1,
-      duration: 100,
       useNativeDriver: false,
     }).start();
   };
 
-  const handleButtonPressOut = () => {
-    Animated.timing(buttonPressAnim, {
-      toValue: 0,
-      duration: 150,
-      useNativeDriver: false,
-    }).start();
+  const toggleShowPassword = () => {
+    setShowPassword(!showPassword);
   };
 
-  // Authenticate user logic
   const handleLogin = async () => {
     setErrorMessage('');
     if (!email || !password) {
@@ -379,8 +225,6 @@ export default function LoginScreen() {
       }
 
       const data = await response.json();
-      // Persist the session (JWT to SecureStore) before navigating, so a cold
-      // start immediately after login stays logged in.
       await store.login({
         id: data.id.toString(),
         storeId: data.store_id.toString(),
@@ -397,7 +241,6 @@ export default function LoginScreen() {
         token: data.token,
       });
 
-      // Successfully authenticated with brief checkpoint sequence
       triggerSuccessSequence(() => {
         router.replace('/(tabs)/dashboard');
       });
@@ -408,10 +251,9 @@ export default function LoginScreen() {
     }
   };
 
-  // Color & layout interpolations for input field micro-interactions
   const emailBorderColor = emailFocusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [THEME.border, THEME.primary],
+    outputRange: ['#dbeafe', THEME.primary],
   });
 
   const emailIconColor = emailFocusAnim.interpolate({
@@ -421,7 +263,7 @@ export default function LoginScreen() {
 
   const passwordBorderColor = passwordFocusAnim.interpolate({
     inputRange: [0, 1],
-    outputRange: [THEME.border, THEME.primary],
+    outputRange: ['#dbeafe', THEME.primary],
   });
 
   const passwordIconColor = passwordFocusAnim.interpolate({
@@ -429,28 +271,34 @@ export default function LoginScreen() {
     outputRange: [THEME.textSecondary, THEME.primary],
   });
 
-  // Password visibility eye rotation
-  const eyeRotation = eyeVisibilityAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: ['0deg', '180deg'],
-  });
-
-  // Login Button Style Interpolations
-  const buttonScale = buttonPressAnim.interpolate({
+  const buttonScale = buttonPressScale.interpolate({
     inputRange: [0, 1],
     outputRange: [1, 0.97],
   });
 
-  const buttonBgColor = buttonPressAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [THEME.primary, THEME.primaryDark],
-  });
-
   return (
     <SafeAreaView style={styles.outerContainer} edges={['top', 'bottom']}>
-      {/* Subtle Premium Background Glow */}
-      <View style={styles.backgroundGlowContainer} pointerEvents="none">
-        <View style={styles.radialGlow} />
+      
+      {/* Decorative Wave Background (100% Matching mockup gradients) */}
+      <View style={styles.waveBackground} pointerEvents="none">
+        <Svg width="100%" height={240} viewBox="0 0 375 240" fill="none" style={styles.topWave} preserveAspectRatio="none">
+          <Path d="M 0 0 H 375 V 170 Q 250 240 120 180 T 0 160 Z" fill="url(#top-grad)" opacity={0.8} />
+          <Defs>
+            <LinearGradient id="top-grad" x1="0.5" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.4" />
+              <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.9" />
+            </LinearGradient>
+          </Defs>
+        </Svg>
+        <Svg width="100%" height={140} viewBox="0 0 375 140" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
+          <Path d="M 0 140 H 375 V 50 Q 280 125 180 45 T 0 75 Z" fill="url(#bottom-grad)" opacity={0.85} />
+          <Defs>
+            <LinearGradient id="bottom-grad" x1="0" y1="0.5" x2="0.5" y2="1">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.5" />
+              <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.85" />
+            </LinearGradient>
+          </Defs>
+        </Svg>
       </View>
 
       <KeyboardAvoidingView
@@ -462,68 +310,57 @@ export default function LoginScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {/* Centered Login Card Animated wrapper */}
+          {/* Brand Logo & Visual Terminal Illustration */}
           <Animated.View
             style={[
-              styles.card,
+              styles.headerRow,
               {
-                opacity: fadeCard,
-                transform: [
-                  { translateY: translateCardY },
-                  { scale: scaleCard },
-                ],
+                opacity: fadeHeader,
+                transform: [{ translateY: translateHeaderY }],
               },
             ]}
           >
-            {/* Header Section */}
-            <View style={styles.formHeader}>
-              {/* POS Icon with floating & entrance animations */}
-              <Animated.View
-                style={[
-                  styles.iconContainer,
-                  {
-                    opacity: fadeIcon,
-                    transform: [
-                      { scale: scaleIcon },
-                      { translateY: floatIcon },
-                    ],
-                  },
-                ]}
-              >
-                <AnimatedMaterialIcon
-                  name="point-of-sale"
-                  size={32}
-                  color={THEME.primary}
-                  accessibilityLabel="SmartPOS logo"
-                />
-              </Animated.View>
-
-              {/* Title with staggered entrance */}
-              <Animated.View
-                style={{
-                  opacity: fadeTitle,
-                  transform: [{ translateY: translateTitleY }],
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={styles.title}>Welcome Back</Text>
-              </Animated.View>
-
-              {/* Subtitle with staggered entrance */}
-              <Animated.View
-                style={{
-                  opacity: fadeSubtitle,
-                  transform: [{ translateY: translateSubtitleY }],
-                  alignItems: 'center',
-                }}
-              >
-                <Text style={styles.subtitle}>
-                  Login to manage your store
+            <View style={styles.logoAndTag}>
+              <View style={styles.logoRow}>
+                <Svg width={32} height={32} viewBox="0 0 28 28" style={{ marginRight: 8 }}>
+                  <Path
+                    d="M 3 6 H 7.5 L 9.8 17.5 H 21.5 L 23.5 9 H 8.5"
+                    stroke="#2563eb"
+                    strokeWidth={2.8}
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    fill="none"
+                  />
+                  <Circle cx={11.5} cy={22.5} r={2.2} fill="#2563eb" />
+                  <Circle cx={19.5} cy={22.5} r={2.2} fill="#2563eb" />
+                </Svg>
+                <Text style={styles.logoText}>
+                  Smart<Text style={{ color: '#1e293b', fontWeight: '800' }}>POS</Text>
                 </Text>
-              </Animated.View>
+              </View>
+              <Text style={styles.tagline}>Simple • Fast • Smart</Text>
             </View>
 
-            {/* Error validation shake banner */}
+            <TerminalIllustration />
+          </Animated.View>
+
+          {/* Form Content - Clean, borderless layout directly on background (like Mockup) */}
+          <Animated.View
+            style={[
+              styles.formBlock,
+              {
+                opacity: fadeContent,
+                transform: [{ translateY: translateContentY }],
+              },
+            ]}
+          >
+            {/* Header Text */}
+            <View style={styles.formHeader}>
+              <Text style={styles.title}>Welcome Back</Text>
+              <Text style={styles.subtitle}>Login to manage your store</Text>
+            </View>
+
+            {/* Error shakes banner */}
             {errorMessage ? (
               <Animated.View
                 style={[
@@ -543,57 +380,50 @@ export default function LoginScreen() {
               </Animated.View>
             ) : null}
 
-            {/* Form Fields Animated Container */}
-            <Animated.View
-              style={{
-                opacity: fadeForm,
-                transform: [{ translateY: translateFormY }],
-                width: '100%',
-              }}
-            >
-              {/* Email/Username field */}
+            {/* Form Fields */}
+            <View style={styles.formFields}>
+              {/* Username field */}
               <View style={styles.inputGroup}>
                 <Text style={styles.inputLabel}>Email or Username</Text>
-                <Animated.View style={[{ opacity: emailFocusAnim }, styles.inputGlowBorder]} />
                 <Animated.View
                   style={[
                     styles.inputWrapper,
-                    {
-                      borderColor: emailBorderColor,
-                      transform: [{ scale: emailPressScale }],
-                    },
+                    { borderColor: emailBorderColor },
                   ]}
                 >
-                  <Pressable
-                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
-                    onPressIn={() => animateInputPress(emailPressScale, true)}
-                    onPressOut={() => animateInputPress(emailPressScale, false)}
-                  >
-                    <View style={styles.inputIconBox}>
-                      <AnimatedMaterialIcon
-                        name="person"
-                        size={20}
-                        style={{ color: emailIconColor }}
-                      />
-                    </View>
-                    <View style={styles.inputDivider} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter your email or username"
-                      placeholderTextColor={THEME.textSecondary}
-                      value={email}
-                      onChangeText={(text) => {
-                        setEmail(text);
-                        if (errorMessage) setErrorMessage('');
+                  <MaterialIcons
+                    name="mail-outline"
+                    size={20}
+                    style={{ color: emailIconColor, marginRight: 10 }}
+                  />
+                  <TextInput
+                    style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                    placeholder="rithes07@gmail.com"
+                    placeholderTextColor={THEME.textSecondary}
+                    value={email}
+                    onChangeText={(text) => {
+                      setEmail(text);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    onFocus={() => animateInputFocus(emailFocusAnim, true)}
+                    onBlur={() => animateInputFocus(emailFocusAnim, false)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    keyboardType="email-address"
+                  />
+                  {email.length > 0 && (
+                    <TouchableOpacity
+                      style={styles.clearButton}
+                      onPress={() => {
+                        setEmail('');
+                        setErrorMessage('');
                       }}
-                      onFocus={() => animateInputFocus(emailFocusAnim, true)}
-                      onBlur={() => animateInputFocus(emailFocusAnim, false)}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      keyboardType="email-address"
-                      accessibilityLabel="Email or Username Input Field"
-                    />
-                  </Pressable>
+                      accessibilityRole="button"
+                      accessibilityLabel="Clear input"
+                    >
+                      <MaterialIcons name="cancel" size={18} color={THEME.textSecondary} />
+                    </TouchableOpacity>
+                  )}
                 </Animated.View>
               </View>
 
@@ -602,97 +432,74 @@ export default function LoginScreen() {
                 <View style={styles.passwordLabelRow}>
                   <Text style={styles.inputLabel}>Password</Text>
                   <Pressable
-                    onPressIn={() => animateLinkPress(forgotPressScale, true)}
-                    onPressOut={() => animateLinkPress(forgotPressScale, false)}
                     onPress={() =>
                       Alert.alert(
                         'Reset Password',
-                        'To reset your password, please contact your store owner or administrator — they can update it for you from staff settings.',
+                        'To reset your password, contact your store owner or manager. They can update it for you from staff profiles.',
                         [{ text: 'OK' }]
                       )
                     }
                     accessibilityRole="link"
-                    accessibilityLabel="Forgot Password, click to reset"
+                    accessibilityLabel="Forgot Password Link"
                   >
-                    <Animated.View style={{ transform: [{ scale: forgotPressScale }] }}>
-                      <Text style={styles.forgotPassword}>Forgot Password?</Text>
-                    </Animated.View>
+                    <Text style={styles.forgotPassword}>Forgot Password?</Text>
                   </Pressable>
                 </View>
-                <Animated.View style={[{ opacity: passwordFocusAnim }, styles.inputGlowBorder]} />
+
                 <Animated.View
                   style={[
                     styles.inputWrapper,
-                    {
-                      borderColor: passwordBorderColor,
-                      transform: [{ scale: passwordPressScale }],
-                    },
+                    { borderColor: passwordBorderColor },
                   ]}
                 >
-                  <Pressable
-                    style={{ flex: 1, flexDirection: 'row', alignItems: 'center' }}
-                    onPressIn={() => animateInputPress(passwordPressScale, true)}
-                    onPressOut={() => animateInputPress(passwordPressScale, false)}
-                  >
-                    <View style={styles.inputIconBox}>
-                      <AnimatedMaterialIcon
-                        name="lock"
-                        size={20}
-                        style={{ color: passwordIconColor }}
-                      />
-                    </View>
-                    <View style={styles.inputDivider} />
-                    <TextInput
-                      style={styles.input}
-                      placeholder="Enter your password"
-                      placeholderTextColor={THEME.textSecondary}
-                      secureTextEntry={!showPassword}
-                      value={password}
-                      onChangeText={(text) => {
-                        setPassword(text);
-                        if (errorMessage) setErrorMessage('');
-                      }}
-                      onFocus={() => animateInputFocus(passwordFocusAnim, true)}
-                      onBlur={() => animateInputFocus(passwordFocusAnim, false)}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                      accessibilityLabel="Password Input Field"
-                    />
-                  </Pressable>
+                  <MaterialIcons
+                    name="lock-outline"
+                    size={20}
+                    style={{ color: passwordIconColor, marginRight: 10 }}
+                  />
+                  <TextInput
+                    style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                    placeholder="••••••••"
+                    placeholderTextColor={THEME.textSecondary}
+                    secureTextEntry={!showPassword}
+                    value={password}
+                    onChangeText={(text) => {
+                      setPassword(text);
+                      if (errorMessage) setErrorMessage('');
+                    }}
+                    onFocus={() => animateInputFocus(passwordFocusAnim, true)}
+                    onBlur={() => animateInputFocus(passwordFocusAnim, false)}
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                  />
+
                   <TouchableOpacity
                     onPress={toggleShowPassword}
                     style={styles.eyeIcon}
                     accessibilityRole="button"
-                    accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                    accessibilityLabel={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    <Animated.View style={{ transform: [{ rotate: eyeRotation }] }}>
-                      <MaterialIcons
-                        name={showPassword ? 'visibility' : 'visibility-off'}
-                        size={20}
-                        color={THEME.textSecondary}
-                      />
-                    </Animated.View>
+                    <MaterialIcons
+                      name={showPassword ? 'visibility' : 'visibility-off'}
+                      size={20}
+                      color={THEME.textSecondary}
+                    />
                   </TouchableOpacity>
                 </Animated.View>
               </View>
 
-              {/* Primary Action Button (Tactile Press scale & loading checkpoint) */}
-              <Pressable
+              {/* Sign In Button (Pill Blue button with Arrow Icon on the left) */}
+              <TouchableOpacity
                 accessibilityRole="button"
-                accessibilityLabel={isLoading ? "Logging in progress" : "Login"}
-                accessibilityState={{ disabled: isLoading }}
+                accessibilityLabel="Sign In"
                 disabled={isLoading || isSuccess}
-                onPressIn={handleButtonPressIn}
-                onPressOut={handleButtonPressOut}
                 onPress={handleLogin}
+                activeOpacity={0.8}
               >
                 <Animated.View
                   style={[
                     styles.primaryButton,
-                    {
-                      backgroundColor: buttonBgColor,
-                      transform: [{ scale: buttonScale }],
-                    },
+                    { transform: [{ scale: buttonScale }] },
                     (isLoading || isSuccess) && styles.primaryButtonDisabled,
                   ]}
                 >
@@ -707,58 +514,44 @@ export default function LoginScreen() {
                     </Animated.View>
                   ) : isLoading ? (
                     <View style={styles.loadingButtonContent}>
-                      <ActivityIndicator size="small" color="#FFFFFF" style={styles.spinnerSpacing} />
-                      <Text style={styles.primaryButtonText}>Logging in...</Text>
+                      <ActivityIndicator size="small" color="#FFFFFF" style={{ marginRight: 8 }} />
+                      <Text style={styles.primaryButtonText}>Signing in...</Text>
                     </View>
                   ) : (
-                    <Text style={styles.primaryButtonText}>Login</Text>
+                    <View style={styles.buttonContent}>
+                      <MaterialIcons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginRight: 6 }} />
+                      <Text style={styles.primaryButtonText}>Sign In</Text>
+                    </View>
                   )}
                 </Animated.View>
-              </Pressable>
+              </TouchableOpacity>
 
-              {/* Sign Up Footer */}
-              <View style={styles.footerRow}>
-                <Text style={styles.footerText}>{"Don't have an account? "}</Text>
-                <Pressable
-                  onPressIn={() => animateLinkPress(signupPressScale, true)}
-                  onPressOut={() => animateLinkPress(signupPressScale, false)}
-                  onPress={() => router.push('/signup')}
-                  accessibilityRole="link"
-                  accessibilityLabel="Sign Up, click to create a new account"
-                >
-                  <Animated.View style={{ transform: [{ scale: signupPressScale }] }}>
-                    <Text style={styles.footerLink}>Sign Up</Text>
-                  </Animated.View>
-                </Pressable>
+              {/* Sign Up Redirect with lines divider */}
+              <View style={styles.signUpDividerRow}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.footerText}>
+                  Don't have an account?{' '}
+                  <Text style={styles.footerLink} onPress={() => router.push('/signup')}>
+                    Create Account
+                  </Text>
+                </Text>
+                <View style={styles.dividerLine} />
               </View>
-            </Animated.View>
+            </View>
           </Animated.View>
 
-          {/* Help & Support Button (Tactile scale) */}
-          <Animated.View
-            style={[
-              styles.supportContainer,
-              {
-                opacity: fadeForm,
-                transform: [
-                  { translateY: translateFormY },
-                  { scale: supportPressScale },
-                ],
-              },
-            ]}
-          >
-            <Pressable
-              style={styles.supportButton}
-              onPressIn={() => animateLinkPress(supportPressScale, true)}
-              onPressOut={() => animateLinkPress(supportPressScale, false)}
-              onPress={() => alert('Help & Support is currently unavailable.')}
-              accessibilityRole="link"
-              accessibilityLabel="Help and Support link"
-            >
-              <MaterialIcons name="help-outline" size={18} color={THEME.textSecondary} />
-              <Text style={styles.supportText}>Help & Support</Text>
-            </Pressable>
-          </Animated.View>
+          {/* Secure & Trusted bottom banner with SVG outline check checkmark shield */}
+          <View style={styles.secureFooter} pointerEvents="none">
+            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+              <Path d="M 12 2 L 4 5 V 11 C 4 16.5 7.4 21.7 12 23 C 16.6 21.7 20 16.5 20 11 V 5 L 12 2 Z" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              <Path d="M 9 11 L 11 13 L 15 9" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+            </Svg>
+            <View style={styles.secureTextWrapper}>
+              <Text style={styles.secureTitle}>Secure & Trusted</Text>
+              <Text style={styles.secureSubtitle}>Your data is safe with us</Text>
+            </View>
+          </View>
+
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -768,33 +561,23 @@ export default function LoginScreen() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: THEME.background,
+    backgroundColor: '#ffffff',
   },
-  backgroundGlowContainer: {
+  waveBackground: {
     ...StyleSheet.absoluteFillObject,
-    alignItems: 'center',
-    justifyContent: 'center',
     zIndex: 0,
   },
-  radialGlow: {
-    width: 400,
-    height: 400,
-    borderRadius: 200,
-    backgroundColor: 'rgba(37, 99, 235, 0.05)',
-    ...Platform.select({
-      ios: {
-        shadowColor: THEME.primary,
-        shadowOffset: { width: 0, height: 0 },
-        shadowOpacity: 0.35,
-        shadowRadius: 80,
-      },
-      web: {
-        filter: 'blur(80px)',
-      },
-      android: {
-        backgroundColor: 'rgba(37, 99, 235, 0.03)',
-      },
-    }),
+  topWave: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+  },
+  bottomWave: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   avoidingContainer: {
     flex: 1,
@@ -802,69 +585,61 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 40,
-    paddingHorizontal: 16,
+    paddingVertical: 24,
+    paddingHorizontal: 24,
   },
-  card: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     width: '100%',
     maxWidth: 420,
-    backgroundColor: THEME.card,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
-    borderRadius: 24,
-    borderWidth: 1,
-    borderColor: THEME.border,
-    ...Platform.select({
-      ios: {
-        shadowColor: THEME.textPrimary,
-        shadowOffset: { width: 0, height: 12 },
-        shadowOpacity: 0.04,
-        shadowRadius: 20,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    marginTop: 20,
+    marginBottom: 30,
   },
-  formHeader: {
-    alignItems: 'center',
-    marginBottom: 28,
-  },
-  iconContainer: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: THEME.primaryLight,
-    alignItems: 'center',
+  logoAndTag: {
+    flex: 1,
     justifyContent: 'center',
-    marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: THEME.primary,
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.12,
-        shadowRadius: 6,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
   },
-  title: {
+  logoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  logoText: {
     fontSize: 28,
     fontWeight: '700',
-    color: THEME.textPrimary,
-    textAlign: 'center',
-    marginBottom: 6,
+    color: '#2563eb',
     letterSpacing: -0.5,
   },
+  tagline: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '600',
+    marginTop: 4,
+    letterSpacing: 0.5,
+  },
+  formBlock: {
+    width: '100%',
+    maxWidth: 420,
+    marginVertical: 10,
+  },
+  formHeader: {
+    alignItems: 'flex-start',
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: '800',
+    color: THEME.textPrimary,
+    letterSpacing: -0.8,
+    marginBottom: 6,
+  },
   subtitle: {
-    fontSize: 14,
+    fontSize: 15,
     color: THEME.textSecondary,
-    textAlign: 'center',
-    fontWeight: '400',
+    fontWeight: '500',
   },
   errorContainer: {
     flexDirection: 'row',
@@ -884,14 +659,16 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     flex: 1,
   },
+  formFields: {
+    width: '100%',
+  },
   inputGroup: {
     marginBottom: 20,
     width: '100%',
-    position: 'relative',
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '600',
+    fontSize: 14,
+    fontWeight: '700',
     color: THEME.textPrimary,
     marginBottom: 8,
   },
@@ -902,7 +679,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   forgotPassword: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: THEME.primary,
   },
@@ -910,114 +687,103 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: THEME.border,
-    borderRadius: 12,
-    height: 52,
-    backgroundColor: '#FFFFFF',
-    overflow: 'hidden',
-    zIndex: 2,
-  },
-  inputGlowBorder: {
-    position: 'absolute',
-    left: -3,
-    top: 23, // Shifted down relative to labels
-    width: '100%',
-    height: 58,
-    borderRadius: 15,
-    borderWidth: 3,
-    borderColor: 'rgba(37, 99, 235, 0.15)',
-    zIndex: 1,
-    paddingHorizontal: 3,
-  },
-  inputIconBox: {
-    width: 48,
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: '100%',
-  },
-  inputDivider: {
-    width: 1,
-    height: 20,
-    backgroundColor: THEME.border,
+    borderColor: '#dbeafe', // Mockup light blue border by default
+    borderRadius: 14,
+    height: 54, // Mockup larger input height
+    backgroundColor: '#f5f8ff', // Match mockup background input tint
+    paddingHorizontal: 16,
   },
   input: {
     flex: 1,
     height: '100%',
     fontSize: 15,
     color: THEME.textPrimary,
-    paddingHorizontal: 14,
+    padding: 0,
+    borderWidth: 0,
+  },
+  clearButton: {
+    padding: 4,
   },
   eyeIcon: {
-    paddingHorizontal: 14,
-    height: '100%',
-    justifyContent: 'center',
+    padding: 4,
   },
   primaryButton: {
     width: '100%',
-    height: 52,
-    borderRadius: 14,
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: THEME.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 10,
     marginBottom: 16,
-    ...Platform.select({
-      ios: {
-        shadowColor: THEME.primary,
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.16,
-        shadowRadius: 10,
-      },
-      android: {
-        elevation: 3,
-      },
-    }),
+    shadowColor: 'rgba(37, 99, 235, 0.25)',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 3,
   },
   primaryButtonDisabled: {
-    opacity: 0.7,
+    opacity: 0.75,
   },
   primaryButtonText: {
     color: '#FFFFFF',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
+  },
+  buttonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingButtonContent: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
-  spinnerSpacing: {
-    marginRight: 8,
-  },
-  footerRow: {
+  signUpDividerRow: {
     flexDirection: 'row',
-    justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 8,
+    justifyContent: 'center',
+    marginVertical: 18,
+    width: '100%',
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#cbd5e1',
+    marginHorizontal: 12,
+    opacity: 0.6,
   },
   footerText: {
     fontSize: 14,
     color: THEME.textSecondary,
+    textAlign: 'center',
   },
   footerLink: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: '700',
     color: THEME.primary,
   },
-  supportContainer: {
-    marginTop: 32,
-    alignItems: 'center',
-    width: '100%',
-  },
-  supportButton: {
+  secureFooter: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
+    justifyContent: 'center',
+    marginTop: 30,
+    marginBottom: 10,
+    width: '100%',
   },
-  supportText: {
-    fontSize: 14,
+  secureTextWrapper: {
+    justifyContent: 'center',
+  },
+  secureTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  secureSubtitle: {
+    fontSize: 11,
+    color: '#64748b',
     fontWeight: '500',
-    color: THEME.textSecondary,
+    marginTop: 1,
   },
 });
