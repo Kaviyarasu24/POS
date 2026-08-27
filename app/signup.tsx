@@ -17,7 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import Svg, { Path } from 'react-native-svg';
+import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '@/constants/theme';
 import { API_BASE_URL } from '@/constants/config';
 
@@ -60,7 +60,7 @@ const THEME = {
 const StepProgress = ({ currentStep }: { currentStep: number }) => {
   const steps = [
     { num: 1, label: 'Account\nType' },
-    { num: 2, label: 'Shop\nInfo' },
+    { num: 2, label: 'Shop\nInformation' },
     { num: 3, label: 'Owner\nDetails' },
     { num: 4, label: 'Password\nSetup' },
     { num: 5, label: 'Complete' },
@@ -397,7 +397,7 @@ export default function SignupScreen() {
               <MaterialIcons
                 name={signupMode === 'new_store' ? 'radio-button-on' : 'radio-button-off'}
                 size={22}
-                color={signupMode === 'new_store' ? '#2563eb' : '#c3c6d7'}
+                color={signupMode === 'new_store' ? '#2563eb' : '#cbd5e1'}
               />
             </TouchableOpacity>
 
@@ -417,7 +417,7 @@ export default function SignupScreen() {
               <MaterialIcons
                 name={signupMode === 'join_store' ? 'radio-button-on' : 'radio-button-off'}
                 size={22}
-                color={signupMode === 'join_store' ? '#2563eb' : '#c3c6d7'}
+                color={signupMode === 'join_store' ? '#2563eb' : '#cbd5e1'}
               />
             </TouchableOpacity>
           </View>
@@ -703,23 +703,27 @@ export default function SignupScreen() {
 
   return (
     <SafeAreaView style={styles.outerContainer} edges={['top', 'bottom']}>
-      {/* Header bar with Back arrow */}
-      <View style={styles.header}>
-        {currentStep < 5 ? (
-          <TouchableOpacity
-            style={styles.backButton}
-            onPress={handleBack}
-            accessibilityLabel="Go back"
-          >
-            <MaterialIcons name="arrow-back" size={24} color={THEME.textPrimary} />
-          </TouchableOpacity>
-        ) : (
-          <View style={{ width: 44 }} />
-        )}
-        <View style={styles.headerTitleContainer}>
-          <Text style={styles.headerTitle}>Create Account</Text>
-        </View>
-        <View style={{ width: 44 }} />
+      
+      {/* Decorative Wave Background (100% matching mockup gradients) */}
+      <View style={styles.waveBackground} pointerEvents="none">
+        <Svg width="100%" height={240} viewBox="0 0 375 240" fill="none" style={styles.topWave} preserveAspectRatio="none">
+          <Path d="M 0 0 H 375 V 170 Q 250 240 120 180 T 0 160 Z" fill="url(#top-grad)" opacity={0.8} />
+          <Defs>
+            <LinearGradient id="top-grad" x1="0.5" y1="0" x2="1" y2="1">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.4" />
+              <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.9" />
+            </LinearGradient>
+          </Defs>
+        </Svg>
+        <Svg width="100%" height={140} viewBox="0 0 375 140" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
+          <Path d="M 0 140 H 375 V 50 Q 280 125 180 45 T 0 75 Z" fill="url(#bottom-grad)" opacity={0.85} />
+          <Defs>
+            <LinearGradient id="bottom-grad" x1="0" y1="0.5" x2="0.5" y2="1">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.5" />
+              <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.85" />
+            </LinearGradient>
+          </Defs>
+        </Svg>
       </View>
 
       <ScrollView
@@ -729,27 +733,39 @@ export default function SignupScreen() {
       >
         <View style={styles.formContainer}>
           
-          {/* Brand header branding */}
-          {currentStep < 5 && (
-            <View style={styles.brandingHeader}>
-              <View style={styles.logoRow}>
-                <Svg width={24} height={24} viewBox="0 0 28 28" style={{ marginRight: 6 }}>
-                  <Path
-                    d="M 3 6 H 7.5 L 9.8 17.5 H 21.5 L 23.5 9 H 8.5"
-                    stroke="#2563eb"
-                    strokeWidth={2.8}
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    fill="none"
-                  />
-                  <Circle cx={11.5} cy={22.5} r={2.2} fill="#2563eb" />
-                  <Circle cx={19.5} cy={22.5} r={2.2} fill="#2563eb" />
-                </Svg>
-                <Text style={styles.logoText}>Smart<Text style={{ color: '#1e293b', fontWeight: '800' }}>POS</Text></Text>
+          {/* Top Bar with Floating Back Arrow and Centered Logo */}
+          <View style={styles.topBarContainer}>
+            {currentStep < 5 && (
+              <TouchableOpacity
+                style={styles.backArrowButton}
+                onPress={handleBack}
+                accessibilityLabel="Go back"
+              >
+                <MaterialIcons name="chevron-left" size={32} color={THEME.textPrimary} />
+              </TouchableOpacity>
+            )}
+            
+            {currentStep < 5 && (
+              <View style={styles.brandingHeader}>
+                <View style={styles.logoRow}>
+                  <Svg width={28} height={28} viewBox="0 0 28 28" style={{ marginRight: 6 }}>
+                    <Path
+                      d="M 3 6 H 7.5 L 9.8 17.5 H 21.5 L 23.5 9 H 8.5"
+                      stroke="#2563eb"
+                      strokeWidth={2.8}
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      fill="none"
+                    />
+                    <Circle cx={11.5} cy={22.5} r={2.2} fill="#2563eb" />
+                    <Circle cx={19.5} cy={22.5} r={2.2} fill="#2563eb" />
+                  </Svg>
+                  <Text style={styles.logoText}>Smart<Text style={{ color: '#1e293b', fontWeight: '800' }}>POS</Text></Text>
+                </View>
+                <Text style={styles.brandPrompt}>Create your account to get started</Text>
               </View>
-              <Text style={styles.brandPrompt}>Create your account to get started</Text>
-            </View>
-          )}
+            )}
+          </View>
 
           {/* 5-step Horizontal Progress bar */}
           <StepProgress currentStep={currentStep} />
@@ -762,7 +778,7 @@ export default function SignupScreen() {
             </View>
           ) : null}
 
-          {/* Wizard screen anim content */}
+          {/* Wizard Card containing content & buttons inside (mockup alignment) */}
           <Animated.View
             style={[
               styles.wizardCard,
@@ -773,49 +789,41 @@ export default function SignupScreen() {
             ]}
           >
             {renderStepContent()}
-          </Animated.View>
 
-          {/* Navigation action buttons */}
-          <View style={styles.actionArea}>
-            {currentStep < 5 ? (
-              <TouchableOpacity
-                style={[styles.primaryButton, isLoading && { opacity: 0.8 }]}
-                onPress={handleContinue}
-                disabled={isLoading}
-                activeOpacity={0.8}
-              >
-                {isLoading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
+            {/* Step navigation triggers moved inside the card box container */}
+            <View style={styles.actionAreaInside}>
+              {currentStep < 5 ? (
+                <TouchableOpacity
+                  style={[styles.primaryButton, isLoading && { opacity: 0.8 }]}
+                  onPress={handleContinue}
+                  disabled={isLoading}
+                  activeOpacity={0.8}
+                >
+                  {isLoading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <View style={styles.btnContent}>
+                      <Text style={styles.primaryButtonText}>
+                        {currentStep === 4 ? 'Submit Details' : 'Continue'}
+                      </Text>
+                      <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+                    </View>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <TouchableOpacity
+                  style={styles.primaryButton}
+                  onPress={() => router.replace('/login')}
+                  activeOpacity={0.8}
+                >
                   <View style={styles.btnContent}>
-                    <Text style={styles.primaryButtonText}>
-                      {currentStep === 4 ? 'Submit Details' : 'Continue'}
-                    </Text>
-                    <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+                    <Text style={styles.primaryButtonText}>Go to Sign In</Text>
+                    <MaterialIcons name="login" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
                   </View>
-                )}
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                style={styles.primaryButton}
-                onPress={() => router.replace('/login')}
-                activeOpacity={0.8}
-              >
-                <View style={styles.btnContent}>
-                  <Text style={styles.primaryButtonText}>Go to Sign In</Text>
-                  <MaterialIcons name="login" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
-                </View>
-              </TouchableOpacity>
-            )}
-
-            {currentStep < 5 && (
-              <TouchableOpacity onPress={() => router.push('/login')} style={styles.loginLink}>
-                <Text style={styles.loginLinkLabel}>
-                  Already have an account? <Text style={styles.loginLinkText}>Login</Text>
-                </Text>
-              </TouchableOpacity>
-            )}
-          </View>
+                </TouchableOpacity>
+              )}
+            </View>
+          </Animated.View>
 
         </View>
       </ScrollView>
@@ -929,46 +937,55 @@ export default function SignupScreen() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: THEME.background,
+    backgroundColor: '#ffffff', // Clean white background matching design
   },
-  header: {
-    height: 56,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 8,
+  waveBackground: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 0,
   },
-  backButton: {
-    width: 44,
-    height: 44,
-    alignItems: 'center',
-    justifyContent: 'center',
+  topWave: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
   },
-  headerTitleContainer: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  headerTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: THEME.textPrimary,
+  bottomWave: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
   },
   scrollContainer: {
     flexGrow: 1,
     alignItems: 'center',
     paddingVertical: 20,
     paddingHorizontal: 20,
+    zIndex: 1,
   },
   formContainer: {
     width: '100%',
     maxWidth: 500,
     gap: 16,
   },
+  topBarContainer: {
+    flexDirection: 'row',
+    width: '100%',
+    position: 'relative',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 10,
+    marginBottom: 5,
+  },
+  backArrowButton: {
+    position: 'absolute',
+    left: -8,
+    top: -2,
+    padding: 4,
+    zIndex: 2,
+  },
   brandingHeader: {
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'center',
   },
   logoRow: {
     flexDirection: 'row',
@@ -976,7 +993,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   logoText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '700',
     color: '#2563eb',
     letterSpacing: -0.5,
@@ -990,7 +1007,7 @@ const styles = StyleSheet.create({
   stepProgressContainer: {
     width: '100%',
     paddingVertical: 8,
-    marginBottom: 10,
+    marginBottom: 8,
   },
   stepLinesRow: {
     flexDirection: 'row',
@@ -1025,9 +1042,9 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#f1f5f9',
     borderWidth: 2,
-    borderColor: '#cbd5e1',
+    borderColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1056,7 +1073,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginTop: 6,
     lineHeight: 12,
-    fontWeight: '500',
+    fontWeight: '600',
   },
   stepLabelActive: {
     color: '#2563eb',
@@ -1084,29 +1101,30 @@ const styles = StyleSheet.create({
   wizardCard: {
     width: '100%',
     backgroundColor: '#ffffff',
-    borderRadius: 18,
+    borderRadius: 24, // Mockup larger rounded corners
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    padding: 20,
-    shadowColor: 'rgba(15, 23, 42, 0.04)',
-    shadowOffset: { width: 0, height: 4 },
+    padding: 24, // Mockup padding
+    shadowColor: 'rgba(15, 23, 42, 0.05)',
+    shadowOffset: { width: 0, height: 8 },
     shadowOpacity: 1,
-    shadowRadius: 10,
-    elevation: 2,
+    shadowRadius: 16,
+    elevation: 3,
   },
   stepBlock: {
     width: '100%',
   },
   stepTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '800',
     color: THEME.textPrimary,
-    marginBottom: 4,
+    marginBottom: 6,
+    letterSpacing: -0.5,
   },
   stepSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: THEME.textSecondary,
-    marginBottom: 20,
+    marginBottom: 24,
     fontWeight: '500',
   },
   radioCard: {
@@ -1114,23 +1132,23 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 14,
+    padding: 18,
     backgroundColor: '#ffffff',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   radioCardActive: {
     borderColor: '#2563eb',
     backgroundColor: '#eff6ff',
   },
   radioIconBox: {
-    width: 44,
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: '#f1f5f9',
+    width: 46,
+    height: 46,
+    borderRadius: 10,
+    backgroundColor: '#eff6ff', // Mockup light blue-grey background tint
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 14,
+    marginRight: 16,
   },
   radioIconBoxActive: {
     backgroundColor: '#dbeafe',
@@ -1140,7 +1158,7 @@ const styles = StyleSheet.create({
     paddingRight: 6,
   },
   radioTitle: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: THEME.textPrimary,
     marginBottom: 2,
@@ -1149,7 +1167,7 @@ const styles = StyleSheet.create({
     color: '#2563eb',
   },
   radioDescription: {
-    fontSize: 12,
+    fontSize: 12.5,
     color: THEME.textSecondary,
     lineHeight: 16,
   },
@@ -1285,24 +1303,22 @@ const styles = StyleSheet.create({
     lineHeight: 18,
     marginTop: 12,
   },
-  actionArea: {
+  actionAreaInside: {
     width: '100%',
-    alignItems: 'center',
-    marginTop: 6,
+    marginTop: 18,
   },
   primaryButton: {
     width: '100%',
-    height: 50,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 14,
     backgroundColor: '#2563eb',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: 'rgba(37, 99, 235, 0.2)',
-    shadowOffset: { width: 0, height: 4 },
+    shadowColor: 'rgba(37, 99, 235, 0.25)',
+    shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
-    shadowRadius: 8,
-    elevation: 2,
-    marginBottom: 16,
+    shadowRadius: 10,
+    elevation: 3,
   },
   btnContent: {
     flexDirection: 'row',
@@ -1311,7 +1327,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: '#ffffff',
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
   },
   loginLink: {
