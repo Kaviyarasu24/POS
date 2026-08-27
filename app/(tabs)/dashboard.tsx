@@ -5,9 +5,8 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
-  Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Defs, LinearGradient, Stop } from 'react-native-svg';
@@ -100,12 +99,9 @@ export default function DashboardScreen() {
   const isPositiveGrowth = metrics.sales_growth_percentage >= 0;
 
   return (
-    <SafeAreaView style={styles.outerContainer}>
+    <SafeAreaView style={styles.outerContainer} edges={['top']}>
       {/* Top App Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="menu" size={24} color="#004ac6" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>SmartPOS</Text>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -113,10 +109,6 @@ export default function DashboardScreen() {
             onPress={() => router.push('/scanner')}
           >
             <MaterialIcons name="qr-code-scanner" size={24} color="#004ac6" />
-          </TouchableOpacity>
-          <TouchableOpacity style={[styles.headerIconButton, styles.notificationBtn]}>
-            <MaterialIcons name="notifications" size={24} color="#004ac6" />
-            <View style={styles.notificationBadge} />
           </TouchableOpacity>
         </View>
       </View>
@@ -201,6 +193,22 @@ export default function DashboardScreen() {
                 <MaterialIcons name="receipt-long" size={24} color="#131b2e" style={styles.actionIcon} />
                 <Text style={styles.actionText}>History</Text>
               </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push('/customers' as any)}
+              >
+                <MaterialIcons name="people" size={24} color="#131b2e" style={styles.actionIcon} />
+                <Text style={styles.actionText}>Customers</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={() => router.push('/reports' as any)}
+              >
+                <MaterialIcons name="assessment" size={24} color="#131b2e" style={styles.actionIcon} />
+                <Text style={styles.actionText}>Reports</Text>
+              </TouchableOpacity>
             </ScrollView>
           </View>
 
@@ -244,8 +252,8 @@ export default function DashboardScreen() {
               <Svg width="100%" height="100%" viewBox="0 0 350 120" preserveAspectRatio="none" style={{ overflow: 'visible' }}>
                 <Defs>
                   <LinearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                    <Stop offset="0" stopColor="#2563eb" stopOpacity="0.25" />
-                    <Stop offset="1" stopColor="#2563eb" stopOpacity="0" />
+                    <Stop offset="0" stopColor="#004ac6" stopOpacity="0.25" />
+                    <Stop offset="1" stopColor="#004ac6" stopOpacity="0" />
                   </LinearGradient>
                 </Defs>
                 {/* Area under the line */}
@@ -257,7 +265,7 @@ export default function DashboardScreen() {
                 <Path
                   d={linePath}
                   fill="none"
-                  stroke="#2563eb"
+                  stroke="#004ac6"
                   strokeWidth="3"
                 />
               </Svg>
@@ -339,7 +347,6 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     backgroundColor: '#faf8ff',
-    paddingTop: Platform.OS === 'android' ? 24 : 0,
   },
   header: {
     height: 64,

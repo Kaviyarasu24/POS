@@ -5,11 +5,12 @@ import {
   Text,
   Animated,
   Dimensions,
-  SafeAreaView,
   Platform,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import { store } from '@/constants/store';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -81,16 +82,23 @@ export default function SplashScreen() {
       createDotLoop(dot3Anim, 300),
     ]).start();
 
-    // 4. Redirect to login screen after 3 seconds
-    const timeout = setTimeout(() => {
-      router.replace('/login');
-    }, 3000);
+    // 4. Once the persisted session (if any) is restored, route accordingly.
+    // Keep the splash up for a short minimum so the entrance animation reads.
+    let cancelled = false;
+    const minDelay = new Promise<void>((resolve) => setTimeout(resolve, 2200));
+    (async () => {
+      const [loggedIn] = await Promise.all([store.isLoggedIn(), minDelay]);
+      if (cancelled) return;
+      router.replace(loggedIn ? '/(tabs)/dashboard' : '/login');
+    })();
 
-    return () => clearTimeout(timeout);
+    return () => {
+      cancelled = true;
+    };
   }, [fadeAnim, slideAnim, pulseAnim, dot1Anim, dot2Anim, dot3Anim, router]);
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Decorative Background Elements */}
       <View style={styles.backgroundContainer} pointerEvents="none">
         <View style={styles.glowTopRight} />

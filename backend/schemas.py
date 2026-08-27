@@ -77,6 +77,8 @@ class UserResponse(BaseModel):
     gst_number: Optional[str] = None
     business_address: Optional[str] = None
     store_phone: Optional[str] = None
+    # JWT bearer token issued on login (None for signup/staff responses)
+    token: Optional[str] = None
 
     class Config:
         from_attributes = True
@@ -127,8 +129,10 @@ class CheckoutSchema(BaseModel):
     discount: Decimal
     tax: Decimal
     total: Decimal
-    payment_method: str = "CASH"  # CASH, UPI, CARD
+    payment_method: str = "CASH"  # CASH, UPI, CARD, CREDIT
     payment_status: str = "PAID"
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
     items: List[CartItemSchema]
 
 class TransactionItemResponse(BaseModel):
@@ -149,6 +153,8 @@ class BillResponse(BaseModel):
     shop_phone: Optional[str] = None
     gst_number: Optional[str] = None
     cashier_name: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
     payment_method: str
     payment_status: str
     subtotal: Decimal
@@ -169,6 +175,8 @@ class TransactionResponse(BaseModel):
     shop_phone: Optional[str] = None
     gst_number: Optional[str] = None
     cashier_name: Optional[str] = None
+    customer_name: Optional[str] = None
+    customer_phone: Optional[str] = None
     payment_method: str
     payment_status: str = "PAID"
     subtotal: Decimal
@@ -177,6 +185,38 @@ class TransactionResponse(BaseModel):
     total: Decimal
     created_at: datetime
     items: List[TransactionItemResponse] = []
+
+    class Config:
+        from_attributes = True
+
+# --- Customer & Credit Ledger Schemas ---
+class CustomerCreate(BaseModel):
+    name: str
+    phone: Optional[str] = None
+
+class PaymentCreate(BaseModel):
+    amount: Decimal
+    note: Optional[str] = None
+
+class CreditEntryResponse(BaseModel):
+    id: int
+    entry_type: str  # DEBIT | CREDIT
+    amount: Decimal
+    note: Optional[str] = None
+    invoice_number: Optional[str] = None
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
+class CustomerResponse(BaseModel):
+    id: int
+    store_id: str
+    name: str
+    phone: Optional[str] = None
+    credit_balance: Decimal
+    created_at: Optional[datetime] = None
+    entries: List[CreditEntryResponse] = []
 
     class Config:
         from_attributes = True

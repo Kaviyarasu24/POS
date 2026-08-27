@@ -5,7 +5,7 @@ from database import Base
 class Store(Base):
     __tablename__ = "stores"
 
-    id = Column(String(100), primary_key=True, index=True)  # e.g. 'TGM-1001'
+    id = Column(String(100), primary_key=True, index=True)  # e.g. 'DEMO-1001'
     name = Column(String(255), nullable=False)
     category = Column(String(100), nullable=False)
     phone = Column(String(50), nullable=False)
@@ -17,6 +17,7 @@ class Store(Base):
     users = relationship("User", back_populates="store", cascade="all, delete-orphan")
     products = relationship("Product", back_populates="store", cascade="all, delete-orphan")
     transactions = relationship("Transaction", back_populates="store", cascade="all, delete-orphan")
+    customers = relationship("Customer", back_populates="store", cascade="all, delete-orphan")
 
 
 class User(Base):
@@ -70,6 +71,11 @@ class Transaction(Base):
     discount = Column(DECIMAL(10, 2), nullable=False, default=0.00)
     tax = Column(DECIMAL(10, 2), nullable=False)
     total = Column(DECIMAL(10, 2), nullable=False)
+    # Optional customer link (for credit / khata sales). customer_id is a soft
+    # link; customer_name/phone are denormalized onto the bill for receipts.
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="SET NULL"), nullable=True)
+    customer_name = Column(String(255), nullable=True)
+    customer_phone = Column(String(50), nullable=True)
     created_at = Column(DateTime, server_default=func.now())
 
     store = relationship("Store", back_populates="transactions")
@@ -107,3 +113,42 @@ class TransactionItem(Base):
         primaryjoin="and_(Transaction.store_id==TransactionItem.store_id, Transaction.invoice_number==TransactionItem.invoice_number)"
     )
     product = relationship("Product")
+
+
+class Customer(Base):
+    __tablename__ = "customers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+    name = Column(String(255), nullable=False)
+    phone = Column(String(50), nullable=True)
+    # Positive credit_balance => the customer owes the shop (udhaar / khata).
+    credit_balance = Column(DECIMAL(10, 2), nullable=False, default=0.00)
+    created_at = Column(DateTime, server_default=func.now())
+
+    # A customer name is unique within a store so credit sales can find-or-create
+    # deterministically at checkout.
+    __table_args__ = (UniqueConstraint('store_id', 'name', name='unique_store_customer_name'),)
+
+    store = relationship("Store", back_populates="customers")
+    entries = relationship(
+        "CreditEntry",
+        back_populates="customer",
+        cascade="all, delete-orphan",
+    )
+
+
+class CreditEntry(Base):
+    __tablename__ = "credit_entries"
+
+    id = Column(Integer, primary_key=True, index=True)
+    store_id = Column(String(100), ForeignKey("stores.id", ondelete="CASCADE"), nullable=False)
+    customer_id = Column(Integer, ForeignKey("customers.id", ondelete="CASCADE"), nullable=False)
+    # DEBIT = bought on credit (owes more); CREDIT = repayment received.
+    entry_type = Column(String(10), nullable=False)
+    amount = Column(DECIMAL(10, 2), nullable=False)
+    note = Column(Text, nullable=True)
+    invoice_number = Column(String(100), nullable=True)
+    created_at = Column(DateTime, server_default=func.now())
+
+    customer = relationship("Customer", back_populates="entries")

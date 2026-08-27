@@ -1,22 +1,26 @@
 import { Tabs } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { Colors } from '@/constants/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Palette } from '@/constants/theme';
 
 export default function TabLayout() {
-  const theme = Colors.light;
+  // SDK 54 draws edge-to-edge on Android, so the tab bar sits over the system
+  // gesture/nav bar. Pad the bar by the bottom inset so labels stay tappable
+  // and never hide behind the navigation bar.
+  const insets = useSafeAreaInsets();
 
   return (
     <Tabs
       screenOptions={{
-        tabBarActiveTintColor: '#004ac6',
-        tabBarInactiveTintColor: '#737686',
+        tabBarActiveTintColor: Palette.primary,
+        tabBarInactiveTintColor: Palette.textTertiary,
         headerShown: false,
         tabBarStyle: {
-          height: 72,
-          backgroundColor: '#ffffff',
+          height: 60 + insets.bottom,
+          backgroundColor: Palette.surface,
           borderTopWidth: 1,
-          borderTopColor: '#f2f3ff',
-          paddingBottom: 12,
+          borderTopColor: Palette.surfaceMuted,
+          paddingBottom: insets.bottom + 8,
           paddingTop: 8,
         },
         tabBarLabelStyle: {

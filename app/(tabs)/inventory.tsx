@@ -5,8 +5,8 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -65,16 +65,10 @@ export default function InventoryScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="menu" size={24} color="#434655" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>SmartPOS</Text>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="notifications" size={24} color="#434655" />
-        </TouchableOpacity>
       </View>
 
       <FlatList
@@ -306,7 +300,7 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(195,198,215,0.3)',
   },
   tabChipActive: {
-    backgroundColor: '#2563eb',
+    backgroundColor: '#004ac6',
     borderColor: '#004ac6',
   },
   tabChipText: {
@@ -419,7 +413,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#2563eb',
+    backgroundColor: '#004ac6',
     height: 40,
     borderRadius: 8,
     marginTop: 12,
@@ -465,12 +459,12 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#2563eb',
+    backgroundColor: '#004ac6',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
+    shadowColor: '#004ac6',
     shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 4,
   },

@@ -1,35 +1,177 @@
 from fastapi import FastAPI, Depends, HTTPException, Query, status, Header
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
-from sqlalchemy import func
-from typing import List, Optional
-from datetime import datetime, date, time, timedelta
+from sqlalchemy import func, inspect, text
+from typing import List, Optional, Tuple
+from datetime import datetime, date, time, timedelta, timezone
 from decimal import Decimal
 import hashlib
 import re
 import random
 import string
+import os
+import secrets
+
+import jwt
+from passlib.context import CryptContext
 
 import models
 import schemas
 from database import get_db, engine
 
-# Create DB Tables if they don't exist yet (SQLAlchemy fallback)
+# Create DB Tables if they don't exist yet (SQLAlchemy fallback).
+# NOTE: create_all() adds NEW tables (e.g. customers, credit_entries) but never
+# ALTERs existing ones, so new columns on the pre-existing `transactions` table
+# are added separately below.
 models.Base.metadata.create_all(bind=engine)
+
+
+def _ensure_transaction_customer_columns() -> None:
+    """Non-destructive migration: add the customer columns to `transactions` if
+    they're missing. Uses the inspector to check first, then a plain
+    `ALTER TABLE ... ADD COLUMN`, which both PostgreSQL (Render) and SQLite
+    (local dev) support. Each column is guarded independently so a partial prior
+    migration still completes."""
+    try:
+        inspector = inspect(engine)
+        existing = {c["name"] for c in inspector.get_columns("transactions")}
+    except Exception as e:
+        print(f"Startup migration: could not inspect transactions table: {e}")
+        return
+
+    to_add = {
+        "customer_id": "INTEGER",
+        "customer_name": "VARCHAR(255)",
+        "customer_phone": "VARCHAR(50)",
+    }
+    for column, ddl in to_add.items():
+        if column in existing:
+            continue
+        try:
+            with engine.begin() as conn:
+                conn.execute(text(f"ALTER TABLE transactions ADD COLUMN {column} {ddl}"))
+            print(f"Startup migration: added transactions.{column}")
+        except Exception as e:
+            print(f"Startup migration: could not add transactions.{column}: {e}")
+
+
+_ensure_transaction_customer_columns()
 
 app = FastAPI(title="SmartPOS API Backend", version="2.0.0")
 
-# Enable CORS for all environments
+# CORS — restrict to configured origins. Tokens are sent via the Authorization
+# header (Bearer), not cookies, so credentials are not required. Set ALLOWED_ORIGINS
+# (comma-separated) in the environment to your real web frontend origin(s).
+# NOTE: CORS only affects browser/web clients; native mobile builds are unaffected.
+_DEFAULT_ORIGINS = "http://localhost:8081,http://localhost:19006,http://localhost:3000"
+ALLOWED_ORIGINS = [
+    o.strip() for o in os.getenv("ALLOWED_ORIGINS", _DEFAULT_ORIGINS).split(",") if o.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=False,
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
+@app.get("/")
+def root():
+    return {
+        "status": "online",
+        "service": "SmartPOS Backend API",
+        "version": "2.0.0",
+        "docs": "/docs"
+    }
+
+# --- Password hashing (bcrypt, with transparent upgrade of legacy SHA-256) ---
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+# Matches an unsalted SHA-256 hex digest (legacy scheme used before bcrypt).
+_SHA256_HEX = re.compile(r"^[0-9a-f]{64}$", re.IGNORECASE)
+
+
 def hash_password(password: str) -> str:
-    return hashlib.sha256(password.encode()).hexdigest()
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, stored_hash: str) -> Tuple[bool, bool]:
+    """Verify a password against the stored hash.
+
+    Returns (is_valid, needs_upgrade). Legacy accounts whose password was stored
+    as an unsalted SHA-256 digest verify against that digest and are flagged for
+    re-hashing with bcrypt (upgrade-on-login).
+    """
+    if not stored_hash:
+        return False, False
+    if _SHA256_HEX.match(stored_hash):
+        legacy = hashlib.sha256(plain_password.encode()).hexdigest()
+        return (legacy == stored_hash.lower()), True
+    try:
+        return pwd_context.verify(plain_password, stored_hash), False
+    except Exception:
+        return False, False
+
+
+# --- JWT authentication ---
+JWT_SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not JWT_SECRET_KEY:
+    # Dev fallback: an ephemeral key so local runs work. Tokens are invalidated on
+    # every restart. A stable JWT_SECRET_KEY MUST be set in production (e.g. Render).
+    JWT_SECRET_KEY = secrets.token_urlsafe(48)
+    print("WARNING: JWT_SECRET_KEY not set; using an ephemeral dev key. "
+          "Set JWT_SECRET_KEY in the environment for production.")
+
+JWT_ALGORITHM = "HS256"
+JWT_EXPIRE_DAYS = int(os.getenv("JWT_EXPIRE_DAYS", "7"))
+
+
+def create_access_token(user_id: int, store_id: str, role: str) -> str:
+    expire = datetime.now(timezone.utc) + timedelta(days=JWT_EXPIRE_DAYS)
+    payload = {
+        "sub": str(user_id),
+        "user_id": user_id,
+        "store_id": store_id,
+        "role": role,
+        "exp": expire,
+    }
+    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
+
+
+def get_current_user(authorization: Optional[str] = Header(None)) -> dict:
+    """Resolve the authenticated user from a verified Bearer token.
+
+    This replaces the previous header-trust model (raw X-Store-ID / X-User-ID):
+    identity now comes from a signed token the client cannot forge.
+    """
+    if not authorization or not authorization.lower().startswith("bearer "):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Missing or invalid Authorization header",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    token = authorization.split(" ", 1)[1].strip()
+    try:
+        payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session expired. Please log in again.",
+        )
+    except jwt.InvalidTokenError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+    store_id = payload.get("store_id")
+    user_id = payload.get("user_id")
+    if not store_id or user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid authentication token",
+        )
+    return {"user_id": user_id, "store_id": str(store_id), "role": payload.get("role", "cashier")}
 
 def generate_store_id(store_name: str, db: Session) -> str:
     """Generate a clean full-character store identifier e.g. TGMPOS, TGMAEX, MARTABC (3-4 letters from shop name + 3 random uppercase letters)"""
@@ -44,16 +186,13 @@ def generate_store_id(store_name: str, db: Session) -> str:
         candidate_id = f"{clean_prefix}{random_suffix}"
     return candidate_id
 
-def get_store_id(x_store_id: Optional[str] = Header(None)) -> str:
-    if not x_store_id:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Store ID header missing (X-Store-ID)"
-        )
-    return str(x_store_id).strip()
+def get_store_id(current_user: dict = Depends(get_current_user)) -> str:
+    # Store scope is derived from the verified token, not a client-supplied header.
+    return current_user["store_id"]
 
-def get_user_id(x_user_id: Optional[int] = Header(None)) -> Optional[int]:
-    return x_user_id
+def get_user_id(current_user: dict = Depends(get_current_user)) -> Optional[int]:
+    # Acting user is derived from the verified token.
+    return current_user["user_id"]
 
 # --- Auth & Store Management Endpoints ---
 
@@ -176,13 +315,23 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
     db_user = db.query(models.User).filter(
         models.User.email_or_username == credentials.email_or_username.lower().strip()
     ).first()
-    if not db_user or db_user.password != hash_password(credentials.password):
+
+    is_valid, needs_upgrade = (
+        verify_password(credentials.password, db_user.password) if db_user else (False, False)
+    )
+    if not db_user or not is_valid:
         raise HTTPException(status_code=401, detail="Invalid username/email or password")
-    
+
+    # Transparently migrate legacy unsalted SHA-256 hashes to bcrypt on login.
+    if needs_upgrade:
+        db_user.password = hash_password(credentials.password)
+        db.commit()
+
     db_store = db.query(models.Store).filter(models.Store.id == db_user.store_id).first()
     if not db_store:
         raise HTTPException(status_code=404, detail="Store associated with this account not found")
 
+    token = create_access_token(db_user.id, db_store.id, db_user.role)
     return schemas.UserResponse(
         id=db_user.id,
         store_id=db_store.id,
@@ -195,7 +344,8 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         shop_category=db_store.category,
         gst_number=db_store.gst_number,
         business_address=db_store.address,
-        store_phone=db_store.phone
+        store_phone=db_store.phone,
+        token=token
     )
 
 @app.post("/api/stores/{store_id}/staff", response_model=schemas.UserResponse, status_code=status.HTTP_201_CREATED)
@@ -507,6 +657,30 @@ def checkout(
         if db_user:
             cashier_name = db_user.name
 
+    # Resolve an optional customer for credit / khata tracking. A name is
+    # required to attach a customer (the client enforces this for CREDIT sales);
+    # we find-or-create by (store_id, name) so repeat customers accumulate one
+    # ledger.
+    cust_name = (order.customer_name or "").strip()
+    cust_phone = (order.customer_phone or "").strip()
+    db_customer = None
+    if cust_name:
+        db_customer = db.query(models.Customer).filter(
+            models.Customer.store_id == x_store_id,
+            models.Customer.name == cust_name
+        ).first()
+        if not db_customer:
+            db_customer = models.Customer(
+                store_id=x_store_id,
+                name=cust_name,
+                phone=cust_phone or None,
+                credit_balance=Decimal("0.00"),
+            )
+            db.add(db_customer)
+            db.flush()
+        elif cust_phone and not db_customer.phone:
+            db_customer.phone = cust_phone  # backfill a missing phone number
+
     # 1. Generate unique sequential invoice number per store for today
     today_str = datetime.now().strftime("%Y%m%d")
     today_count = db.query(models.Transaction).filter(
@@ -525,7 +699,10 @@ def checkout(
         subtotal=order.subtotal,
         discount=order.discount,
         tax=order.tax,
-        total=order.total
+        total=order.total,
+        customer_id=db_customer.id if db_customer else None,
+        customer_name=cust_name or None,
+        customer_phone=cust_phone or None
     )
     db.add(db_transaction)
     db.flush()
@@ -565,7 +742,20 @@ def checkout(
             quantity=item.quantity,
             price=item.price
         ))
-        
+
+    # 4. Record a credit-ledger DEBIT for unpaid (CREDIT) sales and increase the
+    # customer's outstanding balance. Fully-paid sales don't touch the ledger.
+    if db_customer and db_transaction.payment_status == "CREDIT":
+        db.add(models.CreditEntry(
+            store_id=x_store_id,
+            customer_id=db_customer.id,
+            entry_type="DEBIT",
+            amount=order.total,
+            invoice_number=invoice_number,
+            note="Credit sale"
+        ))
+        db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + order.total
+
     db.commit()
 
     return schemas.BillResponse(
@@ -576,6 +766,8 @@ def checkout(
         shop_phone=db_store.phone,
         gst_number=db_store.gst_number,
         cashier_name=cashier_name,
+        customer_name=cust_name or None,
+        customer_phone=cust_phone or None,
         payment_method=order.payment_method,
         payment_status=order.payment_status,
         subtotal=order.subtotal,
@@ -620,6 +812,8 @@ def get_bill(
         shop_phone=db_store.phone if db_store else None,
         gst_number=db_store.gst_number if db_store else None,
         cashier_name=cashier_name,
+        customer_name=db_transaction.customer_name,
+        customer_phone=db_transaction.customer_phone,
         payment_method=db_transaction.payment_method,
         payment_status=db_transaction.payment_status,
         subtotal=db_transaction.subtotal,
@@ -698,6 +892,8 @@ def get_transactions(
             shop_phone=db_store.phone if db_store else None,
             gst_number=db_store.gst_number if db_store else None,
             cashier_name=cashier_name,
+            customer_name=tx.customer_name,
+            customer_phone=tx.customer_phone,
             payment_method=tx.payment_method,
             payment_status=tx.payment_status or "PAID",
             subtotal=tx.subtotal,
@@ -716,6 +912,135 @@ def get_transactions(
             ]
         ))
     return result
+
+# --- Customer & Credit Ledger Endpoints (khata / udhaar) ---
+
+def _customer_to_response(c: models.Customer, include_entries: bool = False) -> schemas.CustomerResponse:
+    entries: List[schemas.CreditEntryResponse] = []
+    if include_entries:
+        entries = [
+            schemas.CreditEntryResponse(
+                id=e.id,
+                entry_type=e.entry_type,
+                amount=e.amount,
+                note=e.note,
+                invoice_number=e.invoice_number,
+                created_at=e.created_at,
+            )
+            for e in sorted(
+                c.entries,
+                key=lambda x: (x.created_at or datetime.min, x.id or 0),
+                reverse=True,
+            )
+        ]
+    return schemas.CustomerResponse(
+        id=c.id,
+        store_id=c.store_id,
+        name=c.name,
+        phone=c.phone,
+        credit_balance=c.credit_balance or Decimal("0.00"),
+        created_at=c.created_at,
+        entries=entries,
+    )
+
+
+@app.get("/api/customers", response_model=List[schemas.CustomerResponse])
+def list_customers(
+    query: Optional[str] = None,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    q = db.query(models.Customer).filter(models.Customer.store_id == x_store_id)
+    if query and query.strip():
+        search = f"%{query.strip()}%"
+        q = q.filter(
+            (models.Customer.name.ilike(search)) | (models.Customer.phone.ilike(search))
+        )
+    customers = q.order_by(models.Customer.name.asc()).all()
+    return [_customer_to_response(c) for c in customers]
+
+
+@app.post("/api/customers", response_model=schemas.CustomerResponse, status_code=status.HTTP_201_CREATED)
+def create_customer(
+    payload: schemas.CustomerCreate,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Customer name is required")
+    phone = (payload.phone or "").strip() or None
+
+    # Idempotent: return the existing customer instead of erroring on a duplicate
+    # name so the "add customer" flow degrades gracefully.
+    existing = db.query(models.Customer).filter(
+        models.Customer.store_id == x_store_id,
+        models.Customer.name == name
+    ).first()
+    if existing:
+        if phone and not existing.phone:
+            existing.phone = phone
+            db.commit()
+            db.refresh(existing)
+        return _customer_to_response(existing, include_entries=True)
+
+    db_customer = models.Customer(
+        store_id=x_store_id,
+        name=name,
+        phone=phone,
+        credit_balance=Decimal("0.00"),
+    )
+    db.add(db_customer)
+    db.commit()
+    db.refresh(db_customer)
+    return _customer_to_response(db_customer, include_entries=True)
+
+
+@app.get("/api/customers/{customer_id}", response_model=schemas.CustomerResponse)
+def get_customer(
+    customer_id: int,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_customer = db.query(models.Customer).filter(
+        models.Customer.id == customer_id,
+        models.Customer.store_id == x_store_id
+    ).first()
+    if not db_customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+    return _customer_to_response(db_customer, include_entries=True)
+
+
+@app.post("/api/customers/{customer_id}/payment", response_model=schemas.CustomerResponse)
+def record_customer_payment(
+    customer_id: int,
+    payload: schemas.PaymentCreate,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    db_customer = db.query(models.Customer).filter(
+        models.Customer.id == customer_id,
+        models.Customer.store_id == x_store_id
+    ).first()
+    if not db_customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    amount = payload.amount
+    if amount is None or amount <= Decimal("0.00"):
+        raise HTTPException(status_code=400, detail="Payment amount must be greater than zero")
+
+    db.add(models.CreditEntry(
+        store_id=x_store_id,
+        customer_id=db_customer.id,
+        entry_type="CREDIT",
+        amount=amount,
+        note=(payload.note or "").strip() or "Payment received"
+    ))
+    db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) - amount
+    db.commit()
+    db.refresh(db_customer)
+    return _customer_to_response(db_customer, include_entries=True)
+
 
 # --- Dashboard Analytics Endpoints ---
 

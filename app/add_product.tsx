@@ -8,14 +8,15 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  SafeAreaView,
   Alert,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
+import { PRODUCT_CATEGORIES } from '@/constants/config';
 
-const CATEGORIES = ['Grocery', 'Snacks', 'Beverages', 'Dairy', 'Produce', 'Apparel', 'Electronics', 'Other'];
+const CATEGORIES = PRODUCT_CATEGORIES;
 
 const UNIT_OPTIONS = [
   { label: 'Piece (pcs)', value: 'pcs', type: 'count', icon: 'check-box-outline-blank' },
@@ -108,6 +109,7 @@ export default function AddProductScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEdit = !!id;
+  const insets = useSafeAreaInsets();
 
   // Form states
   const [name, setName] = useState('');
@@ -263,7 +265,7 @@ export default function AddProductScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safeContainer}>
+    <SafeAreaView style={styles.safeContainer} edges={['top']}>
       {/* Top Header App Bar */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
@@ -461,7 +463,7 @@ export default function AddProductScreen() {
       </KeyboardAvoidingView>
 
       {/* Save Button Fixed Bottom Bar */}
-      <View style={styles.bottomBar}>
+      <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {isEdit && (
             <TouchableOpacity
@@ -516,7 +518,7 @@ const styles = StyleSheet.create({
   },
   formScroll: {
     padding: 16,
-    paddingBottom: 100,
+    paddingBottom: 140,
   },
   errorBanner: {
     flexDirection: 'row',

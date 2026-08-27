@@ -1,4 +1,15 @@
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from './config';
+import { notifyLowStockIfNeeded } from './notifications';
+
+// Keys used for on-device persistence (SecureStore for the token, AsyncStorage
+// for the rest).
+const TOKEN_KEY = 'smartpos_token';
+const SESSION_KEY = 'smartpos_user_session';
+const LOCAL_TXNS_KEY = 'smartpos_local_transactions';
+const PENDING_CHECKOUTS_KEY = 'smartpos_pending_checkouts';
 
 export interface Product {
   id: string;
@@ -28,6 +39,7 @@ export interface UserSession {
   gstNumber?: string;
   businessAddress?: string;
   storePhone?: string;
+  token?: string; // JWT bearer token issued by the backend on login
 }
 
 export interface BillItem {
@@ -53,7 +65,49 @@ export interface GeneratedBill {
   tax: number;
   total: number;
   created_at: string;
+  customer_name?: string;
+  customer_phone?: string;
+  amount_paid?: number; // cash tendered by the customer (CASH sales)
+  change_due?: number; // amount_paid - total, shown on the receipt
+  pending?: boolean; // true if this sale hasn't reached the server yet
+  client_id?: string; // local id used to reconcile a pending sale after sync
   items: BillItem[];
+}
+
+export interface CreditEntry {
+  id: number;
+  entry_type: 'DEBIT' | 'CREDIT'; // DEBIT = bought on credit (owes more); CREDIT = repayment
+  amount: number;
+  note?: string;
+  invoice_number?: string;
+  created_at: string;
+}
+
+export interface Customer {
+  id: number;
+  name: string;
+  phone?: string;
+  credit_balance: number; // positive => the customer owes the shop
+  created_at?: string;
+  entries?: CreditEntry[];
+}
+
+// Internal shape of a checkout request; also what we queue when offline.
+interface CheckoutPayload {
+  subtotal: number;
+  discount: number;
+  tax: number;
+  total: number;
+  payment_method: string;
+  payment_status: string;
+  customer_name?: string;
+  customer_phone?: string;
+  items: { product_id: number; quantity: number; price: number }[];
+}
+
+interface PendingCheckout {
+  clientId: string;
+  payload: CheckoutPayload;
 }
 
 const INITIAL_PRODUCTS: Product[] = [
@@ -186,55 +240,101 @@ class ProductStore {
   private listeners: (() => void)[] = [];
   private isSynced = false;
   public scannedItems: { productId: string; quantity: number }[] = [];
-  private _currentUser: UserSession | null = {
-    id: '1',
-    storeId: 'TGM-1001',
-    userName: 'Kaviyarasu P',
-    role: 'owner',
-    shopName: 'TGM Supermart',
-    shopCategory: 'Retail & Grocery',
-    phone: '+91 7010764469',
-    email: 'rithes07@gmail.com',
-    gstNumber: '33AAACT1024K1Z0',
-    businessAddress: '124 Market Avenue, Tech Park City, TN 600001',
-    storePhone: '+91 7010764469',
-  };
+  // No default session: identity comes only from a real login (or a previously
+  // persisted real session in localStorage). Enforces backend authentication.
+  private _currentUser: UserSession | null = null;
 
-  private loadSavedSession(): UserSession | null {
+  // Resolves once any persisted session has been restored from device storage.
+  // The splash screen awaits this before deciding where to route.
+  public sessionReady: Promise<void>;
+
+  // --- Token storage -------------------------------------------------------
+  // The JWT is small and sensitive, so on native it lives in the OS keychain
+  // via expo-secure-store. SecureStore isn't available on web, so fall back to
+  // AsyncStorage there. The larger user object (may carry a base64 avatar that
+  // can exceed SecureStore's ~2KB limit) always goes to AsyncStorage.
+  private async saveToken(token: string): Promise<void> {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.setItem(TOKEN_KEY, token);
+    } else {
+      await SecureStore.setItemAsync(TOKEN_KEY, token);
+    }
+  }
+
+  private async loadToken(): Promise<string | null> {
+    if (Platform.OS === 'web') {
+      return AsyncStorage.getItem(TOKEN_KEY);
+    }
+    return SecureStore.getItemAsync(TOKEN_KEY);
+  }
+
+  private async clearToken(): Promise<void> {
+    if (Platform.OS === 'web') {
+      await AsyncStorage.removeItem(TOKEN_KEY);
+    } else {
+      await SecureStore.deleteItemAsync(TOKEN_KEY);
+    }
+  }
+
+  private async loadSavedSession(): Promise<UserSession | null> {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const saved = window.localStorage.getItem('smartpos_user_session');
-        if (saved) {
-          return JSON.parse(saved);
-        }
+      const [token, userJson] = await Promise.all([
+        this.loadToken(),
+        AsyncStorage.getItem(SESSION_KEY),
+      ]);
+      if (userJson) {
+        const user: UserSession = JSON.parse(userJson);
+        if (token) user.token = token;
+        // Only a session that still carries a token counts as logged in.
+        if (user.token) return user;
       }
     } catch (e) {
-      console.warn('Could not read localStorage session:', e);
+      console.warn('Could not read saved session:', e);
     }
     return null;
   }
 
-  private persistSession(user: UserSession | null) {
+  private async persistSession(user: UserSession | null): Promise<void> {
     try {
-      if (typeof window !== 'undefined' && window.localStorage) {
-        if (user) {
-          window.localStorage.setItem('smartpos_user_session', JSON.stringify(user));
-        } else {
-          window.localStorage.removeItem('smartpos_user_session');
-        }
+      if (user) {
+        const { token, ...rest } = user;
+        await AsyncStorage.setItem(SESSION_KEY, JSON.stringify(rest));
+        if (token) await this.saveToken(token);
+      } else {
+        await AsyncStorage.removeItem(SESSION_KEY);
+        await this.clearToken();
       }
     } catch (e) {
-      console.warn('Could not save localStorage session:', e);
+      console.warn('Could not persist session:', e);
     }
   }
 
   constructor() {
-    const saved = this.loadSavedSession();
+    this.sessionReady = this.bootstrap();
+  }
+
+  // Restore the persisted session + offline data, then kick off network syncs.
+  // sessionReady resolves after local state is restored (not after the network
+  // calls), so the UI can route immediately without waiting on connectivity.
+  private async bootstrap(): Promise<void> {
+    const [saved] = await Promise.all([
+      this.loadSavedSession(),
+      this.loadLocalTransactions(),
+    ]);
     if (saved) {
       this._currentUser = saved;
     }
+    this.notify();
+    // Fire-and-forget network work; failures fall back to local state.
     this.syncProducts();
     this.syncUserProfile();
+    this.flushPendingCheckouts();
+  }
+
+  // Convenience for callers that just want a boolean after restore completes.
+  async isLoggedIn(): Promise<boolean> {
+    await this.sessionReady;
+    return !!this._currentUser?.token;
   }
 
   get currentUser(): UserSession | null {
@@ -243,18 +343,44 @@ class ProductStore {
 
   set currentUser(user: UserSession | null) {
     this._currentUser = user;
+    // Fire-and-forget persistence. Callers that must guarantee the write has
+    // landed before navigating (login) should use login()/logout() instead.
     this.persistSession(user);
     this.isSynced = false; // reset sync state
     this.syncProducts(); // auto-sync products when user changes
     this.notify();
   }
 
+  // Explicit login: persists the session (awaited) before returning, so a cold
+  // start immediately after login still finds the token on disk.
+  async login(user: UserSession): Promise<void> {
+    this._currentUser = user;
+    await this.persistSession(user);
+    this.isSynced = false;
+    this.notify();
+    await this.syncProducts();
+    this.flushPendingCheckouts();
+  }
+
+  // Explicit logout: clears the persisted session (awaited) and local catalog.
+  async logout(): Promise<void> {
+    this._currentUser = null;
+    await this.persistSession(null);
+    this.isSynced = false;
+    this.products = [];
+    this.notify();
+  }
+
   async syncUserProfile() {
-    if (!this._currentUser) return;
+    if (!this._currentUser?.token) return;
     try {
       const response = await fetch(`${API_BASE_URL}/api/users/${this._currentUser.id}`, {
         headers: this.getHeaders(),
       });
+      if (response.status === 401) {
+        this.handleUnauthorized();
+        return;
+      }
       if (!response.ok) return;
       const data = await response.json();
       const updatedUser: UserSession = {
@@ -279,31 +405,52 @@ class ProductStore {
     }
   }
 
+  // Force logout when the backend rejects our token (missing/expired/invalid),
+  // so the UI returns to login instead of silently showing stale data.
+  // Sets the private field directly (not the setter) to avoid re-triggering a sync loop.
+  private handleUnauthorized() {
+    this._currentUser = null;
+    this.persistSession(null);
+    this.isSynced = false;
+    this.products = [];
+    this.notify();
+  }
+
   getHeaders(): HeadersInit {
     const headers: HeadersInit = {
       'Content-Type': 'application/json',
     };
-    if (this._currentUser) {
-      headers['X-Store-ID'] = this._currentUser.storeId || 'TGM-1001';
-      headers['X-User-ID'] = this._currentUser.id;
-    } else {
-      headers['X-Store-ID'] = 'TGM-1001';
+    // Real auth: send the JWT bearer token. Identity (store_id / user_id) is derived
+    // server-side from the verified token, not from client-supplied headers.
+    if (this._currentUser?.token) {
+      headers['Authorization'] = `Bearer ${this._currentUser.token}`;
     }
     return headers;
   }
 
   // Trigger API Sync
   async syncProducts() {
+    if (!this._currentUser?.token) {
+      // Not authenticated: nothing to sync. Clear any stale catalog.
+      this.products = [];
+      this.isSynced = true;
+      this.notify();
+      return;
+    }
     try {
       const response = await fetch(`${API_BASE_URL}/api/products`, {
         headers: this.getHeaders(),
       });
+      if (response.status === 401) {
+        this.handleUnauthorized();
+        return;
+      }
       if (!response.ok) throw new Error('API fetch error');
       const data = await response.json();
-      
+
       this.products = data.map((p: any) => ({
         id: p.id.toString(),
-        storeId: p.store_id ? p.store_id.toString() : 'TGM-1001',
+        storeId: p.store_id ? p.store_id.toString() : undefined,
         name: p.name,
         price: parseFloat(p.price),
         costPrice: parseFloat(p.cost_price),
@@ -317,6 +464,7 @@ class ProductStore {
       }));
       
       this.isSynced = true;
+      notifyLowStockIfNeeded(this.products);
       this.notify();
     } catch (err) {
       console.warn('API sync failed, using local store:', err);
@@ -502,6 +650,117 @@ class ProductStore {
   }
 
   private localTransactions: GeneratedBill[] = [];
+  private pendingCheckouts: PendingCheckout[] = [];
+  private isFlushing = false;
+
+  // Normalize a raw bill/transaction payload from the API into a GeneratedBill.
+  private mapBill(raw: any): GeneratedBill {
+    return {
+      store_id: raw.store_id,
+      invoice_number: raw.invoice_number,
+      shop_name: raw.shop_name || this._currentUser?.shopName || 'SmartPOS Store',
+      shop_address: raw.shop_address || this._currentUser?.businessAddress,
+      shop_phone: raw.shop_phone || this._currentUser?.phone,
+      gst_number: raw.gst_number || this._currentUser?.gstNumber,
+      cashier_name: raw.cashier_name || this._currentUser?.userName || 'Cashier',
+      customer_name: raw.customer_name || undefined,
+      customer_phone: raw.customer_phone || undefined,
+      payment_method: raw.payment_method,
+      payment_status: raw.payment_status || 'PAID',
+      subtotal: parseFloat(raw.subtotal) || 0,
+      discount: parseFloat(raw.discount) || 0,
+      tax: parseFloat(raw.tax) || 0,
+      total: parseFloat(raw.total) || 0,
+      created_at: raw.created_at,
+      items: (raw.items || []).map((i: any) => ({
+        id: i.id,
+        product_id: i.product_id,
+        product_name: i.product_name,
+        quantity: parseFloat(i.quantity) || 1,
+        price: parseFloat(i.price) || 0,
+      })),
+    };
+  }
+
+  // --- Offline sales queue -------------------------------------------------
+  // localTransactions is the recent-bill cache (survives restarts).
+  // pendingCheckouts holds sales made while offline that still need to sync.
+  private async loadLocalTransactions(): Promise<void> {
+    try {
+      const [txnsJson, pendingJson] = await Promise.all([
+        AsyncStorage.getItem(LOCAL_TXNS_KEY),
+        AsyncStorage.getItem(PENDING_CHECKOUTS_KEY),
+      ]);
+      if (txnsJson) this.localTransactions = JSON.parse(txnsJson);
+      if (pendingJson) this.pendingCheckouts = JSON.parse(pendingJson);
+    } catch (e) {
+      console.warn('Could not load offline transactions:', e);
+    }
+  }
+
+  private async saveLocalTransactions(): Promise<void> {
+    try {
+      // Cap the cache so device storage can't grow without bound.
+      const trimmed = this.localTransactions.slice(0, 100);
+      await AsyncStorage.setItem(LOCAL_TXNS_KEY, JSON.stringify(trimmed));
+    } catch (e) {
+      console.warn('Could not persist offline transactions:', e);
+    }
+  }
+
+  private async savePendingCheckouts(): Promise<void> {
+    try {
+      await AsyncStorage.setItem(PENDING_CHECKOUTS_KEY, JSON.stringify(this.pendingCheckouts));
+    } catch (e) {
+      console.warn('Could not persist pending checkouts:', e);
+    }
+  }
+
+  // Number of offline sales still waiting to reach the server.
+  getPendingCheckoutCount(): number {
+    return this.pendingCheckouts.length;
+  }
+
+  // Replay queued offline sales. Safe to call repeatedly; no-ops while already
+  // running, offline, or logged out. Stops at the first failure so ordering and
+  // sequential invoice numbers are preserved.
+  async flushPendingCheckouts(): Promise<void> {
+    if (this.isFlushing) return;
+    if (!this._currentUser?.token) return;
+    if (this.pendingCheckouts.length === 0) return;
+    this.isFlushing = true;
+    try {
+      const queue = [...this.pendingCheckouts];
+      for (const pending of queue) {
+        try {
+          const response = await fetch(`${API_BASE_URL}/api/checkout`, {
+            method: 'POST',
+            headers: this.getHeaders(),
+            body: JSON.stringify(pending.payload),
+          });
+          if (response.status === 401) {
+            this.handleUnauthorized();
+            break;
+          }
+          if (!response.ok) break; // transient/server error — retry later
+          const synced = this.mapBill(await response.json());
+          // Swap the local placeholder for the server's authoritative bill.
+          this.localTransactions = this.localTransactions.map((b) =>
+            b.client_id && b.client_id === pending.clientId
+              ? { ...synced, client_id: pending.clientId, pending: false }
+              : b
+          );
+          this.pendingCheckouts = this.pendingCheckouts.filter((p) => p.clientId !== pending.clientId);
+          await Promise.all([this.savePendingCheckouts(), this.saveLocalTransactions()]);
+        } catch {
+          break; // still offline — try again on next trigger
+        }
+      }
+      this.notify();
+    } finally {
+      this.isFlushing = false;
+    }
+  }
 
   // Fetch all or filtered transactions
   async fetchTransactions(filters?: {
@@ -527,29 +786,7 @@ class ProductStore {
       if (!response.ok) throw new Error('Failed to fetch transactions from server');
       const data = await response.json();
 
-      const serverList: GeneratedBill[] = data.map((t: any) => ({
-        store_id: t.store_id,
-        invoice_number: t.invoice_number,
-        shop_name: t.shop_name || this._currentUser?.shopName || 'SmartPOS Store',
-        shop_address: t.shop_address || this._currentUser?.businessAddress,
-        shop_phone: t.shop_phone || this._currentUser?.phone,
-        gst_number: t.gst_number || this._currentUser?.gstNumber,
-        cashier_name: t.cashier_name || 'Cashier',
-        payment_method: t.payment_method,
-        payment_status: t.payment_status || 'PAID',
-        subtotal: parseFloat(t.subtotal) || 0,
-        discount: parseFloat(t.discount) || 0,
-        tax: parseFloat(t.tax) || 0,
-        total: parseFloat(t.total) || 0,
-        created_at: t.created_at,
-        items: (t.items || []).map((i: any) => ({
-          id: i.id,
-          product_id: i.product_id,
-          product_name: i.product_name,
-          quantity: parseFloat(i.quantity) || 1,
-          price: parseFloat(i.price) || 0,
-        })),
-      }));
+      const serverList: GeneratedBill[] = data.map((t: any) => this.mapBill(t));
 
       // Combine with any local non-synced transactions
       const existingInvoices = new Set(serverList.map((s) => s.invoice_number));
@@ -581,30 +818,7 @@ class ProductStore {
         headers: this.getHeaders(),
       });
       if (response.ok) {
-        const data = await response.json();
-        return {
-          store_id: data.store_id,
-          invoice_number: data.invoice_number,
-          shop_name: data.shop_name,
-          shop_address: data.shop_address,
-          shop_phone: data.shop_phone,
-          gst_number: data.gst_number,
-          cashier_name: data.cashier_name,
-          payment_method: data.payment_method,
-          payment_status: data.payment_status,
-          subtotal: parseFloat(data.subtotal) || 0,
-          discount: parseFloat(data.discount) || 0,
-          tax: parseFloat(data.tax) || 0,
-          total: parseFloat(data.total) || 0,
-          created_at: data.created_at,
-          items: (data.items || []).map((i: any) => ({
-            id: i.id,
-            product_id: i.product_id,
-            product_name: i.product_name,
-            quantity: parseFloat(i.quantity) || 1,
-            price: parseFloat(i.price) || 0,
-          })),
-        };
+        return this.mapBill(await response.json());
       }
     } catch (e) {
       console.warn('Fetch bill API error:', e);
@@ -619,97 +833,194 @@ class ProductStore {
     tax: number,
     total: number,
     items: { product_id: string; product_name?: string; quantity: number; price: number }[],
-    paymentMethod: string = 'CASH'
+    paymentMethod: string = 'CASH',
+    options?: {
+      customerName?: string;
+      customerPhone?: string;
+      amountPaid?: number; // cash tendered (CASH)
+      paymentStatus?: string;
+    }
   ): Promise<GeneratedBill> {
+    const paymentStatus =
+      options?.paymentStatus || (paymentMethod === 'CREDIT' ? 'CREDIT' : 'PAID');
+    const payload: CheckoutPayload = {
+      subtotal,
+      discount,
+      tax,
+      total,
+      payment_method: paymentMethod,
+      payment_status: paymentStatus,
+      customer_name: options?.customerName || undefined,
+      customer_phone: options?.customerPhone || undefined,
+      items: items.map(item => ({
+        product_id: parseInt(item.product_id, 10),
+        quantity: item.quantity,
+        price: item.price,
+      })),
+    };
+
     try {
       const response = await fetch(`${API_BASE_URL}/api/checkout`, {
         method: 'POST',
         headers: this.getHeaders(),
-        body: JSON.stringify({
-          subtotal,
-          discount,
-          tax,
-          total,
-          payment_method: paymentMethod,
-          payment_status: 'PAID',
-          items: items.map(item => ({
-            product_id: parseInt(item.product_id, 10),
-            quantity: item.quantity,
-            price: item.price
-          }))
-        })
+        body: JSON.stringify(payload),
       });
 
+      if (response.status === 401) {
+        this.handleUnauthorized();
+        throw new Error('Session expired. Please log in again.');
+      }
       if (!response.ok) {
-        const errorDetail = await response.json();
+        const errorDetail = await response.json().catch(() => ({}));
         throw new Error(errorDetail.detail || 'API checkout error');
       }
 
-      const billDataRaw = await response.json();
-      const billData: GeneratedBill = {
-        store_id: billDataRaw.store_id,
-        invoice_number: billDataRaw.invoice_number,
-        shop_name: billDataRaw.shop_name,
-        shop_address: billDataRaw.shop_address,
-        shop_phone: billDataRaw.shop_phone,
-        gst_number: billDataRaw.gst_number,
-        cashier_name: billDataRaw.cashier_name,
-        payment_method: billDataRaw.payment_method,
-        payment_status: billDataRaw.payment_status,
-        subtotal: parseFloat(billDataRaw.subtotal) || 0,
-        discount: parseFloat(billDataRaw.discount) || 0,
-        tax: parseFloat(billDataRaw.tax) || 0,
-        total: parseFloat(billDataRaw.total) || 0,
-        created_at: billDataRaw.created_at,
-        items: (billDataRaw.items || []).map((i: any) => ({
-          id: i.id,
-          product_id: i.product_id,
-          product_name: i.product_name,
-          quantity: i.quantity,
-          price: parseFloat(i.price) || 0,
-        })),
-      };
+      const billData = this.mapBill(await response.json());
+      if (options?.amountPaid !== undefined) {
+        billData.amount_paid = options.amountPaid;
+        billData.change_due = Math.max(0, options.amountPaid - total);
+      }
       this.localTransactions.unshift(billData);
+      await this.saveLocalTransactions();
       await this.syncProducts();
       this.notify();
       return billData;
     } catch (err) {
-      console.warn('API checkout failed, falling back to local bill generation:', err);
-      
-      // Fallback: local in-memory decrement
+      // A rejected token is a real auth failure, not an offline condition —
+      // surface it so the cashier re-authenticates instead of silently queuing.
+      if (err instanceof Error && err.message.includes('Session expired')) {
+        throw err;
+      }
+      console.warn('API checkout failed, queuing sale offline:', err);
+
+      // Fallback: decrement stock locally and queue the sale for later sync.
       items.forEach(item => {
         this.products = this.products.map(p =>
           p.id === item.product_id ? { ...p, stock: Math.max(0, p.stock - item.quantity) } : p
         );
       });
 
-      const invoiceNumber = `INV-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const clientId = `local-${Date.now()}-${Math.floor(1000 + Math.random() * 9000)}`;
+      const invoiceNumber = `OFFLINE-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${Math.floor(1000 + Math.random() * 9000)}`;
       const fallbackBill: GeneratedBill = {
-        store_id: this._currentUser?.storeId || 'TGM-1001',
+        store_id: this._currentUser?.storeId || 'DEMO-1001',
         invoice_number: invoiceNumber,
         shop_name: this._currentUser?.shopName || 'SmartPOS Store',
-        shop_address: this._currentUser?.businessAddress || '124 Market Avenue, Tech Park City',
-        shop_phone: this._currentUser?.phone || '+91 7010764469',
-        gst_number: this._currentUser?.gstNumber || '33AAACT1024K1Z0',
+        shop_address: this._currentUser?.businessAddress || '',
+        shop_phone: this._currentUser?.phone || '',
+        gst_number: this._currentUser?.gstNumber || '',
         cashier_name: this._currentUser?.userName || 'Store Cashier',
+        customer_name: options?.customerName || undefined,
+        customer_phone: options?.customerPhone || undefined,
         payment_method: paymentMethod,
-        payment_status: 'PAID',
+        payment_status: paymentStatus,
         subtotal,
         discount,
         tax,
         total,
+        amount_paid: options?.amountPaid,
+        change_due:
+          options?.amountPaid !== undefined ? Math.max(0, options.amountPaid - total) : undefined,
         created_at: new Date().toISOString(),
+        pending: true,
+        client_id: clientId,
         items: items.map(i => ({
           product_id: parseInt(i.product_id, 10),
           product_name: i.product_name || `Product #${i.product_id}`,
           quantity: i.quantity,
-          price: i.price
-        }))
+          price: i.price,
+        })),
       };
       this.localTransactions.unshift(fallbackBill);
+      this.pendingCheckouts.push({ clientId, payload });
+      await Promise.all([this.saveLocalTransactions(), this.savePendingCheckouts()]);
       this.notify();
       return fallbackBill;
     }
+  }
+
+  // --- Customers & credit (khata / udhaar) --------------------------------
+  async fetchCustomers(): Promise<Customer[]> {
+    if (!this._currentUser?.token) return [];
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers`, { headers: this.getHeaders() });
+      if (response.status === 401) {
+        this.handleUnauthorized();
+        return [];
+      }
+      if (!response.ok) throw new Error('Failed to fetch customers');
+      const data = await response.json();
+      return data.map((c: any) => this.mapCustomer(c));
+    } catch (err) {
+      console.warn('Fetch customers failed:', err);
+      return [];
+    }
+  }
+
+  async createCustomer(name: string, phone?: string): Promise<Customer | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ name, phone: phone || null }),
+      });
+      if (!response.ok) {
+        const e = await response.json().catch(() => ({}));
+        throw new Error(e.detail || 'Failed to create customer');
+      }
+      const created = this.mapCustomer(await response.json());
+      this.notify();
+      return created;
+    } catch (err) {
+      console.warn('Create customer failed:', err);
+      return null;
+    }
+  }
+
+  async fetchCustomerLedger(id: number): Promise<Customer | null> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers/${id}`, { headers: this.getHeaders() });
+      if (!response.ok) throw new Error('Failed to fetch customer');
+      return this.mapCustomer(await response.json());
+    } catch (err) {
+      console.warn('Fetch customer ledger failed:', err);
+      return null;
+    }
+  }
+
+  // Record a repayment against a customer's outstanding credit.
+  async recordCustomerPayment(id: number, amount: number, note?: string): Promise<boolean> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/api/customers/${id}/payment`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify({ amount, note: note || null }),
+      });
+      if (!response.ok) throw new Error('Failed to record payment');
+      this.notify();
+      return true;
+    } catch (err) {
+      console.warn('Record payment failed:', err);
+      return false;
+    }
+  }
+
+  private mapCustomer(c: any): Customer {
+    return {
+      id: c.id,
+      name: c.name,
+      phone: c.phone || undefined,
+      credit_balance: parseFloat(c.credit_balance) || 0,
+      created_at: c.created_at,
+      entries: (c.entries || []).map((e: any) => ({
+        id: e.id,
+        entry_type: e.entry_type,
+        amount: parseFloat(e.amount) || 0,
+        note: e.note || undefined,
+        invoice_number: e.invoice_number || undefined,
+        created_at: e.created_at,
+      })),
+    };
   }
 
   addScannedItem(productId: string, quantity: number = 1) {

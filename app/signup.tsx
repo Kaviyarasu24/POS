@@ -7,10 +7,10 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  SafeAreaView,
   Modal,
   Pressable,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Colors } from '@/constants/theme';
@@ -90,11 +90,8 @@ export default function SignupScreen() {
         setStoreVerifyError('No store found with this Join Code');
       }
     } catch (e) {
-      if (clean === 'TGM-1001') {
-        setVerifiedStore({ id: 'TGM-1001', name: 'TGM Supermart', category: 'Retail & Grocery' });
-      } else {
-        setStoreVerifyError('Unable to verify store code');
-      }
+      setVerifiedStore(null);
+      setStoreVerifyError('Unable to verify store code. Check your connection and try again.');
     } finally {
       setIsVerifyingStore(false);
     }
@@ -174,17 +171,14 @@ export default function SignupScreen() {
       alert(`Success!\nAccount created successfully for ${storeNameDisplay}.\nRole: ${registeredUser.role.toUpperCase()}\nPlease sign in.`);
       router.push('/login');
     } catch (err) {
-      console.warn("API signup failed, falling back to local simulation:", err);
-      setTimeout(() => {
-        setIsLoading(false);
-        alert(`Account created successfully (simulated).\nPlease sign in.`);
-        router.push('/login');
-      }, 1000);
+      console.warn("Signup request failed:", err);
+      setIsLoading(false);
+      setErrorMessage('Unable to reach the server. Check your connection and try again.');
     }
   };
 
   return (
-    <SafeAreaView style={styles.outerContainer}>
+    <SafeAreaView style={styles.outerContainer} edges={['top', 'bottom']}>
       {/* Top App Bar */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -302,7 +296,7 @@ export default function SignupScreen() {
                 <View style={styles.inputWrapper}>
                   <TextInput
                     style={styles.input}
-                    placeholder="e.g. 33AAACT1024K1Z0"
+                    placeholder="e.g. 22AAAAA0000A1Z5"
                     placeholderTextColor={theme.icon}
                     value={gstNumber}
                     onChangeText={setGstNumber}

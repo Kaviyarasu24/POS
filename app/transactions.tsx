@@ -7,7 +7,6 @@ import {
   TouchableOpacity,
   FlatList,
   Modal,
-  SafeAreaView,
   ActivityIndicator,
   Share,
   Platform,
@@ -15,6 +14,7 @@ import {
   ScrollView,
   Dimensions,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
@@ -223,7 +223,7 @@ export default function TransactionsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Top Header */}
       <View style={styles.header}>
         <TouchableOpacity
@@ -237,7 +237,7 @@ export default function TransactionsScreen() {
         <View style={styles.headerTitleContainer}>
           <Text style={styles.headerTitle}>Transaction History</Text>
           <Text style={styles.headerSubtitle}>
-            {store.currentUser?.shopName || 'SmartPOS'} • Store #{store.currentUser?.storeId || 'TGM-1001'}
+            {store.currentUser?.shopName || 'SmartPOS'} • Store #{store.currentUser?.storeId || '—'}
           </Text>
         </View>
 

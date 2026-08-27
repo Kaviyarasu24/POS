@@ -11,15 +11,19 @@ import {
   Animated,
   Dimensions,
   Platform,
-  SafeAreaView,
   KeyboardAvoidingView,
   Alert,
   Share,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { store, Product, GeneratedBill } from '@/constants/store';
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import { store, Product, GeneratedBill, Customer } from '@/constants/store';
+import { PRODUCT_CATEGORIES } from '@/constants/config';
+import { buildReceiptHtml, gstSplit } from '@/constants/receipt';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -28,11 +32,12 @@ interface CartItem {
   quantity: number;
 }
 
-const CATEGORIES = ['All Items', 'Beverages', 'Snacks', 'Electronics', 'Apparel', 'Grocery'];
+const CATEGORIES = ['All Items', ...PRODUCT_CATEGORIES];
 const PAYMENT_METHODS = [
   { id: 'CASH', label: 'Cash', icon: 'payments' },
   { id: 'UPI', label: 'UPI / QR', icon: 'qr-code-scanner' },
   { id: 'CARD', label: 'Card', icon: 'credit-card' },
+  { id: 'CREDIT', label: 'Credit', icon: 'account-balance-wallet' },
 ];
 
 const formatNum = (val: any) => {
@@ -62,6 +67,13 @@ export default function BillingScreen() {
   const [paymentModalVisible, setPaymentModalVisible] = useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState('CASH');
   const [isProcessing, setIsProcessing] = useState(false);
+
+  // Cash tendered (CASH) + customer capture (optional for CASH/UPI/CARD,
+  // required for CREDIT). customers backs the quick-pick chips for credit sales.
+  const [cashReceived, setCashReceived] = useState('');
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customers, setCustomers] = useState<Customer[]>([]);
 
   // Generated Bill State
   const [billModalVisible, setBillModalVisible] = useState(false);
@@ -122,7 +134,13 @@ export default function BillingScreen() {
     const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
     const discountAmount = subtotal * (discountPercent / 100);
     const taxableSubtotal = Math.max(0, subtotal - discountAmount);
-    const tax = taxableSubtotal * 0.08;
+    // Per-product tax: apply each line's own taxRate, spreading the cart discount
+    // proportionally across lines so the taxable base matches the discounted subtotal.
+    const discountFactor = subtotal > 0 ? taxableSubtotal / subtotal : 0;
+    const tax = cart.reduce((acc, item) => {
+      const taxableLine = item.product.price * item.quantity * discountFactor;
+      return acc + taxableLine * ((item.product.taxRate ?? 0) / 100);
+    }, 0);
     const total = taxableSubtotal + tax;
     const totalItems = cart.reduce((acc, item) => acc + (isWeightItem(item.product.unit) ? 1 : item.quantity), 0);
 
@@ -267,15 +285,40 @@ export default function BillingScreen() {
     setDiscountModalVisible(false);
   };
 
+  // Load existing customers so credit sales can be attached by quick-pick
+  // (find-or-create still happens server-side on checkout by name).
+  const loadCustomers = async () => {
+    const list = await store.fetchCustomers();
+    setCustomers(list);
+  };
+
   // Open Payment Details Modal
   const handleOpenPayment = () => {
     if (cart.length === 0) return;
     setPaymentModalVisible(true);
+    if (customers.length === 0) loadCustomers();
   };
 
   // Process Checkout & Generate Bill
   const handleProcessCheckout = async () => {
     if (cart.length === 0) return;
+
+    const isCredit = selectedPaymentMethod === 'CREDIT';
+    const trimmedName = customerName.trim();
+    const trimmedPhone = customerPhone.trim();
+    const cashProvided = selectedPaymentMethod === 'CASH' && cashReceived.trim() !== '';
+    const cashNum = parseFloat(cashReceived) || 0;
+
+    // A credit (khata / udhaar) sale must be tied to a named customer.
+    if (isCredit && !trimmedName) {
+      Alert.alert('Customer Required', 'Enter the customer name to record this credit (khata) sale.');
+      return;
+    }
+    // If cash tendered is entered, it must at least cover the total.
+    if (cashProvided && cashNum < cartTotals.total) {
+      Alert.alert('Insufficient Cash', 'Cash received is less than the total amount due.');
+      return;
+    }
 
     setIsProcessing(true);
     try {
@@ -290,7 +333,13 @@ export default function BillingScreen() {
           quantity: item.quantity,
           price: item.product.price,
         })),
-        selectedPaymentMethod
+        selectedPaymentMethod,
+        {
+          customerName: trimmedName || undefined,
+          customerPhone: trimmedPhone || undefined,
+          amountPaid: cashProvided ? cashNum : undefined,
+          paymentStatus: isCredit ? 'CREDIT' : 'PAID',
+        }
       );
 
       setGeneratedBill(bill);
@@ -312,11 +361,29 @@ export default function BillingScreen() {
     setPaymentModalVisible(false);
     setBillModalVisible(false);
     setGeneratedBill(null);
+    setSelectedPaymentMethod('CASH');
+    setCashReceived('');
+    setCustomerName('');
+    setCustomerPhone('');
   };
 
   const handleShareBill = async () => {
     if (!generatedBill) return;
     try {
+      const html = buildReceiptHtml(generatedBill);
+
+      // Preferred path: render a PDF and hand it to the OS share sheet.
+      if (Platform.OS !== 'web' && (await Sharing.isAvailableAsync())) {
+        const { uri } = await Print.printToFileAsync({ html });
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          UTI: 'com.adobe.pdf',
+          dialogTitle: `Bill ${generatedBill.invoice_number}`,
+        });
+        return;
+      }
+
+      // Fallback (web / no share sheet): share a plain-text summary.
       const itemsText = generatedBill.items
         .map((i) => `• ${i.product_name} x${i.quantity} = ₹${formatNum((parseFloat(i.price as any) || 0) * i.quantity)}`)
         .join('\n');
@@ -340,16 +407,35 @@ export default function BillingScreen() {
         title: `Bill ${generatedBill.invoice_number}`,
       });
     } catch (error: any) {
-      console.warn('Share error:', error.message);
+      // A user-cancelled share sheet is not an error worth surfacing.
+      if (!/cancel|dismiss/i.test(error?.message || '')) {
+        console.warn('Share error:', error?.message);
+      }
     }
   };
 
-  const handlePrintBill = () => {
-    Alert.alert('Print Receipt', `Receipt #${generatedBill?.invoice_number} sent to printer!`);
+  const handlePrintBill = async () => {
+    if (!generatedBill) return;
+    try {
+      await Print.printAsync({ html: buildReceiptHtml(generatedBill) });
+    } catch (err: any) {
+      if (!/cancel|dismiss|did not complete/i.test(err?.message || '')) {
+        Alert.alert('Print Failed', err?.message || 'Unable to print the receipt.');
+      }
+    }
   };
 
+  // Derived payment-modal state.
+  const changeDue = (parseFloat(cashReceived) || 0) - cartTotals.total;
+  const paymentBlocked =
+    isProcessing ||
+    (selectedPaymentMethod === 'CREDIT' && customerName.trim().length === 0) ||
+    (selectedPaymentMethod === 'CASH' &&
+      cashReceived.trim() !== '' &&
+      (parseFloat(cashReceived) || 0) < cartTotals.total);
+
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerLeft}>
@@ -661,7 +747,7 @@ export default function BillingScreen() {
             )}
 
             <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tax (8%)</Text>
+              <Text style={styles.summaryLabel}>Tax</Text>
               <Text style={styles.summaryValue}>₹{cartTotals.tax.toFixed(2)}</Text>
             </View>
 
@@ -747,7 +833,7 @@ export default function BillingScreen() {
               <View>
                 <Text style={styles.paymentModalTitle}>Complete Payment</Text>
                 <Text style={styles.paymentModalSubtitle}>
-                  Select payment mode and customer info
+                  Select payment mode and (optionally) customer details
                 </Text>
               </View>
               <TouchableOpacity
@@ -771,7 +857,10 @@ export default function BillingScreen() {
                         styles.paymentMethodCard,
                         selected && styles.paymentMethodCardSelected,
                       ]}
-                      onPress={() => setSelectedPaymentMethod(method.id)}
+                      onPress={() => {
+                        setSelectedPaymentMethod(method.id);
+                        if (method.id === 'CREDIT' && customers.length === 0) loadCustomers();
+                      }}
                     >
                       <MaterialIcons
                         name={method.icon as any}
@@ -796,20 +885,115 @@ export default function BillingScreen() {
                 <Text style={styles.payableBoxLabel}>Total Amount to Charge</Text>
                 <Text style={styles.payableBoxAmount}>₹{cartTotals.total.toFixed(2)}</Text>
               </View>
+
+              {/* Cash tendered → change due (CASH only) */}
+              {selectedPaymentMethod === 'CASH' && (
+                <View style={styles.cashTenderContainer}>
+                  <Text style={styles.cashTenderLabel}>Cash Received (optional)</Text>
+                  <TextInput
+                    style={styles.cashTenderInput}
+                    keyboardType="decimal-pad"
+                    placeholder="Enter amount tendered"
+                    placeholderTextColor="#9aa0b4"
+                    value={cashReceived}
+                    onChangeText={setCashReceived}
+                  />
+                  {cashReceived.trim() !== '' && (
+                    <View style={styles.changeDueRow}>
+                      <Text style={styles.changeDueLabel}>
+                        {changeDue >= 0 ? 'Change Due' : 'Short By'}
+                      </Text>
+                      <Text style={[styles.changeDueValue, changeDue < 0 && { color: '#ba1a1a' }]}>
+                        ₹{Math.abs(changeDue).toFixed(2)}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+              )}
+
+              {/* Credit (khata / udhaar) notice */}
+              {selectedPaymentMethod === 'CREDIT' && (
+                <View style={styles.creditNoticeBox}>
+                  <MaterialIcons name="account-balance-wallet" size={18} color="#92400e" />
+                  <Text style={styles.creditNoticeText}>
+                    This amount is added to the customer&apos;s credit (khata). Enter or pick a
+                    customer below.
+                  </Text>
+                </View>
+              )}
+
+              {/* Customer capture (required for CREDIT, optional otherwise) */}
+              <Text style={styles.sectionLabel}>
+                {selectedPaymentMethod === 'CREDIT' ? 'Customer (required)' : 'Customer (optional)'}
+              </Text>
+
+              {selectedPaymentMethod === 'CREDIT' && customers.length > 0 && (
+                <ScrollView
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                  contentContainerStyle={styles.customerChipsRow}
+                >
+                  {customers.map((c) => {
+                    const active = customerName.trim() === c.name;
+                    return (
+                      <TouchableOpacity
+                        key={c.id}
+                        style={[styles.customerChip, active && styles.customerChipActive]}
+                        onPress={() => {
+                          setCustomerName(c.name);
+                          setCustomerPhone(c.phone || '');
+                        }}
+                      >
+                        <Text
+                          style={[styles.customerChipText, active && { color: '#004ac6' }]}
+                          numberOfLines={1}
+                        >
+                          {c.name}
+                        </Text>
+                        {c.credit_balance > 0 && (
+                          <Text style={styles.customerChipBalance}>
+                            Due ₹{c.credit_balance.toFixed(0)}
+                          </Text>
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
+              )}
+
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Customer name"
+                placeholderTextColor="#9aa0b4"
+                value={customerName}
+                onChangeText={setCustomerName}
+              />
+              <TextInput
+                style={styles.modalInput}
+                placeholder="Phone (optional)"
+                placeholderTextColor="#9aa0b4"
+                keyboardType="phone-pad"
+                value={customerPhone}
+                onChangeText={setCustomerPhone}
+              />
             </ScrollView>
 
             {/* Confirm & Generate Bill Button */}
             <TouchableOpacity
               style={[
                 styles.confirmPaymentBtn,
-                isProcessing && styles.chargeButtonDisabled,
+                paymentBlocked && styles.chargeButtonDisabled,
               ]}
-              disabled={isProcessing}
+              disabled={paymentBlocked}
               onPress={handleProcessCheckout}
             >
               <MaterialIcons name="receipt-long" size={20} color="#ffffff" />
               <Text style={styles.confirmPaymentText}>
-                {isProcessing ? 'Generating Bill...' : 'Confirm & Generate Bill'}
+                {isProcessing
+                  ? 'Generating Bill...'
+                  : selectedPaymentMethod === 'CREDIT'
+                  ? 'Confirm Credit Sale'
+                  : 'Confirm & Generate Bill'}
               </Text>
             </TouchableOpacity>
           </KeyboardAvoidingView>
@@ -840,6 +1024,9 @@ export default function BillingScreen() {
                 {generatedBill?.shop_phone && (
                   <Text style={styles.receiptShopSub}>Tel: {generatedBill.shop_phone}</Text>
                 )}
+                {generatedBill?.gst_number ? (
+                  <Text style={styles.receiptShopGst}>GSTIN: {generatedBill.gst_number}</Text>
+                ) : null}
               </View>
 
               <View style={styles.receiptDivider} />
@@ -868,8 +1055,20 @@ export default function BillingScreen() {
                   <Text style={styles.receiptMetaKey}>Payment Mode:</Text>
                   <Text style={styles.receiptMetaVal}>
                     {generatedBill?.payment_method}
+                    {generatedBill?.payment_status && generatedBill.payment_status !== 'PAID'
+                      ? ` (${generatedBill.payment_status})`
+                      : ''}
                   </Text>
                 </View>
+                {(generatedBill?.customer_name || generatedBill?.customer_phone) && (
+                  <View style={styles.receiptMetaRow}>
+                    <Text style={styles.receiptMetaKey}>Customer:</Text>
+                    <Text style={styles.receiptMetaVal}>
+                      {generatedBill?.customer_name || ''}
+                      {generatedBill?.customer_phone ? ` · ${generatedBill.customer_phone}` : ''}
+                    </Text>
+                  </View>
+                )}
               </View>
 
               <View style={styles.receiptDivider} />
@@ -911,15 +1110,60 @@ export default function BillingScreen() {
                     </Text>
                   </View>
                 )}
-                <View style={styles.billSummaryRow}>
-                  <Text style={styles.billSummaryLabel}>Tax (8%)</Text>
-                  <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.tax)}</Text>
-                </View>
+                {generatedBill?.gst_number ? (
+                  <>
+                    <View style={styles.billSummaryRow}>
+                      <Text style={styles.billSummaryLabel}>CGST</Text>
+                      <Text style={styles.billSummaryVal}>
+                        ₹{formatNum(gstSplit(generatedBill?.tax || 0).cgst)}
+                      </Text>
+                    </View>
+                    <View style={styles.billSummaryRow}>
+                      <Text style={styles.billSummaryLabel}>SGST</Text>
+                      <Text style={styles.billSummaryVal}>
+                        ₹{formatNum(gstSplit(generatedBill?.tax || 0).sgst)}
+                      </Text>
+                    </View>
+                  </>
+                ) : (
+                  <View style={styles.billSummaryRow}>
+                    <Text style={styles.billSummaryLabel}>Tax</Text>
+                    <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.tax)}</Text>
+                  </View>
+                )}
                 <View style={[styles.billSummaryRow, styles.billGrandTotalRow]}>
                   <Text style={styles.billGrandTotalLabel}>Grand Total</Text>
                   <Text style={styles.billGrandTotalVal}>₹{formatNum(generatedBill?.total)}</Text>
                 </View>
+                {generatedBill?.amount_paid !== undefined && (
+                  <>
+                    <View style={styles.billSummaryRow}>
+                      <Text style={styles.billSummaryLabel}>Cash Received</Text>
+                      <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.amount_paid)}</Text>
+                    </View>
+                    <View style={styles.billSummaryRow}>
+                      <Text style={styles.billSummaryLabel}>Change Due</Text>
+                      <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.change_due)}</Text>
+                    </View>
+                  </>
+                )}
+                {generatedBill?.payment_status === 'CREDIT' && (
+                  <View style={styles.billSummaryRow}>
+                    <Text style={[styles.billSummaryLabel, styles.discountAppliedText]}>
+                      On Credit (Unpaid)
+                    </Text>
+                    <Text style={[styles.billSummaryVal, styles.discountAppliedText]}>
+                      ₹{formatNum(generatedBill?.total)}
+                    </Text>
+                  </View>
+                )}
               </View>
+
+              {generatedBill?.pending && (
+                <Text style={styles.pendingNote}>
+                  ⏳ Saved offline — will sync automatically when back online.
+                </Text>
+              )}
 
               <Text style={styles.receiptFooterNote}>
                 *** Thank You for Shopping! Please Visit Again ***
@@ -1818,6 +2062,75 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '800',
     color: '#006329',
+  },
+  cashTenderLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#006329',
+    marginBottom: 6,
+  },
+  cashTenderInput: {
+    borderWidth: 1,
+    borderColor: '#c3ecd1',
+    borderRadius: 8,
+    height: 44,
+    paddingHorizontal: 12,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#131b2e',
+    backgroundColor: '#ffffff',
+  },
+  creditNoticeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fde68a',
+    borderRadius: 10,
+    padding: 10,
+    marginBottom: 14,
+  },
+  creditNoticeText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#92400e',
+    lineHeight: 16,
+  },
+  customerChipsRow: {
+    gap: 8,
+    paddingBottom: 10,
+  },
+  customerChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    backgroundColor: '#f3f3fa',
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: 'transparent',
+    maxWidth: 160,
+  },
+  customerChipActive: {
+    backgroundColor: '#e6edff',
+    borderColor: '#004ac6',
+  },
+  customerChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#434655',
+  },
+  customerChipBalance: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: '#ba1a1a',
+    marginTop: 1,
+  },
+  pendingNote: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400e',
+    textAlign: 'center',
+    marginTop: 10,
   },
   confirmPaymentBtn: {
     flexDirection: 'row',

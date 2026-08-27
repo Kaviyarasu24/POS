@@ -5,13 +5,13 @@ import {
   Text,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Platform,
   Switch,
   Modal,
   TextInput,
   Alert,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -39,18 +39,18 @@ export default function ProfileScreen() {
 
   // Load session or defaults
   const userSession = store.currentUser;
-  const [shopName, setShopName] = useState(userSession?.shopName || 'TGM Supermart');
+  const [shopName, setShopName] = useState(userSession?.shopName || 'SmartPOS Store');
   const [ownerName, setOwnerName] = useState(userSession?.userName || 'Store User');
-  const [storeId, setStoreId] = useState(userSession?.storeId || 'TGM-1001');
-  const [phone, setPhone] = useState(userSession?.phone || '+91 7010764469');
-  const [email, setEmail] = useState(userSession?.email || 'rithes07@gmail.com');
+  const [storeId, setStoreId] = useState(userSession?.storeId || '');
+  const [phone, setPhone] = useState(userSession?.phone || '');
+  const [email, setEmail] = useState(userSession?.email || '');
   const [avatarImage, setAvatarImage] = useState<string | null>(userSession?.image || null);
   const [selectedAvatar, setSelectedAvatar] = useState<string | null>(userSession?.image || null);
 
   // Shop Info Details
-  const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Retail & Grocery');
-  const [gstNumber, setGstNumber] = useState(userSession?.gstNumber || '33AAACT1024K1Z0');
-  const [businessAddress, setBusinessAddress] = useState(userSession?.businessAddress || '124 Market Avenue, Tech Park City');
+  const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Retail');
+  const [gstNumber, setGstNumber] = useState(userSession?.gstNumber || '');
+  const [businessAddress, setBusinessAddress] = useState(userSession?.businessAddress || '');
 
   // Printer Settings
   const [printerType, setPrinterType] = useState('Bluetooth');
@@ -92,7 +92,7 @@ export default function ProfileScreen() {
       if (store.currentUser) {
         setShopName(store.currentUser.shopName);
         setOwnerName(store.currentUser.userName);
-        setStoreId(store.currentUser.storeId || 'TGM-1001');
+        setStoreId(store.currentUser.storeId || '');
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
         setAvatarImage(store.currentUser.image || null);
@@ -112,7 +112,7 @@ export default function ProfileScreen() {
   }, []);
 
   const handleCopyStoreId = () => {
-    const code = storeId || 'TGM-1001';
+    const code = storeId;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(code);
       Alert.alert('Copied!', `Store ID (Join Code) "${code}" copied to clipboard.\nShare this with users so they can join your store.`);
@@ -255,23 +255,17 @@ export default function ProfileScreen() {
     alert('Database Restore Successful!\nAll product quantities and catalog schemas are synchronized.');
   };
 
-  const handleLogout = () => {
-    store.currentUser = null;
-    alert('Logged out successfully.');
+  const handleLogout = async () => {
+    // Clears the persisted session (JWT + user) before returning to login.
+    await store.logout();
     router.replace('/login');
   };
 
   return (
-    <SafeAreaView style={styles.outerContainer}>
+    <SafeAreaView style={styles.outerContainer} edges={['top']}>
       {/* Top App Bar */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="menu" size={24} color="#004ac6" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>SmartPOS</Text>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="notifications" size={24} color="#004ac6" />
-        </TouchableOpacity>
       </View>
 
       {/* Main Content Scroll List */}
@@ -325,7 +319,7 @@ export default function ProfileScreen() {
                   <View>
                     <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
                     <Text style={[styles.rowSubLabel, { fontWeight: '600', color: '#004ac6' }]}>
-                      {storeId || 'TGM-1001'} • Tap to copy
+                      {storeId || '—'} • Tap to copy
                     </Text>
                   </View>
                 </View>
@@ -909,7 +903,6 @@ const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
     backgroundColor: '#faf8ff',
-    paddingTop: Platform.OS === 'android' ? 24 : 0,
   },
   header: {
     height: 64,

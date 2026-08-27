@@ -6,15 +6,16 @@ import {
   TextInput,
   TouchableOpacity,
   FlatList,
-  SafeAreaView,
   ScrollView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store, Product } from '@/constants/store';
+import { PRODUCT_CATEGORIES } from '@/constants/config';
 
-const FILTERS = ['All', 'Grocery', 'Snacks', 'Beverages', 'Dairy'];
+const FILTERS = ['All', ...PRODUCT_CATEGORIES];
 const SORT_MODES = ['Name (A-Z)', 'Price (Low-High)', 'Price (High-Low)'];
 
 export default function ProductsScreen() {
@@ -73,16 +74,10 @@ export default function ProductsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Header */}
       <View style={styles.header}>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="menu" size={24} color="#434655" />
-        </TouchableOpacity>
         <Text style={styles.headerTitle}>SmartPOS</Text>
-        <TouchableOpacity style={styles.headerIconButton}>
-          <MaterialIcons name="notifications" size={24} color="#434655" />
-        </TouchableOpacity>
       </View>
 
       {/* Main List */}
@@ -452,7 +447,7 @@ const styles = StyleSheet.create({
     right: 24,
     width: 56,
     height: 56,
-    borderRadius: 16,
+    borderRadius: 28,
     backgroundColor: '#004ac6',
     justifyContent: 'center',
     alignItems: 'center',

@@ -6,12 +6,11 @@ import {
   TouchableOpacity,
   ScrollView,
   Animated,
-  Platform,
-  SafeAreaView,
   Dimensions,
   Modal,
   TextInput,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
@@ -27,6 +26,7 @@ interface ScannedItemState {
 export default function ScannerScreen() {
   const router = useRouter();
   const { mode } = useLocalSearchParams<{ mode?: string }>();
+  const insets = useSafeAreaInsets();
   const [permission, requestPermission] = useCameraPermissions();
   const [torch, setTorch] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedItemState[]>([]);
@@ -35,6 +35,9 @@ export default function ScannerScreen() {
 
   // Animation for the scanning laser line
   const scanLineAnim = useRef(new Animated.Value(0)).current;
+
+  // Debounce guard for repeat barcode frames (see handleBarcodeScanned).
+  const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
 
   useEffect(() => {
     Animated.loop(
@@ -65,6 +68,14 @@ export default function ScannerScreen() {
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     const barcodeStr = data.trim();
     if (!barcodeStr) return;
+
+    // Debounce: the camera fires onBarcodeScanned on every frame while a code is
+    // in view. Ignore the same code seen again within 1.5s so quantity increments once.
+    const now = Date.now();
+    if (barcodeStr === lastScanRef.current.code && now - lastScanRef.current.time < 1500) {
+      return;
+    }
+    lastScanRef.current = { code: barcodeStr, time: now };
 
     if (mode === 'add_product') {
       router.replace({ pathname: '/add_product', params: { scannedSku: barcodeStr } });
@@ -125,7 +136,7 @@ export default function ScannerScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <View style={styles.container}>
       {/* Viewfinder background */}
       <View style={styles.viewfinderContainer}>
         {renderCameraView()}
@@ -147,7 +158,7 @@ export default function ScannerScreen() {
       </View>
 
       {/* Top Header App Bar */}
-      <View style={styles.header}>
+      <View style={[styles.header, { height: 64 + insets.top, paddingTop: insets.top }]}>
         <TouchableOpacity
           aria-label="Back"
           style={styles.headerButton}
@@ -170,7 +181,7 @@ export default function ScannerScreen() {
       </View>
 
       {/* Bottom Scanned List Drawer Card */}
-      <View style={styles.drawerCard}>
+      <View style={[styles.drawerCard, { paddingBottom: insets.bottom + 16 }]}>
         {/* Drag Handle Illustration */}
         <View style={styles.dragHandleContainer}>
           <View style={styles.dragHandle} />
@@ -317,7 +328,7 @@ export default function ScannerScreen() {
           </View>
         </View>
       </Modal>
-    </SafeAreaView>
+    </View>
   );
 }
 
@@ -454,7 +465,6 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingHorizontal: 16,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 24,
     zIndex: 20,
     shadowColor: '#000000',
     shadowOffset: { width: 0, height: -8 },
