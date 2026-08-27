@@ -14,6 +14,7 @@ import {
   Animated,
   Easing,
   Dimensions,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -73,6 +74,25 @@ export default function LoginScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isEmailFocused, setIsEmailFocused] = useState(false);
+  const [isPasswordFocused, setIsPasswordFocused] = useState(false);
+  const [isKeyboardVisible, setIsKeyboardVisible] = useState(false);
+
+  useEffect(() => {
+    const keyboardDidShowListener = Keyboard.addListener(
+      'keyboardDidShow',
+      () => setIsKeyboardVisible(true)
+    );
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => setIsKeyboardVisible(false)
+    );
+
+    return () => {
+      keyboardDidShowListener.remove();
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   const fadeContent = useRef(new Animated.Value(0)).current;
   const translateContentY = useRef(new Animated.Value(20)).current;
@@ -256,19 +276,9 @@ export default function LoginScreen() {
     outputRange: ['#dbeafe', THEME.primary],
   });
 
-  const emailIconColor = emailFocusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [THEME.textSecondary, THEME.primary],
-  });
-
   const passwordBorderColor = passwordFocusAnim.interpolate({
     inputRange: [0, 1],
     outputRange: ['#dbeafe', THEME.primary],
-  });
-
-  const passwordIconColor = passwordFocusAnim.interpolate({
-    inputRange: [0, 1],
-    outputRange: [THEME.textSecondary, THEME.primary],
   });
 
   const buttonScale = buttonPressScale.interpolate({
@@ -290,11 +300,11 @@ export default function LoginScreen() {
             </LinearGradient>
           </Defs>
         </Svg>
-        <Svg width="100%" height={140} viewBox="0 0 375 140" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
-          <Path d="M 0 140 H 375 V 50 Q 280 125 180 45 T 0 75 Z" fill="url(#bottom-grad)" opacity={0.85} />
+        <Svg width="100%" height={140} viewBox="0 0 375 240" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
+          <Path d="M 0 240 H 375 V 70 Q 250 0 120 60 T 0 80 Z" fill="url(#bottom-grad)" opacity={0.8} />
           <Defs>
-            <LinearGradient id="bottom-grad" x1="0" y1="0.5" x2="0.5" y2="1">
-              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.5" />
+            <LinearGradient id="bottom-grad" x1="0.5" y1="1" x2="0.5" y2="0">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.65" />
               <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.85" />
             </LinearGradient>
           </Defs>
@@ -302,13 +312,17 @@ export default function LoginScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior="padding"
         style={styles.avoidingContainer}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+          scrollEnabled={isKeyboardVisible}
         >
           {/* Brand Logo & Visual Terminal Illustration */}
           <Animated.View
@@ -341,7 +355,7 @@ export default function LoginScreen() {
               <Text style={styles.tagline}>Simple • Fast • Smart</Text>
             </View>
 
-            <TerminalIllustration />
+            {!isKeyboardVisible && <TerminalIllustration />}
           </Animated.View>
 
           {/* Form Content - Clean, borderless layout directly on background (like Mockup) */}
@@ -394,7 +408,8 @@ export default function LoginScreen() {
                   <MaterialIcons
                     name="mail-outline"
                     size={20}
-                    style={{ color: emailIconColor, marginRight: 10 }}
+                    color={isEmailFocused ? THEME.primary : THEME.textSecondary}
+                    style={{ marginRight: 10 }}
                   />
                   <TextInput
                     style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
@@ -405,8 +420,14 @@ export default function LoginScreen() {
                       setEmail(text);
                       if (errorMessage) setErrorMessage('');
                     }}
-                    onFocus={() => animateInputFocus(emailFocusAnim, true)}
-                    onBlur={() => animateInputFocus(emailFocusAnim, false)}
+                    onFocus={() => {
+                      animateInputFocus(emailFocusAnim, true);
+                      setIsEmailFocused(true);
+                    }}
+                    onBlur={() => {
+                      animateInputFocus(emailFocusAnim, false);
+                      setIsEmailFocused(false);
+                    }}
                     autoCapitalize="none"
                     autoCorrect={false}
                     keyboardType="email-address"
@@ -455,7 +476,8 @@ export default function LoginScreen() {
                   <MaterialIcons
                     name="lock-outline"
                     size={20}
-                    style={{ color: passwordIconColor, marginRight: 10 }}
+                    color={isPasswordFocused ? THEME.primary : THEME.textSecondary}
+                    style={{ marginRight: 10 }}
                   />
                   <TextInput
                     style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
@@ -467,8 +489,14 @@ export default function LoginScreen() {
                       setPassword(text);
                       if (errorMessage) setErrorMessage('');
                     }}
-                    onFocus={() => animateInputFocus(passwordFocusAnim, true)}
-                    onBlur={() => animateInputFocus(passwordFocusAnim, false)}
+                    onFocus={() => {
+                      animateInputFocus(passwordFocusAnim, true);
+                      setIsPasswordFocused(true);
+                    }}
+                    onBlur={() => {
+                      animateInputFocus(passwordFocusAnim, false);
+                      setIsPasswordFocused(false);
+                    }}
                     autoCapitalize="none"
                     autoCorrect={false}
                   />
@@ -541,16 +569,18 @@ export default function LoginScreen() {
           </Animated.View>
 
           {/* Secure & Trusted bottom banner with SVG outline check checkmark shield */}
-          <View style={styles.secureFooter} pointerEvents="none">
-            <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
-              <Path d="M 12 2 L 4 5 V 11 C 4 16.5 7.4 21.7 12 23 C 16.6 21.7 20 16.5 20 11 V 5 L 12 2 Z" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-              <Path d="M 9 11 L 11 13 L 15 9" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
-            </Svg>
-            <View style={styles.secureTextWrapper}>
-              <Text style={styles.secureTitle}>Secure & Trusted</Text>
-              <Text style={styles.secureSubtitle}>Your data is safe with us</Text>
+          {!isKeyboardVisible && (
+            <View style={styles.secureFooter} pointerEvents="none">
+              <Svg width={22} height={22} viewBox="0 0 24 24" fill="none" style={{ marginRight: 8 }}>
+                <Path d="M 12 2 L 4 5 V 11 C 4 16.5 7.4 21.7 12 23 C 16.6 21.7 20 16.5 20 11 V 5 L 12 2 Z" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+                <Path d="M 9 11 L 11 13 L 15 9" stroke="#2563eb" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+              </Svg>
+              <View style={styles.secureTextWrapper}>
+                <Text style={styles.secureTitle}>Secure & Trusted</Text>
+                <Text style={styles.secureSubtitle}>Your data is safe with us</Text>
+              </View>
             </View>
-          </View>
+          )}
 
         </ScrollView>
       </KeyboardAvoidingView>
@@ -587,7 +617,7 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 24,
+    paddingVertical: 14,
     paddingHorizontal: 24,
   },
   headerRow: {
@@ -596,8 +626,8 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     width: '100%',
     maxWidth: 420,
-    marginTop: 20,
-    marginBottom: 30,
+    marginTop: 10,
+    marginBottom: 15,
   },
   logoAndTag: {
     flex: 1,
@@ -627,14 +657,14 @@ const styles = StyleSheet.create({
   },
   formHeader: {
     alignItems: 'flex-start',
-    marginBottom: 24,
+    marginBottom: 12,
   },
   title: {
-    fontSize: 34,
+    fontSize: 28,
     fontWeight: '800',
     color: THEME.textPrimary,
-    letterSpacing: -0.8,
-    marginBottom: 6,
+    letterSpacing: -0.6,
+    marginBottom: 4,
   },
   subtitle: {
     fontSize: 15,
@@ -663,7 +693,7 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   inputGroup: {
-    marginBottom: 20,
+    marginBottom: 12,
     width: '100%',
   },
   inputLabel: {
@@ -688,8 +718,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: '#dbeafe', // Mockup light blue border by default
-    borderRadius: 14,
-    height: 54, // Mockup larger input height
+    borderRadius: 12,
+    height: 48, // Compact height for perfect page fitting
     backgroundColor: '#f5f8ff', // Match mockup background input tint
     paddingHorizontal: 16,
   },
@@ -709,13 +739,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     width: '100%',
-    height: 54,
-    borderRadius: 16,
+    height: 48,
+    borderRadius: 12,
     backgroundColor: THEME.primary,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 10,
-    marginBottom: 16,
+    marginBottom: 10,
     shadowColor: 'rgba(37, 99, 235, 0.25)',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 1,
@@ -744,7 +774,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 18,
+    marginVertical: 12,
     width: '100%',
   },
   dividerLine: {
@@ -768,8 +798,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 30,
-    marginBottom: 10,
+    marginTop: 12,
+    marginBottom: 6,
     width: '100%',
   },
   secureTextWrapper: {

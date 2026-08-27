@@ -257,13 +257,13 @@ export default function SignupScreen() {
         setErrorMessage('Please enter your Email Address.');
         return;
       }
-      const emailRegex = /\S+@\S+\.\S+/;
+      const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
       if (!emailRegex.test(email.trim())) {
         setErrorMessage('Please enter a valid Email Address.');
         return;
       }
-      if (!phone.trim()) {
-        setErrorMessage('Please enter your Phone Number.');
+      if (!phone.trim() || phone.trim().length !== 10) {
+        setErrorMessage('Phone number must be exactly 10 digits.');
         return;
       }
       animateStepTransition(4);
@@ -452,7 +452,7 @@ export default function SignupScreen() {
                 onPress={() => setShowCategoryModal(true)}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.input, { color: shopCategory ? THEME.textPrimary : '#94a3b8' }]}>
+                <Text style={[styles.dropdownText, { color: shopCategory ? THEME.textPrimary : '#94a3b8' }]}>
                   {shopCategory
                     ? categories.find((c) => c.value === shopCategory)?.label
                     : 'Select Shop Category'}
@@ -611,14 +611,16 @@ export default function SignupScreen() {
                 <View style={styles.verticalDivider} />
                 <TextInput
                   style={[styles.input, { paddingHorizontal: 12 }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="5550199"
+                  placeholder="9876543210"
                   placeholderTextColor="#94a3b8"
                   value={phone}
                   onChangeText={(text) => {
-                    setPhone(text);
+                    const clean = text.replace(/[^0-9]/g, '').slice(0, 10);
+                    setPhone(clean);
                     if (errorMessage) setErrorMessage('');
                   }}
                   keyboardType="phone-pad"
+                  maxLength={10}
                 />
               </View>
             </View>
@@ -715,11 +717,11 @@ export default function SignupScreen() {
             </LinearGradient>
           </Defs>
         </Svg>
-        <Svg width="100%" height={140} viewBox="0 0 375 140" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
-          <Path d="M 0 140 H 375 V 50 Q 280 125 180 45 T 0 75 Z" fill="url(#bottom-grad)" opacity={0.85} />
+        <Svg width="100%" height={140} viewBox="0 0 375 240" fill="none" style={styles.bottomWave} preserveAspectRatio="none">
+          <Path d="M 0 240 H 375 V 70 Q 250 0 120 60 T 0 80 Z" fill="url(#bottom-grad)" opacity={0.8} />
           <Defs>
-            <LinearGradient id="bottom-grad" x1="0" y1="0.5" x2="0.5" y2="1">
-              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.5" />
+            <LinearGradient id="bottom-grad" x1="0.5" y1="1" x2="0.5" y2="0">
+              <Stop offset="0%" stopColor="#dbeafe" stopOpacity="0.65" />
               <Stop offset="100%" stopColor="#eff6ff" stopOpacity="0.85" />
             </LinearGradient>
           </Defs>
@@ -730,6 +732,9 @@ export default function SignupScreen() {
         contentContainerStyle={styles.scrollContainer}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        bounces={false}
+        alwaysBounceVertical={false}
+        overScrollMode="never"
       >
         <View style={styles.formContainer}>
           
@@ -1202,6 +1207,11 @@ const styles = StyleSheet.create({
     color: THEME.textPrimary,
     padding: 0,
     borderWidth: 0,
+  },
+  dropdownText: {
+    flex: 1,
+    fontSize: 15,
+    textAlignVertical: 'center',
   },
   dropdownTrigger: {
     justifyContent: 'space-between',

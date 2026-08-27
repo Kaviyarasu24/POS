@@ -3,6 +3,13 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import 'react-native-reanimated';
+import { LogBox } from 'react-native';
+
+LogBox.ignoreLogs([
+  'expo-notifications: Android Push notifications',
+  '`expo-notifications` functionality is not fully supported in Expo Go',
+  'Android Push notifications (remote notifications) functionality provided by expo-notifications was removed',
+]);
 
 export default function RootLayout() {
   // The app is designed for a single light appearance, so we always use the
