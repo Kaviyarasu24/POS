@@ -255,6 +255,7 @@ class ProductStore {
   // can exceed SecureStore's ~2KB limit) always goes to AsyncStorage.
   private async saveToken(token: string): Promise<void> {
     if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return;
       await AsyncStorage.setItem(TOKEN_KEY, token);
     } else {
       await SecureStore.setItemAsync(TOKEN_KEY, token);
@@ -263,6 +264,7 @@ class ProductStore {
 
   private async loadToken(): Promise<string | null> {
     if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return null;
       return AsyncStorage.getItem(TOKEN_KEY);
     }
     return SecureStore.getItemAsync(TOKEN_KEY);
@@ -270,6 +272,7 @@ class ProductStore {
 
   private async clearToken(): Promise<void> {
     if (Platform.OS === 'web') {
+      if (typeof window === 'undefined') return;
       await AsyncStorage.removeItem(TOKEN_KEY);
     } else {
       await SecureStore.deleteItemAsync(TOKEN_KEY);
@@ -277,6 +280,9 @@ class ProductStore {
   }
 
   private async loadSavedSession(): Promise<UserSession | null> {
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return null;
+    }
     try {
       const [token, userJson] = await Promise.all([
         this.loadToken(),
@@ -295,6 +301,9 @@ class ProductStore {
   }
 
   private async persistSession(user: UserSession | null): Promise<void> {
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return;
+    }
     try {
       if (user) {
         const { token, ...rest } = user;
@@ -686,6 +695,9 @@ class ProductStore {
   // localTransactions is the recent-bill cache (survives restarts).
   // pendingCheckouts holds sales made while offline that still need to sync.
   private async loadLocalTransactions(): Promise<void> {
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return;
+    }
     try {
       const [txnsJson, pendingJson] = await Promise.all([
         AsyncStorage.getItem(LOCAL_TXNS_KEY),
@@ -699,6 +711,9 @@ class ProductStore {
   }
 
   private async saveLocalTransactions(): Promise<void> {
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return;
+    }
     try {
       // Cap the cache so device storage can't grow without bound.
       const trimmed = this.localTransactions.slice(0, 100);
@@ -709,6 +724,9 @@ class ProductStore {
   }
 
   private async savePendingCheckouts(): Promise<void> {
+    if (Platform.OS === 'web' && typeof window === 'undefined') {
+      return;
+    }
     try {
       await AsyncStorage.setItem(PENDING_CHECKOUTS_KEY, JSON.stringify(this.pendingCheckouts));
     } catch (e) {
