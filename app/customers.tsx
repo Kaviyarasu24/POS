@@ -228,7 +228,7 @@ export default function CustomersScreen() {
       <Modal visible={addVisible} transparent animationType="slide" onRequestClose={() => setAddVisible(false)}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />
@@ -375,7 +375,7 @@ export default function CustomersScreen() {
       <Modal visible={payVisible} transparent animationType="fade" onRequestClose={() => setPayVisible(false)}>
         <KeyboardAvoidingView
           style={styles.modalOverlay}
-          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         >
           <View style={styles.modalSheet}>
             <View style={styles.modalHandle} />

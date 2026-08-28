@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   Alert,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -631,8 +632,12 @@ export default function ProfileScreen() {
 
       {/* 1. Edit Profile Modal */}
       <Modal visible={editProfileVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Edit Profile</Text>
             
             {/* Quick Avatar selection row in Edit Form */}
@@ -703,12 +708,17 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+    </Modal>
 
       {/* 2. Edit Shop Details Modal */}
       <Modal visible={shopInfoVisible} animationType="slide" transparent>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Shop Details</Text>
 
             <Text style={styles.fieldLabel}>Shop Category</Text>
@@ -747,7 +757,8 @@ export default function ProfileScreen() {
             </View>
           </View>
         </View>
-      </Modal>
+      </KeyboardAvoidingView>
+    </Modal>
 
       {/* 3. Printer Settings Modal */}
       <Modal visible={printerSettingsVisible} animationType="slide" transparent>
