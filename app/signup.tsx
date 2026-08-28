@@ -1126,16 +1126,7 @@ const styles = StyleSheet.create({
   },
   wizardCard: {
     width: '100%',
-    backgroundColor: '#ffffff',
-    borderRadius: 24, // Mockup larger rounded corners
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    padding: 24, // Mockup padding
-    shadowColor: 'rgba(15, 23, 42, 0.05)',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 3,
+    marginVertical: 10,
   },
   stepBlock: {
     width: '100%',
