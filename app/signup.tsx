@@ -13,6 +13,8 @@ import {
   Dimensions,
   Animated,
   Easing,
+  KeyboardAvoidingView,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -110,6 +112,19 @@ const StepProgress = ({ currentStep }: { currentStep: number }) => {
 export default function SignupScreen() {
   const router = useRouter();
   const theme = Colors.light;
+  const scrollViewRef = useRef<ScrollView>(null);
+  useEffect(() => {
+    const keyboardDidHideListener = Keyboard.addListener(
+      'keyboardDidHide',
+      () => {
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
+    );
+
+    return () => {
+      keyboardDidHideListener.remove();
+    };
+  }, []);
 
   // Wizard state: ranges from 1 to 5
   const [currentStep, setCurrentStep] = useState(1);
@@ -728,14 +743,19 @@ export default function SignupScreen() {
         </Svg>
       </View>
 
-      <ScrollView
-        contentContainerStyle={styles.scrollContainer}
-        keyboardShouldPersistTaps="handled"
-        showsVerticalScrollIndicator={false}
-        bounces={false}
-        alwaysBounceVertical={false}
-        overScrollMode="never"
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.avoidingContainer}
       >
+        <ScrollView
+          ref={scrollViewRef}
+          contentContainerStyle={styles.scrollContainer}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+        >
         <View style={styles.formContainer}>
           
           {/* Top Bar with Floating Back Arrow and Centered Logo */}
@@ -832,6 +852,7 @@ export default function SignupScreen() {
 
         </View>
       </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Category Selection Modal */}
       <Modal
@@ -1421,5 +1442,9 @@ const styles = StyleSheet.create({
   modalOptionTextSelected: {
     color: '#2563eb',
     fontWeight: '700',
+  },
+  avoidingContainer: {
+    flex: 1,
+    zIndex: 1,
   },
 });
