@@ -67,6 +67,7 @@ const TerminalIllustration = () => (
 
 export default function LoginScreen() {
   const router = useRouter();
+  const scrollViewRef = useRef<ScrollView>(null);
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -85,7 +86,10 @@ export default function LoginScreen() {
     );
     const keyboardDidHideListener = Keyboard.addListener(
       'keyboardDidHide',
-      () => setIsKeyboardVisible(false)
+      () => {
+        setIsKeyboardVisible(false);
+        scrollViewRef.current?.scrollTo({ y: 0, animated: true });
+      }
     );
 
     return () => {
@@ -312,17 +316,18 @@ export default function LoginScreen() {
       </View>
 
       <KeyboardAvoidingView
-        behavior="padding"
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.avoidingContainer}
       >
         <ScrollView
+          ref={scrollViewRef}
           contentContainerStyle={styles.scrollContainer}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
           bounces={false}
           alwaysBounceVertical={false}
           overScrollMode="never"
-          scrollEnabled={isKeyboardVisible}
+          scrollEnabled={true}
         >
           {/* Brand Logo & Visual Terminal Illustration */}
           <Animated.View
@@ -558,7 +563,7 @@ export default function LoginScreen() {
               <View style={styles.signUpDividerRow}>
                 <View style={styles.dividerLine} />
                 <Text style={styles.footerText}>
-                  Don't have an account?{' '}
+                  Don&apos;t have an account?{' '}
                   <Text style={styles.footerLink} onPress={() => router.push('/signup')}>
                     Create Account
                   </Text>
