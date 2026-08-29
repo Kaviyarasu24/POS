@@ -667,6 +667,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Shop Name</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter shop name"
+              placeholderTextColor="#94a3b8"
               value={tempShopName}
               onChangeText={setTempShopName}
             />
@@ -674,6 +676,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Owner Full Name</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter owner full name"
+              placeholderTextColor="#94a3b8"
               value={tempOwnerName}
               onChangeText={setTempOwnerName}
             />
@@ -681,6 +685,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Phone Number</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter contact phone number"
+              placeholderTextColor="#94a3b8"
               value={tempPhone}
               onChangeText={setTempPhone}
               keyboardType="phone-pad"
@@ -689,6 +695,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Email Address</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter email address"
+              placeholderTextColor="#94a3b8"
               value={tempEmail}
               onChangeText={setTempEmail}
               keyboardType="email-address"
@@ -724,6 +732,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Shop Category</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter shop category"
+              placeholderTextColor="#94a3b8"
               value={tempCategory}
               onChangeText={setTempCategory}
             />
@@ -731,6 +741,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>GST Identification Number</Text>
             <TextInput
               style={styles.inputField}
+              placeholder="Enter GSTIN (optional)"
+              placeholderTextColor="#94a3b8"
               value={tempGst}
               onChangeText={setTempGst}
               autoCapitalize="characters"
@@ -739,6 +751,8 @@ export default function ProfileScreen() {
             <Text style={styles.fieldLabel}>Business Address</Text>
             <TextInput
               style={[styles.inputField, { height: 80, textAlignVertical: 'top', paddingTop: 8 }]}
+              placeholder="Enter business address"
+              placeholderTextColor="#94a3b8"
               value={tempAddress}
               onChangeText={setTempAddress}
               multiline

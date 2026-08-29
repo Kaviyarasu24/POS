@@ -28,10 +28,11 @@ const UNIT_OPTIONS = [
   { label: 'MilliLitre (ml)', value: 'ml', type: 'volume', icon: 'opacity' },
 ];
 
-interface FloatingInputProps {
+interface FormFieldProps {
   label: string;
   value: string;
   onChangeText: (text: string) => void;
+  placeholder?: string;
   keyboardType?: 'default' | 'numeric' | 'decimal-pad';
   iconLeft?: string;
   iconRight?: string;
@@ -39,69 +40,56 @@ interface FloatingInputProps {
   editable?: boolean;
 }
 
-function FloatingInput({
+function FormField({
   label,
   value,
   onChangeText,
+  placeholder,
   keyboardType = 'default',
   iconLeft,
   iconRight,
   onIconRightPress,
   editable = true,
-}: FloatingInputProps) {
+}: FormFieldProps) {
   const [isFocused, setIsFocused] = useState(false);
-  const inputRef = React.useRef<TextInput>(null);
-  const showLabelOnTop = isFocused || (value !== undefined && value !== null && value.length > 0);
 
   return (
-    <TouchableOpacity
-      activeOpacity={1}
-      onPress={() => inputRef.current?.focus()}
-      style={[
-        styles.inputContainer,
-        isFocused && { borderColor: '#004ac6', backgroundColor: '#ffffff' },
-      ]}
-    >
-      {iconLeft && (
-        <Text pointerEvents="none" style={styles.iconLeftText}>{iconLeft}</Text>
-      )}
-      <TextInput
-        ref={inputRef}
-        style={[
-          styles.input,
-          iconLeft && { paddingLeft: 32 },
-          iconRight && { paddingRight: 40 },
-          !editable && { color: '#737686' },
-        ]}
-        value={value}
-        onChangeText={onChangeText}
-        keyboardType={keyboardType}
-        onFocus={() => setIsFocused(true)}
-        onBlur={() => setIsFocused(false)}
-        placeholder=""
-        editable={editable}
-      />
-      <Text
-        pointerEvents="none"
-        style={[
-          styles.inputLabel,
-          showLabelOnTop ? styles.inputLabelTop : styles.inputLabelCenter,
-          iconLeft && !showLabelOnTop && { left: 32 },
-          isFocused && { color: '#004ac6', fontWeight: '700' },
-        ]}
-      >
+    <View style={styles.inputGroup}>
+      <Text style={styles.inputLabel} numberOfLines={1}>
         {label}
       </Text>
-      {iconRight && (
-        <TouchableOpacity
-          style={styles.iconRightButton}
-          onPress={onIconRightPress}
-          disabled={!onIconRightPress}
-        >
-          <MaterialIcons name={iconRight as any} size={20} color="#434655" />
-        </TouchableOpacity>
-      )}
-    </TouchableOpacity>
+      <View
+        style={[
+          styles.inputWrapper,
+          isFocused && styles.inputWrapperFocused,
+          !editable && styles.inputWrapperDisabled,
+        ]}
+      >
+        {iconLeft && <Text style={styles.iconLeftText}>{iconLeft}</Text>}
+        <TextInput
+          style={[styles.input, !editable && { color: '#737686' }]}
+          value={value}
+          onChangeText={onChangeText}
+          keyboardType={keyboardType}
+          onFocus={() => setIsFocused(true)}
+          onBlur={() => setIsFocused(false)}
+          placeholder={placeholder || ''}
+          placeholderTextColor="#94a3b8"
+          editable={editable}
+          numberOfLines={1}
+        />
+        {iconRight && (
+          <TouchableOpacity
+            style={styles.iconRightButton}
+            onPress={onIconRightPress}
+            disabled={!onIconRightPress}
+            hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          >
+            <MaterialIcons name={iconRight as any} size={20} color="#434655" />
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 }
 
@@ -111,7 +99,6 @@ export default function AddProductScreen() {
   const isEdit = !!id;
   const insets = useSafeAreaInsets();
 
-  // Form states
   const [name, setName] = useState('');
   const [sku, setSku] = useState('');
   const [category, setCategory] = useState('');
@@ -124,13 +111,10 @@ export default function AddProductScreen() {
   const [imageUrl, setImageUrl] = useState('');
   const [error, setError] = useState('');
 
-  // Dropdown state for category selection
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
-  // Determine whether current unit is weight/decimal-based
   const isWeightOrVolume = ['kg', 'g', 'l', 'ml'].includes(unit);
 
-  // Load existing product if in edit mode
   useEffect(() => {
     if (isEdit && id) {
       const product = store.getProductById(id);
@@ -187,7 +171,6 @@ export default function AddProductScreen() {
       return;
     }
 
-    // Check SKU uniqueness if adding, or if editing and SKU has changed
     const currentProducts = store.getProducts();
     const skuExists = currentProducts.some(
       (item) => item.sku.toLowerCase() === sku.trim().toLowerCase() && item.id !== id
@@ -198,45 +181,30 @@ export default function AddProductScreen() {
       return;
     }
 
-    const finalImage = imageUrl.trim()
-      ? imageUrl.trim()
-      : `https://loremflickr.com/320/320/${encodeURIComponent(name.trim().toLowerCase())}`;
+    const productData = {
+      name: name.trim(),
+      sku: sku.trim().toUpperCase(),
+      category,
+      unit,
+      costPrice: costNum,
+      price: priceNum,
+      taxRate: taxRateNum,
+      stock: stockNum,
+      lowStockAlert: lowStockAlertNum,
+      image: imageUrl.trim() || undefined,
+    };
 
     if (isEdit && id) {
-      store.updateProduct(id, {
-        name: name.trim(),
-        sku: sku.trim().toUpperCase(),
-        category,
-        unit,
-        costPrice: costNum,
-        price: priceNum,
-        taxRate: taxRateNum,
-        stock: stockNum,
-        lowStockAlert: lowStockAlertNum,
-        image: finalImage,
-      });
-      alert('Product updated successfully.');
+      store.updateProduct(id, productData);
     } else {
-      store.addProduct({
-        name: name.trim(),
-        sku: sku.trim().toUpperCase(),
-        category,
-        unit,
-        costPrice: costNum,
-        price: priceNum,
-        taxRate: taxRateNum,
-        stock: stockNum,
-        lowStockAlert: lowStockAlertNum,
-        image: finalImage,
-      });
-      alert('Product added successfully.');
+      store.addProduct(productData);
     }
 
     router.back();
   };
 
   const handleDeleteProduct = () => {
-    if (!id) return;
+    if (!isEdit || !id) return;
 
     const performDelete = async () => {
       try {
@@ -266,7 +234,6 @@ export default function AddProductScreen() {
 
   return (
     <SafeAreaView style={styles.safeContainer} edges={['top']}>
-      {/* Top Header App Bar */}
       <View style={styles.header}>
         <TouchableOpacity style={styles.headerIconButton} onPress={() => router.back()}>
           <MaterialIcons name="close" size={24} color="#004ac6" />
@@ -295,7 +262,6 @@ export default function AddProductScreen() {
             </View>
           ) : null}
 
-          {/* Product Image Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Product Image</Text>
             <TouchableOpacity style={styles.imageUploadArea} onPress={() => alert('Camera roll features are under development.')}>
@@ -303,49 +269,48 @@ export default function AddProductScreen() {
               <Text style={styles.uploadText}>Tap to upload image</Text>
             </TouchableOpacity>
             <View style={{ marginTop: 12 }}>
-              <FloatingInput
-                label="Or paste image URL"
+              <FormField
+                label="Image URL (Optional)"
                 value={imageUrl}
                 onChangeText={setImageUrl}
+                placeholder="Paste product image link"
               />
             </View>
           </View>
 
-          {/* Basic Info Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Basic Info</Text>
 
-            <FloatingInput
+            <FormField
               label="Product Name *"
               value={name}
               onChangeText={setName}
+              placeholder="Enter product name"
             />
 
-            <FloatingInput
+            <FormField
               label="SKU / Barcode *"
               value={sku}
               onChangeText={setSku}
-              iconRight="barcode-reader"
+              placeholder="Enter or scan SKU code"
+              iconRight="qr-code-scanner"
               onIconRightPress={() => router.push('/scanner')}
             />
 
-            {/* Custom Category Dropdown Trigger */}
-            <View style={styles.inputContainer}>
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>Category *</Text>
               <TouchableOpacity
-                style={styles.selectTrigger}
+                style={[styles.inputWrapper, styles.selectTrigger]}
                 onPress={() => setShowCategoryDropdown(!showCategoryDropdown)}
+                activeOpacity={0.8}
               >
-                <Text style={[styles.selectText, !category && { color: '#737686' }]}>
-                  {category || 'Select Category *'}
+                <Text style={[styles.selectText, !category && { color: '#94a3b8' }]} numberOfLines={1}>
+                  {category || 'Select product category'}
                 </Text>
-                <MaterialIcons name="arrow-drop-down" size={24} color="#434655" />
+                <MaterialIcons name={showCategoryDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#64748b" />
               </TouchableOpacity>
-              <Text style={[styles.inputLabel, styles.inputLabelTop, { color: '#004ac6' }]}>
-                Category *
-              </Text>
             </View>
 
-            {/* Category Dropdown List */}
             {showCategoryDropdown && (
               <View style={styles.categoryDropdown}>
                 {CATEGORIES.map((cat) => (
@@ -367,7 +332,6 @@ export default function AddProductScreen() {
             )}
           </View>
 
-          {/* Pricing & Unit Measurement Section */}
           <View style={styles.sectionCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={styles.sectionHeader}>Pricing & Unit Type</Text>
@@ -383,7 +347,6 @@ export default function AddProductScreen() {
               </View>
             </View>
 
-            {/* Measurement Unit Selector Chips */}
             <Text style={styles.subLabel}>Select Measurement Unit *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.unitChipsContainer}>
               {UNIT_OPTIONS.map((opt) => {
@@ -409,51 +372,55 @@ export default function AddProductScreen() {
 
             <View style={[styles.rowInputs, { marginTop: 16 }]}>
               <View style={{ flex: 1, marginRight: 12 }}>
-                <FloatingInput
-                  label={`Cost Price (per ${unit})`}
+                <FormField
+                  label={`Cost Price (${unit})`}
                   value={costPrice}
                   onChangeText={setCostPrice}
+                  placeholder="Enter cost (₹)"
                   keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <FloatingInput
-                  label={`Selling Price (per ${unit}) *`}
+                <FormField
+                  label={`Selling Price (${unit}) *`}
                   value={sellingPrice}
                   onChangeText={setSellingPrice}
+                  placeholder="Enter price (₹)"
                   keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
               </View>
             </View>
 
-            <FloatingInput
+            <FormField
               label="GST / Tax Rate (%)"
               value={taxRate}
               onChangeText={setTaxRate}
+              placeholder="Enter tax rate (e.g. 8)"
               keyboardType="decimal-pad"
               iconRight="percent"
             />
           </View>
 
-          {/* Inventory Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Inventory</Text>
             <View style={styles.rowInputs}>
               <View style={{ flex: 1, marginRight: 12 }}>
-                <FloatingInput
+                <FormField
                   label={`Initial Stock (${unit}) *`}
                   value={initialStock}
                   onChangeText={setInitialStock}
+                  placeholder="Enter stock quantity"
                   keyboardType="decimal-pad"
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <FloatingInput
+                <FormField
                   label={`Low Stock Alert (${unit})`}
                   value={lowStock}
                   onChangeText={setLowStock}
+                  placeholder="Enter alert threshold"
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -462,7 +429,6 @@ export default function AddProductScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Save Button Fixed Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {isEdit && (
@@ -518,16 +484,16 @@ const styles = StyleSheet.create({
   },
   formScroll: {
     padding: 16,
-    paddingBottom: 140,
+    paddingBottom: 110,
   },
   errorBanner: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 8,
     backgroundColor: '#ffdad6',
     padding: 12,
-    borderRadius: 12,
+    borderRadius: 10,
     marginBottom: 16,
-    gap: 8,
   },
   errorText: {
     color: '#ba1a1a',
@@ -541,18 +507,24 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#c3c6d7',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 1,
+    borderColor: 'rgba(195,198,215,0.3)',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 6,
+      },
+      android: {
+        elevation: 2,
+      },
+    }),
   },
   sectionHeader: {
     fontSize: 16,
     fontWeight: '700',
     color: '#131b2e',
-    marginBottom: 8,
+    marginBottom: 12,
   },
   subLabel: {
     fontSize: 13,
@@ -619,72 +591,68 @@ const styles = StyleSheet.create({
     marginTop: 6,
     fontWeight: '500',
   },
-  inputContainer: {
-    height: 56,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-    marginBottom: 16,
-    justifyContent: 'center',
-    position: 'relative',
-    backgroundColor: '#faf8ff',
-  },
-  input: {
-    height: '100%',
-    paddingHorizontal: 16,
-    paddingTop: 16,
-    fontSize: 16,
-    color: '#131b2e',
+  inputGroup: {
+    marginBottom: 14,
   },
   inputLabel: {
-    position: 'absolute',
-    left: 16,
-    color: '#737686',
-    fontWeight: '500',
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
   },
-  inputLabelCenter: {
-    top: 18,
-    fontSize: 16,
+  inputWrapper: {
+    height: 48,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
   },
-  inputLabelTop: {
-    top: 6,
-    fontSize: 11,
+  inputWrapperFocused: {
+    borderColor: '#004ac6',
+    backgroundColor: '#ffffff',
+  },
+  inputWrapperDisabled: {
+    backgroundColor: '#f1f5f9',
+    borderColor: '#e2e8f0',
+  },
+  input: {
+    flex: 1,
+    height: '100%',
+    fontSize: 15,
+    color: '#0f172a',
   },
   iconLeftText: {
-    position: 'absolute',
-    left: 14,
-    top: 22,
     fontSize: 16,
-    color: '#434655',
+    color: '#64748b',
     fontWeight: '600',
+    marginRight: 8,
   },
   iconRightButton: {
-    position: 'absolute',
-    right: 14,
-    top: 16,
+    paddingLeft: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   rowInputs: {
     flexDirection: 'row',
   },
   selectTrigger: {
-    flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 14,
-    height: '100%',
   },
   selectText: {
-    fontSize: 16,
-    color: '#131b2e',
+    fontSize: 15,
+    color: '#0f172a',
+    flex: 1,
   },
   categoryDropdown: {
-    marginTop: -8,
-    marginBottom: 16,
+    marginTop: -6,
+    marginBottom: 14,
     backgroundColor: '#ffffff',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#c3c6d7',
+    borderColor: '#cbd5e1',
     overflow: 'hidden',
     elevation: 3,
     shadowColor: '#000',
