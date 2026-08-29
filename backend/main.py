@@ -1184,21 +1184,34 @@ def get_dashboard_metrics(
         models.Transaction.created_at <= end_today
     ).count()
 
-    # 3. Calculate Today's Profit for this store: sum(sales_price - cost_price * quantity)
+    # 3. Calculate Today's Profit for this store: sum((sales_price - coalesce(cost_price, 0)) * quantity) - total discounts
+    total_discounts_query = db.query(
+        func.sum(func.coalesce(models.Transaction.discount, Decimal("0.00")))
+    ).filter(
+        models.Transaction.store_id == x_store_id,
+        models.Transaction.created_at >= start_today,
+        models.Transaction.created_at <= end_today
+    ).scalar()
+    total_discounts = Decimal(str(total_discounts_query)) if total_discounts_query else Decimal("0.00")
+
     profit_query = db.query(
-        func.sum((models.TransactionItem.price - models.Product.cost_price) * models.TransactionItem.quantity)
+        func.sum(
+            (models.TransactionItem.price - func.coalesce(models.Product.cost_price, Decimal("0.00"))) 
+            * models.TransactionItem.quantity
+        )
     ).join(
         models.Transaction,
         (models.Transaction.store_id == models.TransactionItem.store_id) & 
         (models.Transaction.invoice_number == models.TransactionItem.invoice_number)
-    ).join(
+    ).outerjoin(
         models.Product, models.Product.id == models.TransactionItem.product_id
     ).filter(
         models.Transaction.store_id == x_store_id,
         models.Transaction.created_at >= start_today,
         models.Transaction.created_at <= end_today
     ).scalar()
-    profit = Decimal(str(profit_query)) if profit_query else Decimal("0.00")
+    gross_margin = Decimal(str(profit_query)) if profit_query else Decimal("0.00")
+    profit = max(Decimal("0.00"), gross_margin - total_discounts)
 
     # 4. Low stock alerts (only active products)
     low_stock = db.query(models.Product).filter(
