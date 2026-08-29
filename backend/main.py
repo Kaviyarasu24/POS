@@ -12,9 +12,11 @@ import random
 import string
 import os
 import secrets
+import time as pytime
 
 import jwt
 from passlib.context import CryptContext
+from sqlalchemy.exc import IntegrityError
 
 import models
 import schemas
@@ -687,6 +689,26 @@ def restock_product(
 
 # --- Checkout & Bill Generator Endpoints (Composite Primary Key: store_id, invoice_number) ---
 
+def _generate_next_invoice_number(db: Session, store_id: str, today_str: str) -> str:
+    """Find the highest sequence invoice number for today for this store and increment it."""
+    prefix = f"INV-{today_str}-"
+    latest_inv = db.query(models.Transaction.invoice_number).filter(
+        models.Transaction.store_id == store_id,
+        models.Transaction.invoice_number.like(f"{prefix}%")
+    ).order_by(models.Transaction.invoice_number.desc()).first()
+
+    if latest_inv and latest_inv[0]:
+        try:
+            seq_part = latest_inv[0][len(prefix):]
+            next_seq = int(seq_part) + 1
+        except Exception:
+            next_seq = 1
+    else:
+        next_seq = 1
+
+    return f"{prefix}{next_seq:04d}"
+
+
 @app.post("/api/checkout", response_model=schemas.BillResponse, status_code=status.HTTP_201_CREATED)
 def checkout(
     order: schemas.CheckoutSchema,
@@ -704,129 +726,136 @@ def checkout(
         if db_user:
             cashier_name = db_user.name
 
-    # Resolve an optional customer for credit / khata tracking. A name is
-    # required to attach a customer (the client enforces this for CREDIT sales);
-    # we find-or-create by (store_id, name) so repeat customers accumulate one
-    # ledger.
     cust_name = (order.customer_name or "").strip()
     cust_phone = (order.customer_phone or "").strip()
-    db_customer = None
-    if cust_name:
-        db_customer = db.query(models.Customer).filter(
-            models.Customer.store_id == x_store_id,
-            models.Customer.name == cust_name
-        ).first()
-        if not db_customer:
-            db_customer = models.Customer(
+
+    # Retry loop to handle concurrent checkout invoice number collisions gracefully
+    max_retries = 5
+    for attempt in range(max_retries):
+        now_local = get_now()
+        today_str = now_local.strftime("%Y%m%d")
+        invoice_number = _generate_next_invoice_number(db, x_store_id, today_str)
+
+        try:
+            # 1. Resolve / Find or Create customer within transaction
+            db_customer = None
+            if cust_name:
+                db_customer = db.query(models.Customer).filter(
+                    models.Customer.store_id == x_store_id,
+                    models.Customer.name == cust_name
+                ).first()
+                if not db_customer:
+                    db_customer = models.Customer(
+                        store_id=x_store_id,
+                        name=cust_name,
+                        phone=cust_phone or None,
+                        credit_balance=Decimal("0.00"),
+                    )
+                    db.add(db_customer)
+                    db.flush()
+                elif cust_phone and not db_customer.phone:
+                    db_customer.phone = cust_phone
+
+            # 2. Create Transaction with Composite PK (store_id, invoice_number)
+            db_transaction = models.Transaction(
                 store_id=x_store_id,
-                name=cust_name,
-                phone=cust_phone or None,
-                credit_balance=Decimal("0.00"),
+                invoice_number=invoice_number,
+                user_id=x_user_id,
+                payment_method=order.payment_method.upper().strip(),
+                payment_status=order.payment_status.upper().strip(),
+                subtotal=order.subtotal,
+                discount=order.discount,
+                tax=order.tax,
+                total=order.total,
+                customer_id=db_customer.id if db_customer else None,
+                customer_name=cust_name or None,
+                customer_phone=cust_phone or None,
+                created_at=now_local.replace(tzinfo=None)
             )
-            db.add(db_customer)
+            db.add(db_transaction)
             db.flush()
-        elif cust_phone and not db_customer.phone:
-            db_customer.phone = cust_phone  # backfill a missing phone number
 
-    # 1. Generate unique sequential invoice number per store for today in local timezone
-    now_local = get_now()
-    today_str = now_local.strftime("%Y%m%d")
-    today_count = db.query(models.Transaction).filter(
-        models.Transaction.store_id == x_store_id,
-        models.Transaction.invoice_number.like(f"INV-{today_str}-%")
-    ).count()
-    invoice_number = f"INV-{today_str}-{(today_count + 1):04d}"
+            # 3. Add Line Items & Decrement Stock
+            bill_items = []
+            for item in order.items:
+                db_product = db.query(models.Product).filter(
+                    models.Product.id == item.product_id,
+                    models.Product.store_id == x_store_id
+                ).first()
+                if not db_product:
+                    db.rollback()
+                    raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in store catalog")
+                    
+                if db_product.stock < item.quantity:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=400, 
+                        detail=f"Insufficient stock for {db_product.name}. Available: {db_product.stock}"
+                    )
+                    
+                db_product.stock -= item.quantity
+                
+                db_item = models.TransactionItem(
+                    store_id=x_store_id,
+                    invoice_number=invoice_number,
+                    product_id=item.product_id,
+                    product_name=db_product.name,
+                    quantity=item.quantity,
+                    price=item.price
+                )
+                db.add(db_item)
+                bill_items.append(schemas.TransactionItemResponse(
+                    product_id=item.product_id,
+                    product_name=db_product.name,
+                    quantity=item.quantity,
+                    price=item.price
+                ))
 
-    # 2. Create Transaction with Composite PK (store_id, invoice_number)
-    db_transaction = models.Transaction(
-        store_id=x_store_id,
-        invoice_number=invoice_number,
-        user_id=x_user_id,
-        payment_method=order.payment_method.upper().strip(),
-        payment_status=order.payment_status.upper().strip(),
-        subtotal=order.subtotal,
-        discount=order.discount,
-        tax=order.tax,
-        total=order.total,
-        customer_id=db_customer.id if db_customer else None,
-        customer_name=cust_name or None,
-        customer_phone=cust_phone or None,
-        created_at=now_local.replace(tzinfo=None)
-    )
-    db.add(db_transaction)
-    db.flush()
+            # 4. Record a credit-ledger DEBIT for unpaid (CREDIT) sales
+            if db_customer and db_transaction.payment_status == "CREDIT":
+                db.add(models.CreditEntry(
+                    store_id=x_store_id,
+                    customer_id=db_customer.id,
+                    entry_type="DEBIT",
+                    amount=order.total,
+                    invoice_number=invoice_number,
+                    note="Credit sale",
+                    created_at=now_local.replace(tzinfo=None)
+                ))
+                db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + order.total
 
-    # 3. Add Line Items & Decrement Stock
-    bill_items = []
-    for item in order.items:
-        db_product = db.query(models.Product).filter(
-            models.Product.id == item.product_id,
-            models.Product.store_id == x_store_id
-        ).first()
-        if not db_product:
-            db.rollback()
-            raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in store catalog")
-            
-        if db_product.stock < item.quantity:
-            db.rollback()
-            raise HTTPException(
-                status_code=400, 
-                detail=f"Insufficient stock for {db_product.name}. Available: {db_product.stock}"
+            db.commit()
+
+            return schemas.BillResponse(
+                store_id=x_store_id,
+                invoice_number=invoice_number,
+                shop_name=db_store.name,
+                shop_address=db_store.address,
+                shop_phone=db_store.phone,
+                gst_number=db_store.gst_number,
+                cashier_name=cashier_name,
+                customer_name=cust_name or None,
+                customer_phone=cust_phone or None,
+                payment_method=order.payment_method,
+                payment_status=order.payment_status,
+                subtotal=order.subtotal,
+                discount=order.discount,
+                tax=order.tax,
+                total=order.total,
+                created_at=db_transaction.created_at or now_local.replace(tzinfo=None),
+                items=bill_items
             )
-            
-        db_product.stock -= item.quantity
-        
-        db_item = models.TransactionItem(
-            store_id=x_store_id,
-            invoice_number=invoice_number,
-            product_id=item.product_id,
-            product_name=db_product.name,
-            quantity=item.quantity,
-            price=item.price
-        )
-        db.add(db_item)
-        bill_items.append(schemas.TransactionItemResponse(
-            product_id=item.product_id,
-            product_name=db_product.name,
-            quantity=item.quantity,
-            price=item.price
-        ))
+        except IntegrityError:
+            db.rollback()
+            if attempt == max_retries - 1:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Concurrent checkout collision occurred. Please retry your request."
+                )
+            # Stagger colliding simultaneous checkout requests
+            pytime.sleep(random.uniform(0.02, 0.08))
 
-    # 4. Record a credit-ledger DEBIT for unpaid (CREDIT) sales and increase the
-    # customer's outstanding balance. Fully-paid sales don't touch the ledger.
-    if db_customer and db_transaction.payment_status == "CREDIT":
-        db.add(models.CreditEntry(
-            store_id=x_store_id,
-            customer_id=db_customer.id,
-            entry_type="DEBIT",
-            amount=order.total,
-            invoice_number=invoice_number,
-            note="Credit sale",
-            created_at=now_local.replace(tzinfo=None)
-        ))
-        db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + order.total
-
-    db.commit()
-
-    return schemas.BillResponse(
-        store_id=x_store_id,
-        invoice_number=invoice_number,
-        shop_name=db_store.name,
-        shop_address=db_store.address,
-        shop_phone=db_store.phone,
-        gst_number=db_store.gst_number,
-        cashier_name=cashier_name,
-        customer_name=cust_name or None,
-        customer_phone=cust_phone or None,
-        payment_method=order.payment_method,
-        payment_status=order.payment_status,
-        subtotal=order.subtotal,
-        discount=order.discount,
-        tax=order.tax,
-        total=order.total,
-        created_at=db_transaction.created_at or now_local.replace(tzinfo=None),
-        items=bill_items
-    )
+    raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Unable to generate unique invoice after retries.")
 
 @app.get("/api/bills/{invoice_number}", response_model=schemas.BillResponse)
 def get_bill(
