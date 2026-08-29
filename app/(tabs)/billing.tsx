@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
@@ -82,6 +82,16 @@ export default function BillingScreen() {
 
   // Helper check for loose weight / volume items
   const isWeightItem = (unit?: string) => ['kg', 'g', 'l', 'ml'].includes(unit || '');
+
+  // Automatically dismiss lingering modals when switching away from the Billing tab
+  useFocusEffect(
+    useCallback(() => {
+      return () => {
+        setPaymentModalVisible(false);
+        setBillModalVisible(false);
+      };
+    }, [])
+  );
 
   // Subscribe to store updates
   useEffect(() => {

@@ -200,7 +200,7 @@ export default function AddProductScreen() {
       store.addProduct(productData);
     }
 
-    router.back();
+    router.replace('/(tabs)/products');
   };
 
   const handleDeleteProduct = () => {
@@ -210,7 +210,7 @@ export default function AddProductScreen() {
       try {
         await store.deleteProduct(id);
         alert('Product deleted successfully.');
-        router.back();
+        router.replace('/(tabs)/products');
       } catch (err) {
         alert('Failed to delete product.');
       }
