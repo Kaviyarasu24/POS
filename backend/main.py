@@ -647,6 +647,19 @@ def update_product(
     db.refresh(db_product)
     return db_product
 
+@app.delete("/api/products/clear-all", status_code=status.HTTP_200_OK)
+def clear_all_store_products(
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    """Clear all products from the store catalog."""
+    products = db.query(models.Product).filter(models.Product.store_id == x_store_id).all()
+    count = len(products)
+    for p in products:
+        db.delete(p)
+    db.commit()
+    return {"message": f"Successfully removed {count} products from catalog"}
+
 @app.delete("/api/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_product(
     product_id: int,
