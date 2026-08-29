@@ -32,6 +32,8 @@ interface CartItem {
   quantity: number;
 }
 
+const CATEGORIES = ['All Items', ...PRODUCT_CATEGORIES];
+
 const PAYMENT_METHODS = [
   { id: 'CASH', label: 'Cash', icon: 'payments', desc: 'Cash payment' },
   { id: 'UPI', label: 'UPI / QR', icon: 'qr-code-scanner', desc: 'Instant QR' },
@@ -836,7 +838,7 @@ export default function BillingScreen() {
               <View>
                 <Text style={styles.paymentModalTitle}>Complete Payment</Text>
                 <Text style={styles.paymentModalSubtitle}>
-                  {cartTotals.itemCount} items · Cart Subtotal ₹{cartTotals.subtotal.toFixed(2)}
+                  {cartTotals.totalItems} items · Cart Subtotal ₹{cartTotals.subtotal.toFixed(2)}
                 </Text>
               </View>
               <TouchableOpacity
@@ -2079,6 +2081,21 @@ const styles = StyleSheet.create({
   },
 
   // Payment Details Modal Styles
+  modalHandle: {
+    width: 36,
+    height: 4,
+    backgroundColor: '#cbd5e1',
+    borderRadius: 2,
+    alignSelf: 'center',
+    marginBottom: 14,
+  },
+  pendingNote: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#92400e',
+    textAlign: 'center',
+    marginTop: 10,
+  },
   paymentModalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
