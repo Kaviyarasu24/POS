@@ -262,6 +262,7 @@ export default function AddProductScreen() {
             </View>
           ) : null}
 
+          {/* Product Image Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Product Image</Text>
             <TouchableOpacity style={styles.imageUploadArea} onPress={() => alert('Camera roll features are under development.')}>
@@ -273,11 +274,12 @@ export default function AddProductScreen() {
                 label="Image URL (Optional)"
                 value={imageUrl}
                 onChangeText={setImageUrl}
-                placeholder="Paste product image link"
+                placeholder="Image link (optional)"
               />
             </View>
           </View>
 
+          {/* Basic Info Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Basic Info</Text>
 
@@ -292,11 +294,12 @@ export default function AddProductScreen() {
               label="SKU / Barcode *"
               value={sku}
               onChangeText={setSku}
-              placeholder="Enter or scan SKU code"
+              placeholder="Enter or scan SKU"
               iconRight="qr-code-scanner"
               onIconRightPress={() => router.push('/scanner')}
             />
 
+            {/* Custom Category Dropdown Trigger */}
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Category *</Text>
               <TouchableOpacity
@@ -305,12 +308,13 @@ export default function AddProductScreen() {
                 activeOpacity={0.8}
               >
                 <Text style={[styles.selectText, !category && { color: '#94a3b8' }]} numberOfLines={1}>
-                  {category || 'Select product category'}
+                  {category || 'Select category'}
                 </Text>
-                <MaterialIcons name={showCategoryDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={24} color="#64748b" />
+                <MaterialIcons name={showCategoryDropdown ? "arrow-drop-up" : "arrow-drop-down"} size={22} color="#64748b" />
               </TouchableOpacity>
             </View>
 
+            {/* Category Dropdown List */}
             {showCategoryDropdown && (
               <View style={styles.categoryDropdown}>
                 {CATEGORIES.map((cat) => (
@@ -332,6 +336,7 @@ export default function AddProductScreen() {
             )}
           </View>
 
+          {/* Pricing & Unit Measurement Section */}
           <View style={styles.sectionCard}>
             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
               <Text style={styles.sectionHeader}>Pricing & Unit Type</Text>
@@ -347,6 +352,7 @@ export default function AddProductScreen() {
               </View>
             </View>
 
+            {/* Measurement Unit Selector Chips */}
             <Text style={styles.subLabel}>Select Measurement Unit *</Text>
             <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.unitChipsContainer}>
               {UNIT_OPTIONS.map((opt) => {
@@ -371,22 +377,22 @@ export default function AddProductScreen() {
             </ScrollView>
 
             <View style={[styles.rowInputs, { marginTop: 16 }]}>
-              <View style={{ flex: 1, marginRight: 12 }}>
+              <View style={{ flex: 1, marginRight: 10 }}>
                 <FormField
-                  label={`Cost Price (${unit})`}
+                  label={`Cost (${unit})`}
                   value={costPrice}
                   onChangeText={setCostPrice}
-                  placeholder="Enter cost (₹)"
+                  placeholder="Cost (₹)"
                   keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <FormField
-                  label={`Selling Price (${unit}) *`}
+                  label={`Price (${unit}) *`}
                   value={sellingPrice}
                   onChangeText={setSellingPrice}
-                  placeholder="Enter price (₹)"
+                  placeholder="Price (₹)"
                   keyboardType="decimal-pad"
                   iconLeft="₹"
                 />
@@ -397,30 +403,31 @@ export default function AddProductScreen() {
               label="GST / Tax Rate (%)"
               value={taxRate}
               onChangeText={setTaxRate}
-              placeholder="Enter tax rate (e.g. 8)"
+              placeholder="Tax % (e.g. 8)"
               keyboardType="decimal-pad"
               iconRight="percent"
             />
           </View>
 
+          {/* Inventory Section */}
           <View style={styles.sectionCard}>
             <Text style={styles.sectionHeader}>Inventory</Text>
             <View style={styles.rowInputs}>
-              <View style={{ flex: 1, marginRight: 12 }}>
+              <View style={{ flex: 1, marginRight: 10 }}>
                 <FormField
-                  label={`Initial Stock (${unit}) *`}
+                  label={`Stock (${unit}) *`}
                   value={initialStock}
                   onChangeText={setInitialStock}
-                  placeholder="Enter stock quantity"
+                  placeholder="Quantity"
                   keyboardType="decimal-pad"
                 />
               </View>
               <View style={{ flex: 1 }}>
                 <FormField
-                  label={`Low Stock Alert (${unit})`}
+                  label={`Low Stock Alert`}
                   value={lowStock}
                   onChangeText={setLowStock}
-                  placeholder="Enter alert threshold"
+                  placeholder="Alert qty"
                   keyboardType="decimal-pad"
                 />
               </View>
@@ -429,6 +436,7 @@ export default function AddProductScreen() {
         </ScrollView>
       </KeyboardAvoidingView>
 
+      {/* Save Button Fixed Bottom Bar */}
       <View style={[styles.bottomBar, { paddingBottom: insets.bottom + 16 }]}>
         <View style={{ flexDirection: 'row', gap: 12 }}>
           {isEdit && (
@@ -521,13 +529,13 @@ const styles = StyleSheet.create({
     }),
   },
   sectionHeader: {
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
     color: '#131b2e',
     marginBottom: 12,
   },
   subLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#434655',
     marginBottom: 8,
@@ -542,7 +550,7 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   unitTypeBadgeText: {
-    fontSize: 12,
+    fontSize: 11.5,
     fontWeight: '600',
     color: '#004ac6',
   },
@@ -555,8 +563,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    paddingVertical: 7,
+    paddingHorizontal: 11,
     borderRadius: 8,
     backgroundColor: '#f1f5f9',
     borderWidth: 1,
@@ -567,7 +575,7 @@ const styles = StyleSheet.create({
     borderColor: '#004ac6',
   },
   unitChipText: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '500',
     color: '#334155',
   },
@@ -576,7 +584,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   imageUploadArea: {
-    height: 100,
+    height: 90,
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#c3c6d7',
@@ -586,29 +594,29 @@ const styles = StyleSheet.create({
     backgroundColor: '#faf8ff',
   },
   uploadText: {
-    fontSize: 13,
+    fontSize: 12.5,
     color: '#737686',
     marginTop: 6,
     fontWeight: '500',
   },
   inputGroup: {
-    marginBottom: 14,
+    marginBottom: 12,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 12.5,
     fontWeight: '600',
     color: '#334155',
-    marginBottom: 6,
+    marginBottom: 5,
   },
   inputWrapper: {
-    height: 48,
-    borderRadius: 12,
+    height: 44,
+    borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#e2e8f0',
     backgroundColor: '#f8fafc',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 14,
+    paddingHorizontal: 12,
   },
   inputWrapperFocused: {
     borderColor: '#004ac6',
@@ -621,17 +629,17 @@ const styles = StyleSheet.create({
   input: {
     flex: 1,
     height: '100%',
-    fontSize: 15,
+    fontSize: 13.5,
     color: '#0f172a',
   },
   iconLeftText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#64748b',
     fontWeight: '600',
-    marginRight: 8,
+    marginRight: 6,
   },
   iconRightButton: {
-    paddingLeft: 8,
+    paddingLeft: 6,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -642,15 +650,15 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   selectText: {
-    fontSize: 15,
+    fontSize: 13.5,
     color: '#0f172a',
     flex: 1,
   },
   categoryDropdown: {
-    marginTop: -6,
-    marginBottom: 14,
+    marginTop: -4,
+    marginBottom: 12,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     overflow: 'hidden',
@@ -664,13 +672,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   categoryOptionText: {
-    fontSize: 15,
+    fontSize: 13.5,
     color: '#131b2e',
   },
   bottomBar: {
