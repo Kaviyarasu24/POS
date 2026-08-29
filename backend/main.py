@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from sqlalchemy import func, inspect, text
 from typing import List, Optional, Tuple
 from datetime import datetime, date, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 from decimal import Decimal
 import hashlib
 import re
@@ -18,6 +19,20 @@ from passlib.context import CryptContext
 import models
 import schemas
 from database import get_db, engine
+
+# Application business timezone (defaults to Asia/Kolkata / IST, +05:30)
+APP_TIMEZONE = ZoneInfo(os.getenv("APP_TIMEZONE", "Asia/Kolkata"))
+
+def get_now() -> datetime:
+    """Current timestamp in the app timezone."""
+    return datetime.now(APP_TIMEZONE)
+
+def get_today_bounds() -> Tuple[datetime, datetime, date]:
+    """Return (start_today, end_today, today_date) normalized to local app timezone."""
+    today = datetime.now(APP_TIMEZONE).date()
+    start_today = datetime.combine(today, time.min)
+    end_today = datetime.combine(today, time.max)
+    return start_today, end_today, today
 
 # Create DB Tables if they don't exist yet (SQLAlchemy fallback).
 # NOTE: create_all() adds NEW tables (e.g. customers, credit_entries) but never
@@ -713,8 +728,9 @@ def checkout(
         elif cust_phone and not db_customer.phone:
             db_customer.phone = cust_phone  # backfill a missing phone number
 
-    # 1. Generate unique sequential invoice number per store for today
-    today_str = datetime.now().strftime("%Y%m%d")
+    # 1. Generate unique sequential invoice number per store for today in local timezone
+    now_local = get_now()
+    today_str = now_local.strftime("%Y%m%d")
     today_count = db.query(models.Transaction).filter(
         models.Transaction.store_id == x_store_id,
         models.Transaction.invoice_number.like(f"INV-{today_str}-%")
@@ -734,7 +750,8 @@ def checkout(
         total=order.total,
         customer_id=db_customer.id if db_customer else None,
         customer_name=cust_name or None,
-        customer_phone=cust_phone or None
+        customer_phone=cust_phone or None,
+        created_at=now_local.replace(tzinfo=None)
     )
     db.add(db_transaction)
     db.flush()
@@ -784,7 +801,8 @@ def checkout(
             entry_type="DEBIT",
             amount=order.total,
             invoice_number=invoice_number,
-            note="Credit sale"
+            note="Credit sale",
+            created_at=now_local.replace(tzinfo=None)
         ))
         db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + order.total
 
@@ -806,7 +824,7 @@ def checkout(
         discount=order.discount,
         tax=order.tax,
         total=order.total,
-        created_at=datetime.now(),
+        created_at=db_transaction.created_at or now_local.replace(tzinfo=None),
         items=bill_items
     )
 
@@ -882,14 +900,20 @@ def get_transactions(
 
     if start_date and isinstance(start_date, str):
         try:
-            sd = datetime.fromisoformat(start_date)
+            if len(start_date) == 10:
+                sd = datetime.combine(date.fromisoformat(start_date), time.min)
+            else:
+                sd = datetime.fromisoformat(start_date)
             q = q.filter(models.Transaction.created_at >= sd)
         except Exception:
             pass
 
     if end_date and isinstance(end_date, str):
         try:
-            ed = datetime.fromisoformat(end_date)
+            if len(end_date) == 10:
+                ed = datetime.combine(date.fromisoformat(end_date), time.max)
+            else:
+                ed = datetime.fromisoformat(end_date)
             q = q.filter(models.Transaction.created_at <= ed)
         except Exception:
             pass
@@ -1066,7 +1090,8 @@ def record_customer_payment(
         customer_id=db_customer.id,
         entry_type="CREDIT",
         amount=amount,
-        note=(payload.note or "").strip() or "Payment received"
+        note=(payload.note or "").strip() or "Payment received",
+        created_at=get_now().replace(tzinfo=None)
     ))
     db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) - amount
     db.commit()
@@ -1081,9 +1106,7 @@ def get_dashboard_metrics(
     x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    today = date.today()
-    start_today = datetime.combine(today, time.min)
-    end_today = datetime.combine(today, time.max)
+    start_today, end_today, today = get_today_bounds()
 
     # 1. Today's Sales total sum for this store
     today_sales_query = db.query(func.sum(models.Transaction.total)).filter(
