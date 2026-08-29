@@ -198,8 +198,8 @@ export default function DashboardScreen() {
                 style={styles.actionButton}
                 onPress={() => router.push('/customers' as any)}
               >
-                <MaterialIcons name="people" size={24} color="#131b2e" style={styles.actionIcon} />
-                <Text style={styles.actionText}>Customers</Text>
+                <MaterialIcons name="account-balance-wallet" size={24} color="#004ac6" style={styles.actionIcon} />
+                <Text style={[styles.actionText, { color: '#004ac6', fontWeight: '600' }]}>Khata / Credit</Text>
               </TouchableOpacity>
 
               <TouchableOpacity

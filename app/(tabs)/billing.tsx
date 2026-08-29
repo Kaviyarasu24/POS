@@ -913,12 +913,25 @@ export default function BillingScreen() {
 
               {/* Credit (khata / udhaar) notice */}
               {selectedPaymentMethod === 'CREDIT' && (
-                <View style={styles.creditNoticeBox}>
-                  <MaterialIcons name="account-balance-wallet" size={18} color="#92400e" />
-                  <Text style={styles.creditNoticeText}>
-                    This amount is added to the customer&apos;s credit (khata). Enter or pick a
-                    customer below.
-                  </Text>
+                <View>
+                  <View style={styles.creditNoticeBox}>
+                    <MaterialIcons name="account-balance-wallet" size={18} color="#92400e" />
+                    <Text style={styles.creditNoticeText}>
+                      This amount is added to the customer&apos;s credit (khata). Enter or pick a
+                      customer below.
+                    </Text>
+                  </View>
+                  <TouchableOpacity
+                    style={styles.openKhataButton}
+                    onPress={() => {
+                      setPaymentModalVisible(false);
+                      router.push('/customers' as any);
+                    }}
+                  >
+                    <MaterialIcons name="people" size={16} color="#004ac6" />
+                    <Text style={styles.openKhataButtonText}>Open Customer Ledger & Khata Book</Text>
+                    <MaterialIcons name="chevron-right" size={16} color="#004ac6" />
+                  </TouchableOpacity>
                 </View>
               )}
 
@@ -2484,5 +2497,25 @@ const styles = StyleSheet.create({
     fontSize: 17,
     fontWeight: '800',
     color: '#15803d',
+  },
+  openKhataButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    marginTop: -4,
+    marginBottom: 12,
+  },
+  openKhataButtonText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#004ac6',
+    flex: 1,
+    marginLeft: 6,
   },
 });

@@ -401,6 +401,63 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Business Management & Khata Section */}
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Business & Khata</Text>
+            <View style={styles.infoCard}>
+              {/* Customers & Credit Ledger */}
+              <TouchableOpacity
+                style={styles.rowItem}
+                onPress={() => router.push('/customers')}
+              >
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBackground, { backgroundColor: '#eff6ff' }]}>
+                    <MaterialIcons name="people" size={20} color="#004ac6" />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.rowLabel}>Customers & Khata Ledger</Text>
+                    <Text style={styles.rowSubLabel}>View customer balances, credit debts & record payments</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+              </TouchableOpacity>
+
+              {/* Reports & Analytics */}
+              <TouchableOpacity
+                style={styles.rowItem}
+                onPress={() => router.push('/reports')}
+              >
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBackground, { backgroundColor: '#f0fdf4' }]}>
+                    <MaterialIcons name="assessment" size={20} color="#16a34a" />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.rowLabel}>Reports & GST Breakdown</Text>
+                    <Text style={styles.rowSubLabel}>Sales summaries, tax reports & PDF exports</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+              </TouchableOpacity>
+
+              {/* Transactions History */}
+              <TouchableOpacity
+                style={[styles.rowItem, styles.lastRowItem]}
+                onPress={() => router.push('/transactions')}
+              >
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBackground, { backgroundColor: '#fef3c7' }]}>
+                    <MaterialIcons name="receipt-long" size={20} color="#d97706" />
+                  </View>
+                  <View style={{ flex: 1, paddingRight: 8 }}>
+                    <Text style={styles.rowLabel}>Transaction Invoices</Text>
+                    <Text style={styles.rowSubLabel}>Search historical bills & reprint receipts</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+              </TouchableOpacity>
+            </View>
+          </View>
+
           {/* App Settings Section */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>App Settings</Text>
