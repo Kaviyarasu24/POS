@@ -6,10 +6,10 @@ import {
   Animated,
   Dimensions,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -83,7 +83,6 @@ export default function SplashScreen() {
     ]).start();
 
     // 4. Once the persisted session (if any) is restored, route accordingly.
-    // Keep the splash up for a short minimum so the entrance animation reads.
     let cancelled = false;
     const minDelay = new Promise<void>((resolve) => setTimeout(resolve, 2200));
     (async () => {
@@ -114,14 +113,18 @@ export default function SplashScreen() {
           },
         ]}
       >
-        {/* Brand Logo Container */}
+        {/* Brand Logo Image Card */}
         <Animated.View
           style={[
             styles.logoCard,
             { transform: [{ scale: pulseAnim }] },
           ]}
         >
-          <MaterialIcons name="point-of-sale" size={48} color="#004ac6" />
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logoImage}
+            resizeMode="cover"
+          />
         </Animated.View>
 
         {/* Brand Name */}
@@ -179,24 +182,29 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   logoCard: {
-    width: 96,
-    height: 96,
+    width: 104,
+    height: 104,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
+    borderRadius: 24,
+    overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 24,
     ...Platform.select({
       ios: {
         shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 6 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
+        shadowOffset: { width: 0, height: 8 },
+        shadowOpacity: 0.2,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 6,
+        elevation: 8,
       },
     }),
+  },
+  logoImage: {
+    width: '100%',
+    height: '100%',
   },
   brandTitle: {
     fontSize: 40,
