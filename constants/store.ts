@@ -68,6 +68,7 @@ export interface GeneratedBill {
   created_at: string;
   customer_name?: string;
   customer_phone?: string;
+  customer_credit_balance?: number; // total outstanding balance owed by customer
   amount_paid?: number; // cash tendered by the customer (CASH sales)
   change_due?: number; // amount_paid - total, shown on the receipt
   pending?: boolean; // true if this sale hasn't reached the server yet
@@ -676,6 +677,10 @@ class ProductStore {
       cashier_name: raw.cashier_name || this._currentUser?.userName || 'Cashier',
       customer_name: raw.customer_name || undefined,
       customer_phone: raw.customer_phone || undefined,
+      customer_credit_balance:
+        raw.customer_credit_balance !== undefined && raw.customer_credit_balance !== null
+          ? parseFloat(raw.customer_credit_balance)
+          : undefined,
       payment_method: raw.payment_method,
       payment_status: raw.payment_status || 'PAID',
       subtotal: parseFloat(raw.subtotal) || 0,

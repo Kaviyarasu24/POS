@@ -179,6 +179,7 @@ class TransactionResponse(BaseModel):
     cashier_name: Optional[str] = None
     customer_name: Optional[str] = None
     customer_phone: Optional[str] = None
+    customer_credit_balance: Optional[Decimal] = None
     payment_method: str
     payment_status: str = "PAID"
     subtotal: Decimal

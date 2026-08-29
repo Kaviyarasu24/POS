@@ -1219,13 +1219,25 @@ export default function BillingScreen() {
                   </>
                 )}
                 {generatedBill?.payment_status === 'CREDIT' && (
-                  <View style={styles.billSummaryRow}>
-                    <Text style={[styles.billSummaryLabel, styles.discountAppliedText]}>
-                      On Credit (Unpaid)
-                    </Text>
-                    <Text style={[styles.billSummaryVal, styles.discountAppliedText]}>
-                      ₹{formatNum(generatedBill?.total)}
-                    </Text>
+                  <View style={{ backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, padding: 8, marginTop: 8 }}>
+                    <View style={styles.billSummaryRow}>
+                      <Text style={[styles.billSummaryLabel, { color: '#b45309', fontWeight: '600' }]}>
+                        Current Bill (Unpaid)
+                      </Text>
+                      <Text style={[styles.billSummaryVal, { color: '#b45309', fontWeight: '700' }]}>
+                        ₹{formatNum(generatedBill?.total)}
+                      </Text>
+                    </View>
+                    {generatedBill?.customer_credit_balance !== undefined && (
+                      <View style={[styles.billSummaryRow, { borderTopWidth: 1, borderTopColor: '#fde68a', paddingTop: 4, marginTop: 4 }]}>
+                        <Text style={[styles.billSummaryLabel, { color: '#92400e', fontWeight: '800' }]}>
+                          Total Outstanding Due
+                        </Text>
+                        <Text style={[styles.billSummaryVal, { color: '#92400e', fontWeight: '800', fontSize: 15 }]}>
+                          ₹{formatNum(generatedBill?.customer_credit_balance)}
+                        </Text>
+                      </View>
+                    )}
                   </View>
                 )}
               </View>

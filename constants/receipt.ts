@@ -129,6 +129,18 @@ export function buildReceiptHtml(bill: GeneratedBill, opts: ReceiptOptions = {})
     ${taxBlock}
     <div class="row total"><span>Total</span><span>${money(bill.total)}</span></div>
     ${tenderedBlock}
+    ${(bill.payment_method === 'CREDIT' || bill.payment_status === 'CREDIT' || bill.customer_credit_balance !== undefined) ? `
+    <div style="background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 8px 10px; margin: 10px 0;">
+      <div class="row" style="font-weight: 600; color: #b45309; margin: 2px 0;">
+        <span>Current Bill (Unpaid)</span>
+        <span>${money(bill.total)}</span>
+      </div>
+      ${bill.customer_credit_balance !== undefined ? `
+      <div class="row" style="font-weight: 800; font-size: 14px; color: #92400e; margin-top: 5px; border-top: 1px dashed #fde68a; padding-top: 5px;">
+        <span>Total Outstanding Due</span>
+        <span>${money(bill.customer_credit_balance)}</span>
+      </div>` : ''}
+    </div>` : ''}
     <hr class="divider" />
     <div class="row">
       <span>Payment</span>

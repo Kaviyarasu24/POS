@@ -574,6 +574,21 @@ export default function TransactionsScreen() {
                       <Text style={styles.grandTotalLabel}>TOTAL AMOUNT</Text>
                       <Text style={styles.grandTotalValue}>₹{formatCurrency(selectedBill.total)}</Text>
                     </View>
+
+                    {selectedBill.payment_status === 'CREDIT' && (
+                      <View style={{ backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, padding: 8, marginTop: 8 }}>
+                        <View style={styles.totalRow}>
+                          <Text style={[styles.totalLabel, { color: '#b45309', fontWeight: '600' }]}>Current Bill (Unpaid)</Text>
+                          <Text style={[styles.totalValue, { color: '#b45309', fontWeight: '700' }]}>₹{formatCurrency(selectedBill.total)}</Text>
+                        </View>
+                        {selectedBill.customer_credit_balance !== undefined && (
+                          <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#fde68a', paddingTop: 4, marginTop: 4 }]}>
+                            <Text style={[styles.totalLabel, { color: '#92400e', fontWeight: '800' }]}>Total Outstanding Due</Text>
+                            <Text style={[styles.totalValue, { color: '#92400e', fontWeight: '800', fontSize: 15 }]}>₹{formatCurrency(selectedBill.customer_credit_balance)}</Text>
+                          </View>
+                        )}
+                      </View>
+                    )}
                   </View>
 
                   {/* Receipt Footer Message */}

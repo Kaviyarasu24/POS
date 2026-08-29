@@ -849,6 +849,7 @@ def checkout(
                 cashier_name=cashier_name,
                 customer_name=cust_name or None,
                 customer_phone=cust_phone or None,
+                customer_credit_balance=db_customer.credit_balance if db_customer else None,
                 payment_method=order.payment_method,
                 payment_status=order.payment_status,
                 subtotal=order.subtotal,
@@ -891,6 +892,13 @@ def get_bill(
         if cashier:
             cashier_name = cashier.name
 
+    db_customer = None
+    if db_transaction.customer_name:
+        db_customer = db.query(models.Customer).filter(
+            models.Customer.store_id == x_store_id,
+            models.Customer.name == db_transaction.customer_name
+        ).first()
+
     items = db.query(models.TransactionItem).filter(
         models.TransactionItem.store_id == x_store_id,
         models.TransactionItem.invoice_number == invoice_number
@@ -906,6 +914,7 @@ def get_bill(
         cashier_name=cashier_name,
         customer_name=db_transaction.customer_name,
         customer_phone=db_transaction.customer_phone,
+        customer_credit_balance=db_customer.credit_balance if db_customer else None,
         payment_method=db_transaction.payment_method,
         payment_status=db_transaction.payment_status,
         subtotal=db_transaction.subtotal,
