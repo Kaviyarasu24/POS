@@ -418,7 +418,7 @@ export default function LoginScreen() {
                   />
                   <TextInput
                     style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                    placeholder="rithes07@gmail.com"
+                    placeholder="Enter email or username"
                     placeholderTextColor={THEME.textSecondary}
                     value={email}
                     onChangeText={(text) => {
@@ -486,7 +486,7 @@ export default function LoginScreen() {
                   />
                   <TextInput
                     style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                    placeholder="••••••••"
+                    placeholder="Enter your password"
                     placeholderTextColor={THEME.textSecondary}
                     secureTextEntry={!showPassword}
                     value={password}

@@ -264,7 +264,7 @@ export default function TransactionsScreen() {
               <MaterialIcons name="search" size={22} color="#737686" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search by invoice #, item, or cashier..."
+                placeholder="Search by invoice #, customer, or cashier..."
                 placeholderTextColor="#94a3b8"
                 value={searchQuery}
                 onChangeText={setSearchQuery}

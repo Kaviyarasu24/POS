@@ -294,7 +294,7 @@ export default function ScannerScreen() {
             
             <TextInput
               style={styles.modalInput}
-              placeholder="e.g. APP-1001"
+              placeholder="Enter barcode / SKU code"
               placeholderTextColor="#9ca3af"
               value={manualBarcode}
               onChangeText={setManualBarcode}

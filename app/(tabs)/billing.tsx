@@ -461,7 +461,7 @@ export default function BillingScreen() {
             <MaterialIcons name="search" size={20} color="#737686" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Search products, SKU..."
+              placeholder="Search products by name or SKU..."
               placeholderTextColor="#737686"
               value={searchQuery}
               onChangeText={setSearchQuery}
@@ -794,7 +794,7 @@ export default function BillingScreen() {
             <TextInput
               style={styles.modalInput}
               keyboardType="numeric"
-              placeholder="e.g. 10"
+              placeholder="Enter discount percentage (0 - 100)"
               value={discountInput}
               onChangeText={setDiscountInput}
               autoFocus
@@ -893,7 +893,7 @@ export default function BillingScreen() {
                   <TextInput
                     style={styles.cashTenderInput}
                     keyboardType="decimal-pad"
-                    placeholder="Enter amount tendered"
+                    placeholder="Enter cash received from customer (₹)"
                     placeholderTextColor="#9aa0b4"
                     value={cashReceived}
                     onChangeText={setCashReceived}
@@ -963,14 +963,14 @@ export default function BillingScreen() {
 
               <TextInput
                 style={styles.modalInput}
-                placeholder="Customer name"
+                placeholder="Enter customer full name"
                 placeholderTextColor="#9aa0b4"
                 value={customerName}
                 onChangeText={setCustomerName}
               />
               <TextInput
                 style={styles.modalInput}
-                placeholder="Phone (optional)"
+                placeholder="Enter customer phone number (optional)"
                 placeholderTextColor="#9aa0b4"
                 keyboardType="phone-pad"
                 value={customerPhone}
@@ -1335,7 +1335,7 @@ export default function BillingScreen() {
                   <TextInput
                     style={styles.weightTextInput}
                     keyboardType="decimal-pad"
-                    placeholder="0.0"
+                    placeholder="Enter weight or quantity"
                     value={weightInput}
                     onChangeText={setWeightInput}
                     autoFocus

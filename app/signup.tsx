@@ -449,7 +449,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="e.g. Acme Supermart"
+                  placeholder="Enter business / shop name"
                   placeholderTextColor="#94a3b8"
                   value={shopName}
                   onChangeText={(text) => {
@@ -481,7 +481,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="e.g. 22AAAAA0000A1Z5"
+                  placeholder="Enter GSTIN (optional)"
                   placeholderTextColor="#94a3b8"
                   value={gstNumber}
                   onChangeText={setGstNumber}
@@ -495,7 +495,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="e.g. 124 Market Avenue, Tech Park"
+                  placeholder="Enter street, area, city"
                   placeholderTextColor="#94a3b8"
                   value={businessAddress}
                   onChangeText={setBusinessAddress}
@@ -513,7 +513,7 @@ export default function SignupScreen() {
               <View style={[styles.inputWrapper, verifiedStore && styles.inputWrapperSuccess]}>
                 <TextInput
                   style={[styles.input, { letterSpacing: 1.5, fontWeight: '700' }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="e.g. MARTABC"
+                  placeholder="Enter store ID / join code"
                   placeholderTextColor="#94a3b8"
                   value={joinStoreId}
                   onChangeText={handleVerifyJoinCode}
@@ -584,7 +584,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="e.g. John Doe"
+                  placeholder="Enter your full name"
                   placeholderTextColor="#94a3b8"
                   value={fullName}
                   onChangeText={(text) => {
@@ -600,7 +600,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="john@example.com"
+                  placeholder="Enter your email address"
                   placeholderTextColor="#94a3b8"
                   value={email}
                   onChangeText={(text) => {
@@ -626,7 +626,7 @@ export default function SignupScreen() {
                 <View style={styles.verticalDivider} />
                 <TextInput
                   style={[styles.input, { paddingHorizontal: 12 }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="9876543210"
+                  placeholder="Enter 10-digit mobile number"
                   placeholderTextColor="#94a3b8"
                   value={phone}
                   onChangeText={(text) => {
@@ -653,7 +653,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="••••••••"
+                  placeholder="Create a secure password"
                   placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
                   value={password}
@@ -678,7 +678,7 @@ export default function SignupScreen() {
               <View style={styles.inputWrapper}>
                 <TextInput
                   style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
-                  placeholder="••••••••"
+                  placeholder="Confirm your password"
                   placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
                   value={confirmPassword}

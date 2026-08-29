@@ -94,7 +94,7 @@ export default function ProductsScreen() {
               <MaterialIcons name="search" size={20} color="#737686" style={styles.searchIcon} />
               <TextInput
                 style={styles.searchInput}
-                placeholder="Search products, SKUs..."
+                placeholder="Search products by name or SKU..."
                 placeholderTextColor="#737686"
                 value={searchQuery}
                 onChangeText={setSearchQuery}

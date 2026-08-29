@@ -193,7 +193,7 @@ export default function CustomersScreen() {
         <MaterialIcons name="search" size={20} color="#737686" />
         <TextInput
           style={styles.searchInput}
-          placeholder="Search by name or phone"
+          placeholder="Search by customer name or phone..."
           placeholderTextColor="#9a9db0"
           value={search}
           onChangeText={setSearch}
@@ -236,7 +236,7 @@ export default function CustomersScreen() {
             <Text style={styles.inputLabel}>Name *</Text>
             <TextInput
               style={styles.input}
-              placeholder="Customer name"
+              placeholder="Enter customer full name"
               placeholderTextColor="#9a9db0"
               value={newName}
               onChangeText={setNewName}
@@ -245,7 +245,7 @@ export default function CustomersScreen() {
             <Text style={styles.inputLabel}>Phone (optional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="Phone number"
+              placeholder="Enter 10-digit mobile number"
               placeholderTextColor="#9a9db0"
               value={newPhone}
               onChangeText={setNewPhone}
@@ -386,7 +386,7 @@ export default function CustomersScreen() {
             <Text style={styles.inputLabel}>Amount Received *</Text>
             <TextInput
               style={styles.input}
-              placeholder="0.00"
+              placeholder="Enter received amount (₹)"
               placeholderTextColor="#9a9db0"
               value={payAmount}
               onChangeText={setPayAmount}
@@ -396,7 +396,7 @@ export default function CustomersScreen() {
             <Text style={styles.inputLabel}>Note (optional)</Text>
             <TextInput
               style={styles.input}
-              placeholder="e.g. Paid in cash"
+              placeholder="Enter payment reference or remarks"
               placeholderTextColor="#9a9db0"
               value={payNote}
               onChangeText={setPayNote}
