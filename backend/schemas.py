@@ -95,6 +95,7 @@ class ProductBase(BaseModel):
     unit: Optional[str] = "pcs"
     tax_rate: Decimal = Decimal("8.00")
     image: Optional[str] = None
+    is_active: bool = True
 
 class ProductCreate(ProductBase):
     pass
@@ -110,6 +111,7 @@ class ProductUpdate(BaseModel):
     unit: Optional[str] = None
     tax_rate: Optional[Decimal] = None
     image: Optional[str] = None
+    is_active: Optional[bool] = None
 
 class ProductResponse(ProductBase):
     id: int

@@ -49,6 +49,7 @@ CREATE TABLE IF NOT EXISTS products (
     unit VARCHAR(50) DEFAULT 'pcs',
     tax_rate DECIMAL(5, 2) NOT NULL DEFAULT 8.00,
     image TEXT NULL,
+    is_active BOOLEAN DEFAULT TRUE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (store_id) REFERENCES stores(id) ON DELETE CASCADE,
     UNIQUE KEY unique_store_sku (store_id, sku)

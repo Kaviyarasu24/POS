@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DECIMAL, ForeignKey, DateTime, func, Text, UniqueConstraint, ForeignKeyConstraint
+from sqlalchemy import Column, Integer, String, DECIMAL, ForeignKey, DateTime, func, Text, UniqueConstraint, ForeignKeyConstraint, Boolean
 from sqlalchemy.orm import relationship
 from database import Base
 
@@ -52,6 +52,7 @@ class Product(Base):
     unit = Column(String(50), nullable=True, default="pcs")
     tax_rate = Column(DECIMAL(5, 2), nullable=False, default=8.00)
     image = Column(Text, nullable=True)
+    is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, server_default=func.now())
 
     __table_args__ = (UniqueConstraint('store_id', 'sku', name='unique_store_sku'),)

@@ -55,7 +55,26 @@ def _ensure_transaction_customer_columns() -> None:
             print(f"Startup migration: could not add transactions.{column}: {e}")
 
 
+def _ensure_product_active_column() -> None:
+    """Non-destructive migration: add `is_active` to `products` if missing."""
+    try:
+        inspector = inspect(engine)
+        existing = {c["name"] for c in inspector.get_columns("products")}
+    except Exception as e:
+        print(f"Startup migration: could not inspect products table: {e}")
+        return
+
+    if "is_active" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE products ADD COLUMN is_active BOOLEAN DEFAULT TRUE"))
+            print("Startup migration: added products.is_active")
+        except Exception as e:
+            print(f"Startup migration: could not add products.is_active: {e}")
+
+
 _ensure_transaction_customer_columns()
+_ensure_product_active_column()
 
 app = FastAPI(title="SmartPOS API Backend", version="2.0.0")
 
@@ -531,7 +550,10 @@ def read_products(
     x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    q = db.query(models.Product).filter(models.Product.store_id == x_store_id)
+    q = db.query(models.Product).filter(
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
+    )
     if category and category != "All Items":
         q = q.filter(models.Product.category == category)
     if query:
@@ -549,7 +571,8 @@ def create_product(
 ):
     existing = db.query(models.Product).filter(
         models.Product.sku == product.sku.upper(),
-        models.Product.store_id == x_store_id
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
@@ -565,7 +588,8 @@ def create_product(
         category=product.category,
         unit=product.unit,
         tax_rate=product.tax_rate,
-        image=product.image
+        image=product.image,
+        is_active=True
     )
     db.add(db_product)
     db.commit()
@@ -581,7 +605,8 @@ def update_product(
 ):
     db_product = db.query(models.Product).filter(
         models.Product.id == product_id,
-        models.Product.store_id == x_store_id
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
     ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -589,7 +614,8 @@ def update_product(
     if updated_fields.sku and updated_fields.sku.upper() != db_product.sku:
         existing = db.query(models.Product).filter(
             models.Product.sku == updated_fields.sku.upper(),
-            models.Product.store_id == x_store_id
+            models.Product.store_id == x_store_id,
+            models.Product.is_active == True
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
@@ -612,11 +638,16 @@ def delete_product(
 ):
     db_product = db.query(models.Product).filter(
         models.Product.id == product_id,
-        models.Product.store_id == x_store_id
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
     ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
-    db.delete(db_product)
+    
+    # Soft-delete: mark inactive and append tombstone suffix to free up the SKU code
+    db_product.is_active = False
+    timestamp_suffix = int(datetime.now().timestamp())
+    db_product.sku = f"{db_product.sku}#DEL_{timestamp_suffix}"
     db.commit()
     return None
 
@@ -629,11 +660,12 @@ def restock_product(
 ):
     db_product = db.query(models.Product).filter(
         models.Product.id == product_id,
-        models.Product.store_id == x_store_id
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
     ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
-    db_product.stock += qty
+    db_product.stock += Decimal(str(qty))
     db.commit()
     db.refresh(db_product)
     return db_product
@@ -1103,9 +1135,10 @@ def get_dashboard_metrics(
     ).scalar()
     profit = Decimal(str(profit_query)) if profit_query else Decimal("0.00")
 
-    # 4. Low stock alerts
+    # 4. Low stock alerts (only active products)
     low_stock = db.query(models.Product).filter(
         models.Product.store_id == x_store_id,
+        models.Product.is_active == True,
         models.Product.stock <= models.Product.low_stock_alert
     ).order_by(models.Product.stock.asc()).limit(5).all()
 

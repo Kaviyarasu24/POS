@@ -24,6 +24,7 @@ export interface Product {
   unit?: string; // e.g. "lb", "ea"
   taxRate: number; // e.g. 8%
   image?: string;
+  isActive?: boolean;
 }
 
 export interface UserSession {
@@ -470,6 +471,7 @@ class ProductStore {
         unit: p.unit || undefined,
         taxRate: parseFloat(p.tax_rate),
         image: p.image || undefined,
+        isActive: p.is_active !== undefined ? Boolean(p.is_active) : true,
       }));
       
       this.isSynced = true;
