@@ -32,12 +32,11 @@ interface CartItem {
   quantity: number;
 }
 
-const CATEGORIES = ['All Items', ...PRODUCT_CATEGORIES];
 const PAYMENT_METHODS = [
-  { id: 'CASH', label: 'Cash', icon: 'payments' },
-  { id: 'UPI', label: 'UPI / QR', icon: 'qr-code-scanner' },
-  { id: 'CARD', label: 'Card', icon: 'credit-card' },
-  { id: 'CREDIT', label: 'Credit', icon: 'account-balance-wallet' },
+  { id: 'CASH', label: 'Cash', icon: 'payments', desc: 'Cash payment' },
+  { id: 'UPI', label: 'UPI / QR', icon: 'qr-code-scanner', desc: 'Instant QR' },
+  { id: 'CARD', label: 'Card POS', icon: 'credit-card', desc: 'Debit / Credit' },
+  { id: 'CREDIT', label: 'Khata Book', icon: 'account-balance-wallet', desc: 'Credit ledger' },
 ];
 
 const formatNum = (val: any) => {
@@ -817,93 +816,150 @@ export default function BillingScreen() {
         </View>
       </Modal>
 
-      {/* Payment & Customer Details Modal */}
+      {/* Payment & Customer Details Bottom Sheet Modal */}
       <Modal
         visible={paymentModalVisible}
         transparent
         animationType="slide"
         onRequestClose={() => setPaymentModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <View style={styles.paymentModalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             style={styles.paymentModalContainer}
           >
+            {/* Sheet Handle */}
+            <View style={styles.modalHandle} />
+
+            {/* Header */}
             <View style={styles.paymentModalHeader}>
               <View>
                 <Text style={styles.paymentModalTitle}>Complete Payment</Text>
                 <Text style={styles.paymentModalSubtitle}>
-                  Select payment mode and (optionally) customer details
+                  {cartTotals.itemCount} items · Cart Subtotal ₹{cartTotals.subtotal.toFixed(2)}
                 </Text>
               </View>
               <TouchableOpacity
                 onPress={() => setPaymentModalVisible(false)}
                 style={styles.modalCloseBtn}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
-                <MaterialIcons name="close" size={20} color="#737686" />
+                <MaterialIcons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
             </View>
 
-            <ScrollView showsVerticalScrollIndicator={false}>
-              {/* Payment Method Selector */}
-              <Text style={styles.sectionLabel}>Select Payment Mode</Text>
-              <View style={styles.paymentMethodsRow}>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 20 }}>
+              {/* 1. Hero Total Payable Card */}
+              <View style={styles.payableHeroCard}>
+                <View style={styles.payableHeroLeft}>
+                  <Text style={styles.payableHeroLabel}>Total Payable</Text>
+                  <Text style={styles.payableHeroSub}>Includes all GST & discounts</Text>
+                </View>
+                <Text style={styles.payableHeroAmount}>₹{cartTotals.total.toFixed(2)}</Text>
+              </View>
+
+              {/* 2. Payment Method 2x2 Grid */}
+              <Text style={styles.paymentSectionHeader}>Select Payment Mode</Text>
+              <View style={styles.paymentGrid}>
                 {PAYMENT_METHODS.map((method) => {
-                  const selected = selectedPaymentMethod === method.id;
+                  const isSelected = selectedPaymentMethod === method.id;
                   return (
                     <TouchableOpacity
                       key={method.id}
                       style={[
-                        styles.paymentMethodCard,
-                        selected && styles.paymentMethodCardSelected,
+                        styles.paymentGridCard,
+                        isSelected && styles.paymentGridCardSelected,
                       ]}
                       onPress={() => {
                         setSelectedPaymentMethod(method.id);
                         if (method.id === 'CREDIT' && customers.length === 0) loadCustomers();
                       }}
+                      activeOpacity={0.8}
                     >
-                      <MaterialIcons
-                        name={method.icon as any}
-                        size={22}
-                        color={selected ? '#004ac6' : '#737686'}
-                      />
+                      <View style={styles.paymentCardTopRow}>
+                        <View style={[styles.paymentCardIconWrap, isSelected && styles.paymentCardIconWrapSelected]}>
+                          <MaterialIcons
+                            name={method.icon as any}
+                            size={22}
+                            color={isSelected ? '#004ac6' : '#64748b'}
+                          />
+                        </View>
+                        {isSelected && (
+                          <MaterialIcons name="check-circle" size={18} color="#004ac6" />
+                        )}
+                      </View>
                       <Text
                         style={[
-                          styles.paymentMethodText,
-                          selected && styles.paymentMethodTextSelected,
+                          styles.paymentCardTitle,
+                          isSelected && styles.paymentCardTitleSelected,
                         ]}
                       >
                         {method.label}
                       </Text>
+                      <Text style={styles.paymentCardDesc}>{method.desc}</Text>
                     </TouchableOpacity>
                   );
                 })}
               </View>
 
-              {/* Total Payable Display */}
-              <View style={styles.payableBox}>
-                <Text style={styles.payableBoxLabel}>Total Amount to Charge</Text>
-                <Text style={styles.payableBoxAmount}>₹{cartTotals.total.toFixed(2)}</Text>
-              </View>
-
-              {/* Cash tendered → change due (CASH only) */}
+              {/* 3. Conditional Mode-Specific Helpers */}
+              {/* CASH Helper */}
               {selectedPaymentMethod === 'CASH' && (
-                <View style={styles.cashTenderContainer}>
-                  <Text style={styles.cashTenderLabel}>Cash Received (optional)</Text>
-                  <TextInput
-                    style={styles.cashTenderInput}
-                    keyboardType="decimal-pad"
-                    placeholder="Enter cash received from customer (₹)"
-                    placeholderTextColor="#9aa0b4"
-                    value={cashReceived}
-                    onChangeText={setCashReceived}
-                  />
+                <View style={styles.modeHelperCard}>
+                  <Text style={styles.helperCardTitle}>Cash Tendered</Text>
+                  
+                  {/* Quick Cash Suggestion Chips */}
+                  <View style={styles.quickCashRow}>
+                    <TouchableOpacity
+                      style={styles.quickCashChip}
+                      onPress={() => setCashReceived(Math.ceil(cartTotals.total).toString())}
+                    >
+                      <Text style={styles.quickCashChipText}>Exact (₹{Math.ceil(cartTotals.total)})</Text>
+                    </TouchableOpacity>
+                    {[100, 200, 500, 2000].map((note) => {
+                      if (note >= cartTotals.total) {
+                        return (
+                          <TouchableOpacity
+                            key={note}
+                            style={styles.quickCashChip}
+                            onPress={() => setCashReceived(note.toString())}
+                          >
+                            <Text style={styles.quickCashChipText}>₹{note}</Text>
+                          </TouchableOpacity>
+                        );
+                      }
+                      return null;
+                    })}
+                  </View>
+
+                  <View style={styles.cashInputWrapper}>
+                    <Text style={styles.currencyPrefix}>₹</Text>
+                    <TextInput
+                      style={styles.cashInputField}
+                      keyboardType="decimal-pad"
+                      placeholder="Enter cash received from customer"
+                      placeholderTextColor="#94a3b8"
+                      value={cashReceived}
+                      onChangeText={setCashReceived}
+                    />
+                    {cashReceived.length > 0 && (
+                      <TouchableOpacity onPress={() => setCashReceived('')} style={{ padding: 4 }}>
+                        <MaterialIcons name="close" size={16} color="#94a3b8" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+
                   {cashReceived.trim() !== '' && (
-                    <View style={styles.changeDueRow}>
-                      <Text style={styles.changeDueLabel}>
-                        {changeDue >= 0 ? 'Change Due' : 'Short By'}
+                    <View style={[styles.changeBox, changeDue < 0 && styles.changeBoxShort]}>
+                      <MaterialIcons
+                        name={changeDue >= 0 ? 'paid' : 'error-outline'}
+                        size={18}
+                        color={changeDue >= 0 ? '#15803d' : '#ba1a1a'}
+                      />
+                      <Text style={[styles.changeLabel, changeDue < 0 && { color: '#ba1a1a' }]}>
+                        {changeDue >= 0 ? 'Change to Return:' : 'Amount Short by:'}
                       </Text>
-                      <Text style={[styles.changeDueValue, changeDue < 0 && { color: '#ba1a1a' }]}>
+                      <Text style={[styles.changeAmount, changeDue < 0 && { color: '#ba1a1a' }]}>
                         ₹{Math.abs(changeDue).toFixed(2)}
                       </Text>
                     </View>
@@ -911,16 +967,85 @@ export default function BillingScreen() {
                 </View>
               )}
 
-              {/* Credit (khata / udhaar) notice */}
+              {/* UPI Helper */}
+              {selectedPaymentMethod === 'UPI' && (
+                <View style={[styles.modeHelperCard, { backgroundColor: '#f0f9ff', borderColor: '#bae6fd' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialIcons name="qr-code" size={24} color="#0284c7" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.helperCardTitle, { color: '#0369a1', marginBottom: 2 }]}>Instant UPI Collection</Text>
+                      <Text style={{ fontSize: 12, color: '#0284c7' }}>
+                        Customer can scan your store QR code or soundbox. Verify transaction before confirming.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* CARD Helper */}
+              {selectedPaymentMethod === 'CARD' && (
+                <View style={[styles.modeHelperCard, { backgroundColor: '#f5f3ff', borderColor: '#ddd6fe' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <MaterialIcons name="credit-card" size={24} color="#7c3aed" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={[styles.helperCardTitle, { color: '#6d28d9', marginBottom: 2 }]}>Card Terminal Payment</Text>
+                      <Text style={{ fontSize: 12, color: '#7c3aed' }}>
+                        Swipe, insert chip, or tap customer card on EDC machine.
+                      </Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
+              {/* CREDIT Helper */}
               {selectedPaymentMethod === 'CREDIT' && (
-                <View>
-                  <View style={styles.creditNoticeBox}>
-                    <MaterialIcons name="account-balance-wallet" size={18} color="#92400e" />
-                    <Text style={styles.creditNoticeText}>
-                      This amount is added to the customer&apos;s credit (khata). Enter or pick a
-                      customer below.
+                <View style={[styles.modeHelperCard, { backgroundColor: '#fffbeb', borderColor: '#fde68a' }]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 8 }}>
+                    <MaterialIcons name="account-balance-wallet" size={20} color="#b45309" />
+                    <Text style={[styles.helperCardTitle, { color: '#b45309', marginBottom: 0 }]}>
+                      Khata / Credit Sale
                     </Text>
                   </View>
+                  <Text style={{ fontSize: 12, color: '#92400e', marginBottom: 10, lineHeight: 16 }}>
+                    This amount will be added as outstanding debt in customer&apos;s ledger.
+                  </Text>
+
+                  {/* Customer Quick Select Chips */}
+                  {customers.length > 0 && (
+                    <View style={{ marginBottom: 10 }}>
+                      <Text style={{ fontSize: 11.5, fontWeight: '600', color: '#92400e', marginBottom: 6 }}>
+                        Quick Pick Existing Customer:
+                      </Text>
+                      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 6 }}>
+                        {customers.map((c) => {
+                          const active = customerName.trim() === c.name;
+                          return (
+                            <TouchableOpacity
+                              key={c.id}
+                              style={[styles.customerChip, active && styles.customerChipActive]}
+                              onPress={() => {
+                                setCustomerName(c.name);
+                                setCustomerPhone(c.phone || '');
+                              }}
+                            >
+                              <Text
+                                style={[styles.customerChipText, active && { color: '#004ac6', fontWeight: '700' }]}
+                                numberOfLines={1}
+                              >
+                                {c.name}
+                              </Text>
+                              {c.credit_balance > 0 && (
+                                <Text style={styles.customerChipBalance}>
+                                  Due ₹{c.credit_balance.toFixed(0)}
+                                </Text>
+                              )}
+                            </TouchableOpacity>
+                          );
+                        })}
+                      </ScrollView>
+                    </View>
+                  )}
+
                   <TouchableOpacity
                     style={styles.openKhataButton}
                     onPress={() => {
@@ -935,63 +1060,47 @@ export default function BillingScreen() {
                 </View>
               )}
 
-              {/* Customer capture (required for CREDIT, optional otherwise) */}
-              <Text style={styles.sectionLabel}>
-                {selectedPaymentMethod === 'CREDIT' ? 'Customer (required)' : 'Customer (optional)'}
-              </Text>
+              {/* 4. Customer Information Card */}
+              <View style={styles.customerFormCard}>
+                <View style={styles.customerFormHeader}>
+                  <MaterialIcons name="person-outline" size={18} color="#004ac6" />
+                  <Text style={styles.customerFormTitle}>
+                    Customer Details {selectedPaymentMethod === 'CREDIT' ? '(Required *)' : '(Optional for Bill)'}
+                  </Text>
+                </View>
 
-              {selectedPaymentMethod === 'CREDIT' && customers.length > 0 && (
-                <ScrollView
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                  contentContainerStyle={styles.customerChipsRow}
-                >
-                  {customers.map((c) => {
-                    const active = customerName.trim() === c.name;
-                    return (
-                      <TouchableOpacity
-                        key={c.id}
-                        style={[styles.customerChip, active && styles.customerChipActive]}
-                        onPress={() => {
-                          setCustomerName(c.name);
-                          setCustomerPhone(c.phone || '');
-                        }}
-                      >
-                        <Text
-                          style={[styles.customerChipText, active && { color: '#004ac6' }]}
-                          numberOfLines={1}
-                        >
-                          {c.name}
-                        </Text>
-                        {c.credit_balance > 0 && (
-                          <Text style={styles.customerChipBalance}>
-                            Due ₹{c.credit_balance.toFixed(0)}
-                          </Text>
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </ScrollView>
-              )}
+                <View style={styles.customerFieldGroup}>
+                  <Text style={styles.customerFieldLabel}>Customer Name {selectedPaymentMethod === 'CREDIT' ? '*' : ''}</Text>
+                  <View style={styles.customerInputWrap}>
+                    <MaterialIcons name="person" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={styles.customerInput}
+                      placeholder="Enter customer full name"
+                      placeholderTextColor="#94a3b8"
+                      value={customerName}
+                      onChangeText={setCustomerName}
+                    />
+                  </View>
+                </View>
 
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Enter customer full name"
-                placeholderTextColor="#9aa0b4"
-                value={customerName}
-                onChangeText={setCustomerName}
-              />
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Enter customer phone number (optional)"
-                placeholderTextColor="#9aa0b4"
-                keyboardType="phone-pad"
-                value={customerPhone}
-                onChangeText={setCustomerPhone}
-              />
+                <View style={styles.customerFieldGroup}>
+                  <Text style={styles.customerFieldLabel}>Mobile Number (Optional)</Text>
+                  <View style={styles.customerInputWrap}>
+                    <MaterialIcons name="phone" size={16} color="#94a3b8" style={{ marginRight: 8 }} />
+                    <TextInput
+                      style={styles.customerInput}
+                      placeholder="Enter customer phone number"
+                      placeholderTextColor="#94a3b8"
+                      keyboardType="phone-pad"
+                      value={customerPhone}
+                      onChangeText={setCustomerPhone}
+                    />
+                  </View>
+                </View>
+              </View>
             </ScrollView>
 
-            {/* Confirm & Generate Bill Button */}
+            {/* Confirm & Generate Bill Bottom Button */}
             <TouchableOpacity
               style={[
                 styles.confirmPaymentBtn,
@@ -999,14 +1108,15 @@ export default function BillingScreen() {
               ]}
               disabled={paymentBlocked}
               onPress={handleProcessCheckout}
+              activeOpacity={0.85}
             >
-              <MaterialIcons name="receipt-long" size={20} color="#ffffff" />
+              <MaterialIcons name="receipt-long" size={22} color="#ffffff" />
               <Text style={styles.confirmPaymentText}>
                 {isProcessing
                   ? 'Generating Bill...'
                   : selectedPaymentMethod === 'CREDIT'
-                  ? 'Confirm Credit Sale'
-                  : 'Confirm & Generate Bill'}
+                  ? `Confirm Khata Bill (₹${cartTotals.total.toFixed(2)})`
+                  : `Confirm & Print Bill (₹${cartTotals.total.toFixed(2)})`}
               </Text>
             </TouchableOpacity>
           </KeyboardAvoidingView>
@@ -1968,192 +2078,291 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
 
-  // Payment Details Modal
+  // Payment Details Modal Styles
+  paymentModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
   paymentModalContainer: {
     backgroundColor: '#ffffff',
     width: '100%',
-    maxWidth: 420,
-    maxHeight: '90%',
-    borderRadius: 16,
+    maxHeight: '92%',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
     padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
   },
   paymentModalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    alignItems: 'center',
     marginBottom: 16,
   },
   paymentModalTitle: {
-    fontSize: 19,
+    fontSize: 18,
     fontWeight: '700',
-    color: '#131b2e',
+    color: '#0f172a',
   },
   paymentModalSubtitle: {
-    fontSize: 12,
-    color: '#737686',
+    fontSize: 12.5,
+    color: '#64748b',
     marginTop: 2,
   },
   modalCloseBtn: {
     padding: 6,
-    borderRadius: 999,
-    backgroundColor: '#f3f3fa',
+    borderRadius: 20,
+    backgroundColor: '#f1f5f9',
   },
-  sectionLabel: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#131b2e',
-    marginBottom: 8,
-    marginTop: 6,
-  },
-  paymentMethodsRow: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  paymentMethodCard: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    backgroundColor: '#f3f3fa',
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: 'transparent',
-    gap: 6,
-  },
-  paymentMethodCardSelected: {
-    backgroundColor: '#e6edff',
-    borderColor: '#004ac6',
-  },
-  paymentMethodText: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#737686',
-  },
-  paymentMethodTextSelected: {
-    color: '#004ac6',
-  },
-  payableBox: {
-    backgroundColor: '#f8f9ff',
-    padding: 14,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#dbe4ff',
-    alignItems: 'center',
-    marginBottom: 14,
-  },
-  payableBoxLabel: {
-    fontSize: 12,
-    color: '#434655',
-    marginBottom: 2,
-  },
-  payableBoxAmount: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#004ac6',
-  },
-  cashTenderContainer: {
-    backgroundColor: '#fafffa',
-    padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#c3ecd1',
-    marginBottom: 14,
-  },
-  changeDueRow: {
+  payableHeroCard: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 4,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1.5,
+    borderColor: '#bfdbfe',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    marginBottom: 16,
   },
-  changeDueLabel: {
+  payableHeroLeft: {
+    flex: 1,
+  },
+  payableHeroLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#006329',
+    fontWeight: '700',
+    color: '#1e40af',
   },
-  changeDueValue: {
-    fontSize: 16,
+  payableHeroSub: {
+    fontSize: 11.5,
+    color: '#3b82f6',
+    marginTop: 2,
+  },
+  payableHeroAmount: {
+    fontSize: 24,
     fontWeight: '800',
-    color: '#006329',
+    color: '#004ac6',
   },
-  cashTenderLabel: {
-    fontSize: 12,
+  paymentSectionHeader: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#334155',
+    marginBottom: 10,
+  },
+  paymentGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 16,
+  },
+  paymentGridCard: {
+    width: '48.5%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    padding: 12,
+  },
+  paymentGridCardSelected: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#004ac6',
+  },
+  paymentCardTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  paymentCardIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  paymentCardIconWrapSelected: {
+    backgroundColor: '#dbeafe',
+  },
+  paymentCardTitle: {
+    fontSize: 13.5,
     fontWeight: '600',
-    color: '#006329',
-    marginBottom: 6,
+    color: '#334155',
+    marginBottom: 2,
   },
-  cashTenderInput: {
+  paymentCardTitleSelected: {
+    color: '#004ac6',
+    fontWeight: '700',
+  },
+  paymentCardDesc: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
+  modeHelperCard: {
+    backgroundColor: '#f0fdf4',
     borderWidth: 1,
-    borderColor: '#c3ecd1',
-    borderRadius: 8,
-    height: 44,
-    paddingHorizontal: 12,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#131b2e',
-    backgroundColor: '#ffffff',
+    borderColor: '#bbf7d0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
   },
-  creditNoticeBox: {
+  helperCardTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#166534',
+    marginBottom: 8,
+  },
+  quickCashRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+    marginBottom: 10,
+  },
+  quickCashChip: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#86efac',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+  },
+  quickCashChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  cashInputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    backgroundColor: '#fffbeb',
-    borderWidth: 1,
-    borderColor: '#fde68a',
+    height: 44,
+    backgroundColor: '#ffffff',
+    borderWidth: 1.5,
+    borderColor: '#86efac',
     borderRadius: 10,
-    padding: 10,
-    marginBottom: 14,
+    paddingHorizontal: 12,
   },
-  creditNoticeText: {
+  currencyPrefix: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#15803d',
+    marginRight: 6,
+  },
+  cashInputField: {
     flex: 1,
-    fontSize: 12,
-    color: '#92400e',
-    lineHeight: 16,
+    height: '100%',
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  changeBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#dcfce7',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    marginTop: 8,
+    gap: 6,
+  },
+  changeBoxShort: {
+    backgroundColor: '#fee2e2',
+  },
+  changeLabel: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#15803d',
+    flex: 1,
+  },
+  changeAmount: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#15803d',
+  },
+  customerFormCard: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 10,
+  },
+  customerFormHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 10,
+  },
+  customerFormTitle: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  customerFieldGroup: {
+    marginBottom: 10,
+  },
+  customerFieldLabel: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  customerInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    height: 40,
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+  },
+  customerInput: {
+    flex: 1,
+    height: '100%',
+    fontSize: 13,
+    color: '#0f172a',
   },
   customerChipsRow: {
-    gap: 8,
-    paddingBottom: 10,
+    gap: 6,
+    paddingBottom: 4,
   },
   customerChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#f3f3fa',
-    borderRadius: 999,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    backgroundColor: '#ffffff',
+    borderRadius: 8,
     borderWidth: 1,
-    borderColor: 'transparent',
-    maxWidth: 160,
+    borderColor: '#fde68a',
   },
   customerChipActive: {
-    backgroundColor: '#e6edff',
+    backgroundColor: '#eff6ff',
     borderColor: '#004ac6',
   },
   customerChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#434655',
+    color: '#92400e',
   },
   customerChipBalance: {
     fontSize: 10,
     fontWeight: '600',
     color: '#ba1a1a',
-    marginTop: 1,
-  },
-  pendingNote: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#92400e',
-    textAlign: 'center',
-    marginTop: 10,
   },
   confirmPaymentBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#006329',
+    backgroundColor: '#004ac6',
     height: 50,
-    borderRadius: 10,
-    marginTop: 16,
+    borderRadius: 12,
+    marginTop: 10,
     gap: 8,
+    shadowColor: '#004ac6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 6,
+    elevation: 3,
   },
   confirmPaymentText: {
     color: '#ffffff',
