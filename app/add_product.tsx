@@ -139,7 +139,9 @@ export default function AddProductScreen() {
     }
   }, [isEdit, id]);
 
-  const handleSaveProduct = () => {
+  const [isSaving, setIsSaving] = useState(false);
+
+  const handleSaveProduct = async () => {
     setError('');
 
     if (!name.trim() || !sku.trim() || !category || !sellingPrice.trim() || !initialStock.trim()) {
@@ -200,13 +202,19 @@ export default function AddProductScreen() {
       image: imageUrl.trim() || undefined,
     };
 
-    if (isEdit && id) {
-      store.updateProduct(id, productData);
-    } else {
-      store.addProduct(productData);
+    setIsSaving(true);
+    try {
+      if (isEdit && id) {
+        await store.updateProduct(id, productData);
+      } else {
+        await store.addProduct(productData);
+      }
+      router.replace('/(tabs)/products');
+    } catch (err: any) {
+      setError(err?.message || 'Failed to save product in database.');
+    } finally {
+      setIsSaving(false);
     }
-
-    router.replace('/(tabs)/products');
   };
 
   const handleDeleteProduct = () => {
@@ -455,12 +463,13 @@ export default function AddProductScreen() {
             </TouchableOpacity>
           )}
           <TouchableOpacity
-            style={[styles.saveButton, { flex: isEdit ? 2 : 1 }]}
+            style={[styles.saveButton, { flex: isEdit ? 2 : 1 }, isSaving && { opacity: 0.7 }]}
             onPress={handleSaveProduct}
+            disabled={isSaving}
           >
             <MaterialIcons name="save" size={20} color="#ffffff" />
             <Text style={styles.saveButtonText}>
-              {isEdit ? 'Save Changes' : 'Save Product'}
+              {isSaving ? 'Saving...' : isEdit ? 'Save Changes' : 'Save Product'}
             </Text>
           </TouchableOpacity>
         </View>

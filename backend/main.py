@@ -282,6 +282,7 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         db.commit()
         db.refresh(db_user)
 
+        token = create_access_token(db_user.id, db_store.id, db_user.role)
         return schemas.UserResponse(
             id=db_user.id,
             store_id=db_store.id,
@@ -294,7 +295,8 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
             shop_category=db_store.category,
             gst_number=db_store.gst_number,
             business_address=db_store.address,
-            store_phone=db_store.phone
+            store_phone=db_store.phone,
+            token=token
         )
 
     # Case B: User is registering a new Store
@@ -331,6 +333,7 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_user)
 
+    token = create_access_token(db_user.id, db_store.id, db_user.role)
     return schemas.UserResponse(
         id=db_user.id,
         store_id=db_store.id,
@@ -343,7 +346,8 @@ def signup(payload: schemas.UserCreate, db: Session = Depends(get_db)):
         shop_category=db_store.category,
         gst_number=db_store.gst_number,
         business_address=db_store.address,
-        store_phone=db_store.phone
+        store_phone=db_store.phone,
+        token=token
     )
 
 @app.post("/api/login", response_model=schemas.UserResponse)
