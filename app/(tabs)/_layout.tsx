@@ -1,13 +1,24 @@
-import { Tabs } from 'expo-router';
+import React, { useEffect } from 'react';
+import { Tabs, useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Palette } from '@/constants/theme';
+import { store } from '@/constants/store';
 
 export default function TabLayout() {
-  // SDK 54 draws edge-to-edge on Android, so the tab bar sits over the system
-  // gesture/nav bar. Pad the bar by the bottom inset so labels stay tappable
-  // and never hide behind the navigation bar.
+  const router = useRouter();
   const insets = useSafeAreaInsets();
+
+  // Watch for session expiration / logout and redirect to login
+  useEffect(() => {
+    const checkAuth = () => {
+      if (!store.currentUser?.token) {
+        router.replace('/login');
+      }
+    };
+    const unsubscribe = store.subscribe(checkAuth);
+    return unsubscribe;
+  }, [router]);
 
   return (
     <Tabs
