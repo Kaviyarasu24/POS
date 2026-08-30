@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useCallback } from 'react';
 import {
   StyleSheet,
   View,
@@ -9,10 +9,11 @@ import {
   ScrollView,
   Modal,
   Platform,
+  RefreshControl,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
-import { useRouter } from 'expo-router';
+import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store, Product } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
@@ -44,6 +45,22 @@ export default function ProductsScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSortId, setSelectedSortId] = useState('name_asc');
   const [sortModalVisible, setSortModalVisible] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refreshCatalog = useCallback(async () => {
+    setRefreshing(true);
+    await store.syncProducts().catch(() => {});
+    setProducts(store.getProducts());
+    setRefreshing(false);
+  }, []);
+
+  // Refresh whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      store.syncProducts().catch(() => {});
+      setProducts(store.getProducts());
+    }, [])
+  );
 
   // Subscribe to store updates
   useEffect(() => {
@@ -61,17 +78,18 @@ export default function ProductsScreen() {
     // 1. Filter
     let result = products.filter((product) => {
       const matchesCategory =
-        selectedFilter === 'All' || product.category === selectedFilter;
+        selectedFilter === 'All' ||
+        product.category?.toLowerCase() === selectedFilter.toLowerCase();
       const matchesSearch =
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+        (product.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (product.sku || '').toLowerCase().includes(searchQuery.toLowerCase());
       return matchesCategory && matchesSearch;
     });
 
     // 2. Sort
     result.sort((a, b) => {
-      if (selectedSortId === 'name_asc') return a.name.localeCompare(b.name);
-      if (selectedSortId === 'name_desc') return b.name.localeCompare(a.name);
+      if (selectedSortId === 'name_asc') return (a.name || '').localeCompare(b.name || '');
+      if (selectedSortId === 'name_desc') return (b.name || '').localeCompare(a.name || '');
       if (selectedSortId === 'price_asc') return a.price - b.price;
       if (selectedSortId === 'price_desc') return b.price - a.price;
       if (selectedSortId === 'stock_asc') return a.stock - b.stock;
@@ -101,6 +119,8 @@ export default function ProductsScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollContainer}
         stickyHeaderIndices={[0]}
+        refreshing={refreshing}
+        onRefresh={refreshCatalog}
         ListHeaderComponent={
           /* Search & Filter Sticky Bar */
           <View style={styles.toolbarWrapper}>

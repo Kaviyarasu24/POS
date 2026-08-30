@@ -573,10 +573,10 @@ def read_products(
 ):
     q = db.query(models.Product).filter(
         models.Product.store_id == x_store_id,
-        models.Product.is_active == True
+        models.Product.is_active != False
     )
-    if category and category != "All Items":
-        q = q.filter(models.Product.category == category)
+    if category and category != "All Items" and category != "All":
+        q = q.filter(models.Product.category.ilike(category))
     if query:
         search = f"%{query}%"
         q = q.filter(
@@ -593,7 +593,7 @@ def create_product(
     existing = db.query(models.Product).filter(
         models.Product.sku == product.sku.upper(),
         models.Product.store_id == x_store_id,
-        models.Product.is_active == True
+        models.Product.is_active != False
     ).first()
     if existing:
         raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")
@@ -627,7 +627,7 @@ def update_product(
     db_product = db.query(models.Product).filter(
         models.Product.id == product_id,
         models.Product.store_id == x_store_id,
-        models.Product.is_active == True
+        models.Product.is_active != False
     ).first()
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
@@ -636,7 +636,7 @@ def update_product(
         existing = db.query(models.Product).filter(
             models.Product.sku == updated_fields.sku.upper(),
             models.Product.store_id == x_store_id,
-            models.Product.is_active == True
+            models.Product.is_active != False
         ).first()
         if existing:
             raise HTTPException(status_code=400, detail="SKU code already exists in your store catalog")

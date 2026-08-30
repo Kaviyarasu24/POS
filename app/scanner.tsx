@@ -144,6 +144,31 @@ export default function ScannerScreen() {
     }
   };
 
+  const handleDone = () => {
+    if (scannedItems.length > 0) {
+      scannedItems.forEach((item) => {
+        store.addScannedItem(item.product, item.quantity);
+      });
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
+    }
+
+    if (mode === 'add_product') {
+      if (router.canGoBack()) {
+        router.back();
+      } else {
+        router.replace('/add_product');
+      }
+      return;
+    }
+
+    // Return to POS Terminal Billing screen
+    if (router.canGoBack()) {
+      router.back();
+    } else {
+      router.navigate('/(tabs)/billing' as any);
+    }
+  };
+
   const renderCameraView = () => {
     if (!permission) {
       // Permissions are still loading
@@ -177,13 +202,13 @@ export default function ScannerScreen() {
   };
 
   return (
-    <View style={styles.container}>
+    <View style={styles.container} pointerEvents="box-none">
       {/* Viewfinder background */}
-      <View style={styles.viewfinderContainer}>
+      <View style={styles.viewfinderContainer} pointerEvents="box-none">
         {renderCameraView()}
 
         {/* Viewfinder Target Framing */}
-        <View style={styles.overlayContainer}>
+        <View style={styles.overlayContainer} pointerEvents="none">
           <View style={styles.targetFrame}>
             {/* Corner Brackets */}
             <View style={[styles.cornerBracket, styles.topLeftCorner]} />
@@ -203,7 +228,7 @@ export default function ScannerScreen() {
         <TouchableOpacity
           aria-label="Back"
           style={styles.headerButton}
-          onPress={() => router.back()}
+          onPress={handleDone}
         >
           <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
@@ -300,17 +325,14 @@ export default function ScannerScreen() {
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.primaryBtn}
-              onPress={() => {
-                // Buffer to store
-                scannedItems.forEach((item) => {
-                  store.addScannedItem(item.product.id, item.quantity);
-                });
-                router.back();
-              }}
+              activeOpacity={0.7}
+              style={[styles.primaryBtn, totalItems === 0 && { opacity: 0.8 }]}
+              onPress={handleDone}
             >
               <MaterialIcons name="check-circle" size={20} color="#ffffff" />
-              <Text style={styles.primaryBtnText}>Done ({totalItems})</Text>
+              <Text style={styles.primaryBtnText}>
+                {totalItems > 0 ? `Add to Cart (${totalItems})` : 'Done'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>

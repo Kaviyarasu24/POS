@@ -112,11 +112,16 @@ interface PendingCheckout {
   payload: CheckoutPayload;
 }
 
+export interface ScannedItemPayload {
+  product: Product;
+  quantity: number;
+}
+
 class ProductStore {
   private products: Product[] = [];
   private listeners: (() => void)[] = [];
   private isSynced = false;
-  public scannedItems: { productId: string; quantity: number }[] = [];
+  public scannedItems: ScannedItemPayload[] = [];
   // No default session: identity comes only from a real login (or a previously
   // persisted real session in localStorage). Enforces backend authentication.
   private _currentUser: UserSession | null = null;
@@ -935,14 +940,22 @@ class ProductStore {
     };
   }
 
-  addScannedItem(productId: string, quantity: number = 1) {
-    const existing = this.scannedItems.find(item => item.productId === productId);
+  addScannedItem(product: Product, quantity: number = 1) {
+    const pId = product.id.toString();
+    const existing = this.scannedItems.find((item) => item.product.id.toString() === pId);
     if (existing) {
       existing.quantity += quantity;
     } else {
-      this.scannedItems.push({ productId, quantity });
+      this.scannedItems.push({ product, quantity });
     }
     this.notify();
+  }
+
+  consumeScannedItems(): ScannedItemPayload[] {
+    if (this.scannedItems.length === 0) return [];
+    const items = [...this.scannedItems];
+    this.scannedItems = [];
+    return items;
   }
 
   subscribe(listener: () => void) {

@@ -85,23 +85,22 @@ export default function BillingScreen() {
 
   // Ingest scanned items from the scanner modal
   const checkScanned = useCallback(() => {
-    if (store.scannedItems && store.scannedItems.length > 0) {
+    const scanned = store.consumeScannedItems();
+    if (scanned && scanned.length > 0) {
       setCart((prevCart) => {
         const newCart = [...prevCart];
-        store.scannedItems.forEach((scanned) => {
-          const product = store.getProductById(scanned.productId);
-          if (product) {
-            const existingIdx = newCart.findIndex((item) => item.product.id === scanned.productId);
-            if (existingIdx > -1) {
-              newCart[existingIdx].quantity += scanned.quantity;
-            } else {
-              newCart.push({ product, quantity: scanned.quantity });
-            }
+        scanned.forEach(({ product, quantity }) => {
+          const pId = product.id.toString();
+          const existingIdx = newCart.findIndex((item) => item.product.id.toString() === pId);
+          if (existingIdx > -1) {
+            newCart[existingIdx].quantity += quantity;
+          } else {
+            newCart.push({ product, quantity });
           }
         });
         return newCart;
       });
-      store.scannedItems = [];
+      setCartOpen(true);
     }
   }, []);
 
