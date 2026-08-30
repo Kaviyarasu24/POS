@@ -15,11 +15,11 @@ import {
   Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
 
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PAYMENT_FILTERS = [
   { id: 'ALL', label: 'All', icon: 'filter-list' },
@@ -87,11 +87,11 @@ export default function TransactionsScreen() {
       const data = await store.fetchTransactions({
         paymentMethod: selectedPayment === 'ALL' ? undefined : selectedPayment,
       });
-      setTransactions(data);
+      setTransactions(data || []);
 
       // Auto-open receipt if invoice query param was supplied
       if (params.invoice) {
-        const match = data.find((t) => t.invoice_number === params.invoice);
+        const match = (data || []).find((t) => t.invoice_number === params.invoice);
         if (match) {
           setSelectedBill(match);
           setBillModalVisible(true);
@@ -105,9 +105,13 @@ export default function TransactionsScreen() {
     }
   }, [selectedPayment, params.invoice]);
 
-  useEffect(() => {
-    loadTransactions(true);
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions(true);
+    }, [loadTransactions])
+  );
 
+  useEffect(() => {
     const unsubscribe = store.subscribe(() => {
       loadTransactions(false);
     });
@@ -117,6 +121,20 @@ export default function TransactionsScreen() {
   const onRefresh = () => {
     setIsRefreshing(true);
     loadTransactions(false);
+  };
+
+  const handleOpenBill = async (bill: GeneratedBill) => {
+    setSelectedBill(bill);
+    setBillModalVisible(true);
+    // If bill items need to be hydrated, fetch detailed bill
+    if (!bill.items || bill.items.length === 0) {
+      try {
+        const fullBill = await store.fetchBill(bill.invoice_number);
+        if (fullBill) {
+          setSelectedBill(fullBill);
+        }
+      } catch {}
+    }
   };
 
   // Filter Transactions by Search & Date
@@ -129,12 +147,12 @@ export default function TransactionsScreen() {
 
     return transactions.filter((t) => {
       // 1. Payment Method
-      if (selectedPayment !== 'ALL' && t.payment_method.toUpperCase() !== selectedPayment.toUpperCase()) {
+      if (selectedPayment !== 'ALL' && (t.payment_method || '').toUpperCase() !== selectedPayment.toUpperCase()) {
         return false;
       }
 
       // 2. Date Filter
-      if (selectedDateFilter !== 'ALL') {
+      if (selectedDateFilter !== 'ALL' && t.created_at) {
         const txDate = new Date(t.created_at);
         if (selectedDateFilter === 'TODAY' && txDate < startOfToday) return false;
         if (selectedDateFilter === 'YESTERDAY') {
@@ -147,10 +165,11 @@ export default function TransactionsScreen() {
       // 3. Search Query
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase().trim();
-        const matchesInvoice = t.invoice_number.toLowerCase().includes(q);
+        const matchesInvoice = (t.invoice_number || '').toLowerCase().includes(q);
         const matchesCashier = (t.cashier_name || '').toLowerCase().includes(q);
-        const matchesItem = t.items.some((i) => i.product_name.toLowerCase().includes(q));
-        if (!matchesInvoice && !matchesCashier && !matchesItem) return false;
+        const matchesCustomer = (t.customer_name || '').toLowerCase().includes(q);
+        const matchesItem = (t.items || []).some((i) => (i.product_name || '').toLowerCase().includes(q));
+        if (!matchesInvoice && !matchesCashier && !matchesCustomer && !matchesItem) return false;
       }
 
       return true;
@@ -390,20 +409,18 @@ export default function TransactionsScreen() {
         }
         renderItem={({ item }) => {
           const pStyle = getPaymentColor(item.payment_method);
-          const firstItem = item.items[0]?.product_name || 'Item';
+          const itemsList = item.items || [];
+          const firstItem = itemsList[0]?.product_name || 'Item';
           const itemsSummary =
-            item.items.length > 1
-              ? `${item.items.length} items • ${firstItem} +${item.items.length - 1} more`
-              : `${item.items.length} item • ${firstItem}`;
+            itemsList.length > 1
+              ? `${itemsList.length} items • ${firstItem} +${itemsList.length - 1} more`
+              : `${itemsList.length} item • ${firstItem}`;
 
           return (
             <TouchableOpacity
               style={styles.transactionCard}
               activeOpacity={0.7}
-              onPress={() => {
-                setSelectedBill(item);
-                setBillModalVisible(true);
-              }}
+              onPress={() => handleOpenBill(item)}
             >
               {/* Card Top Row */}
               <View style={styles.cardTopRow}>
@@ -469,7 +486,7 @@ export default function TransactionsScreen() {
               </TouchableOpacity>
             </View>
 
-            {selectedBill && (
+            {selectedBill ? (
               <ScrollView
                 style={styles.receiptScroll}
                 contentContainerStyle={styles.receiptScrollContent}
@@ -483,15 +500,15 @@ export default function TransactionsScreen() {
                       <MaterialIcons name="point-of-sale" size={28} color="#004ac6" />
                     </View>
                     <Text style={styles.receiptShopName}>{selectedBill.shop_name}</Text>
-                    {selectedBill.shop_address && (
+                    {selectedBill.shop_address ? (
                       <Text style={styles.receiptShopSub}>{selectedBill.shop_address}</Text>
-                    )}
-                    {selectedBill.shop_phone && (
+                    ) : null}
+                    {selectedBill.shop_phone ? (
                       <Text style={styles.receiptShopSub}>Tel: {selectedBill.shop_phone}</Text>
-                    )}
-                    {selectedBill.gst_number && (
+                    ) : null}
+                    {selectedBill.gst_number ? (
                       <Text style={styles.receiptGstNumber}>GSTIN: {selectedBill.gst_number}</Text>
-                    )}
+                    ) : null}
                   </View>
 
                   <View style={styles.dashedDivider} />
@@ -529,7 +546,7 @@ export default function TransactionsScreen() {
                       <Text style={[styles.tableColHeader, { flex: 1, textAlign: 'right' }]}>Total</Text>
                     </View>
 
-                    {selectedBill.items.map((item, idx) => (
+                    {(selectedBill.items || []).map((item, idx) => (
                       <View key={idx} style={styles.itemTableRow}>
                         <Text style={[styles.tableColItem, { flex: 2 }]} numberOfLines={2}>
                           {item.product_name}
@@ -556,14 +573,14 @@ export default function TransactionsScreen() {
                       <Text style={styles.totalValue}>₹{formatCurrency(selectedBill.subtotal)}</Text>
                     </View>
 
-                    {selectedBill.discount > 0 && (
+                    {selectedBill.discount && selectedBill.discount > 0 ? (
                       <View style={styles.totalRow}>
                         <Text style={[styles.totalLabel, { color: '#ba1a1a' }]}>Discount</Text>
                         <Text style={[styles.totalValue, { color: '#ba1a1a' }]}>
                           -₹{formatCurrency(selectedBill.discount)}
                         </Text>
                       </View>
-                    )}
+                    ) : null}
 
                     <View style={styles.totalRow}>
                       <Text style={styles.totalLabel}>Tax (GST 8%)</Text>
@@ -575,20 +592,20 @@ export default function TransactionsScreen() {
                       <Text style={styles.grandTotalValue}>₹{formatCurrency(selectedBill.total)}</Text>
                     </View>
 
-                    {selectedBill.payment_status === 'CREDIT' && (
+                    {selectedBill.payment_status === 'CREDIT' ? (
                       <View style={{ backgroundColor: '#fffbeb', borderWidth: 1, borderColor: '#fde68a', borderRadius: 8, padding: 8, marginTop: 8 }}>
                         <View style={styles.totalRow}>
                           <Text style={[styles.totalLabel, { color: '#b45309', fontWeight: '600' }]}>Current Bill (Unpaid)</Text>
                           <Text style={[styles.totalValue, { color: '#b45309', fontWeight: '700' }]}>₹{formatCurrency(selectedBill.total)}</Text>
                         </View>
-                        {selectedBill.customer_credit_balance !== undefined && (
+                        {selectedBill.customer_credit_balance !== undefined ? (
                           <View style={[styles.totalRow, { borderTopWidth: 1, borderTopColor: '#fde68a', paddingTop: 4, marginTop: 4 }]}>
                             <Text style={[styles.totalLabel, { color: '#92400e', fontWeight: '800' }]}>Total Outstanding Due</Text>
                             <Text style={[styles.totalValue, { color: '#92400e', fontWeight: '800', fontSize: 15 }]}>₹{formatCurrency(selectedBill.customer_credit_balance)}</Text>
                           </View>
-                        )}
+                        ) : null}
                       </View>
-                    )}
+                    ) : null}
                   </View>
 
                   {/* Receipt Footer Message */}
@@ -598,10 +615,10 @@ export default function TransactionsScreen() {
                   </View>
                 </View>
               </ScrollView>
-            )}
+            ) : null}
 
             {/* Receipt Modal Action Buttons */}
-            {selectedBill && (
+            {selectedBill ? (
               <View style={styles.modalActionButtons}>
                 <TouchableOpacity
                   style={[styles.modalActionBtn, styles.shareBtn]}
@@ -619,7 +636,7 @@ export default function TransactionsScreen() {
                   <Text style={styles.printBtnText}>Print Receipt</Text>
                 </TouchableOpacity>
               </View>
-            )}
+            ) : null}
           </View>
         </View>
       </Modal>
@@ -953,7 +970,7 @@ const styles = StyleSheet.create({
   receiptModalCard: {
     width: '100%',
     maxWidth: 440,
-    maxHeight: '90%',
+    height: Math.min(SCREEN_HEIGHT * 0.82, 650),
     backgroundColor: '#ffffff',
     borderRadius: 20,
     overflow: 'hidden',
@@ -979,6 +996,7 @@ const styles = StyleSheet.create({
   },
   receiptScroll: {
     flex: 1,
+    width: '100%',
     backgroundColor: '#f8fafc',
   },
   receiptScrollContent: {
