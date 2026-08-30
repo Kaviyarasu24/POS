@@ -83,41 +83,42 @@ export default function BillingScreen() {
   // Helper check for loose weight / volume items
   const isWeightItem = (unit?: string) => ['kg', 'g', 'l', 'ml'].includes(unit || '');
 
-  // Automatically dismiss lingering modals when switching away from the Billing tab
+  // Ingest scanned items from the scanner modal
+  const checkScanned = useCallback(() => {
+    if (store.scannedItems && store.scannedItems.length > 0) {
+      setCart((prevCart) => {
+        const newCart = [...prevCart];
+        store.scannedItems.forEach((scanned) => {
+          const product = store.getProductById(scanned.productId);
+          if (product) {
+            const existingIdx = newCart.findIndex((item) => item.product.id === scanned.productId);
+            if (existingIdx > -1) {
+              newCart[existingIdx].quantity += scanned.quantity;
+            } else {
+              newCart.push({ product, quantity: scanned.quantity });
+            }
+          }
+        });
+        return newCart;
+      });
+      store.scannedItems = [];
+    }
+  }, []);
+
+  // Automatically check scanned items on focus and dismiss lingering modals when switching away
   useFocusEffect(
     useCallback(() => {
+      checkScanned();
       return () => {
         setPaymentModalVisible(false);
         setBillModalVisible(false);
       };
-    }, [])
+    }, [checkScanned])
   );
 
   // Subscribe to store updates
   useEffect(() => {
     setProducts(store.getProducts());
-
-    const checkScanned = () => {
-      if (store.scannedItems && store.scannedItems.length > 0) {
-        setCart((prevCart) => {
-          const newCart = [...prevCart];
-          store.scannedItems.forEach((scanned) => {
-            const product = store.getProductById(scanned.productId);
-            if (product) {
-              const existingIdx = newCart.findIndex((item) => item.product.id === scanned.productId);
-              if (existingIdx > -1) {
-                newCart[existingIdx].quantity += scanned.quantity;
-              } else {
-                newCart.push({ product, quantity: scanned.quantity });
-              }
-            }
-          });
-          return newCart;
-        });
-        store.scannedItems = [];
-      }
-    };
-
     checkScanned();
 
     const unsubscribe = store.subscribe(() => {
@@ -125,7 +126,7 @@ export default function BillingScreen() {
       checkScanned();
     });
     return unsubscribe;
-  }, []);
+  }, [checkScanned]);
 
   // Animation for Bottom Sheet
   const slideAnim = useRef(new Animated.Value(SCREEN_HEIGHT)).current;

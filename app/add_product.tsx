@@ -95,12 +95,12 @@ function FormField({
 
 export default function AddProductScreen() {
   const router = useRouter();
-  const { id } = useLocalSearchParams<{ id?: string }>();
+  const { id, scannedSku } = useLocalSearchParams<{ id?: string; scannedSku?: string }>();
   const isEdit = !!id;
   const insets = useSafeAreaInsets();
 
   const [name, setName] = useState('');
-  const [sku, setSku] = useState('');
+  const [sku, setSku] = useState(scannedSku || '');
   const [category, setCategory] = useState('');
   const [unit, setUnit] = useState('pcs');
   const [costPrice, setCostPrice] = useState('');
@@ -114,6 +114,12 @@ export default function AddProductScreen() {
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
 
   const isWeightOrVolume = ['kg', 'g', 'l', 'ml'].includes(unit);
+
+  useEffect(() => {
+    if (scannedSku && !isEdit) {
+      setSku(scannedSku);
+    }
+  }, [scannedSku, isEdit]);
 
   useEffect(() => {
     if (isEdit && id) {
@@ -296,7 +302,7 @@ export default function AddProductScreen() {
               onChangeText={setSku}
               placeholder="Enter or scan SKU"
               iconRight="qr-code-scanner"
-              onIconRightPress={() => router.push('/scanner')}
+              onIconRightPress={() => router.push({ pathname: '/scanner', params: { mode: 'add_product' } })}
             />
 
             {/* Custom Category Dropdown Trigger */}

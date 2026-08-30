@@ -14,9 +14,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as Haptics from 'expo-haptics';
 import { store, Product } from '@/constants/store';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
+
+const ALL_BARCODE_TYPES = [
+  'qr',
+  'ean13',
+  'ean8',
+  'code128',
+  'code39',
+  'code93',
+  'upc_a',
+  'upc_e',
+  'itf14',
+  'codabar',
+  'pdf417',
+  'aztec',
+  'datamatrix',
+] as any;
 
 interface ScannedItemState {
   product: Product;
@@ -32,12 +49,17 @@ export default function ScannerScreen() {
   const [scannedItems, setScannedItems] = useState<ScannedItemState[]>([]);
   const [manualInputVisible, setManualInputVisible] = useState(false);
   const [manualBarcode, setManualBarcode] = useState('');
+  const [notFoundSku, setNotFoundSku] = useState<string | null>(null);
 
   // Animation for the scanning laser line
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
   // Debounce guard for repeat barcode frames (see handleBarcodeScanned).
   const lastScanRef = useRef<{ code: string; time: number }>({ code: '', time: 0 });
+
+  useEffect(() => {
+    store.syncProducts();
+  }, []);
 
   useEffect(() => {
     Animated.loop(
@@ -65,6 +87,24 @@ export default function ScannerScreen() {
 
   const totalItems = scannedItems.reduce((acc, item) => acc + item.quantity, 0);
 
+  const findProductByBarcode = (barcode: string): Product | undefined => {
+    const clean = barcode.trim();
+    const cleanLower = clean.toLowerCase();
+    const noLeadingZeros = clean.replace(/^0+/, '');
+
+    return store.getProducts().find((p) => {
+      const sku = (p.sku || '').trim();
+      const skuLower = sku.toLowerCase();
+      const skuNoZeros = sku.replace(/^0+/, '');
+      const id = (p.id || '').toString();
+      return (
+        skuLower === cleanLower ||
+        id === clean ||
+        (noLeadingZeros.length > 0 && skuNoZeros === noLeadingZeros)
+      );
+    });
+  };
+
   const handleBarcodeScanned = ({ data }: { data: string }) => {
     const barcodeStr = data.trim();
     if (!barcodeStr) return;
@@ -77,15 +117,15 @@ export default function ScannerScreen() {
     }
     lastScanRef.current = { code: barcodeStr, time: now };
 
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
+
     if (mode === 'add_product') {
       router.replace({ pathname: '/add_product', params: { scannedSku: barcodeStr } });
       return;
     }
 
     // Look up product in local store
-    const product = store.getProducts().find(
-      (p) => p.sku.toUpperCase() === barcodeStr.toUpperCase() || p.id === barcodeStr
-    );
+    const product = findProductByBarcode(barcodeStr);
 
     if (product) {
       setScannedItems((prevItems) => {
@@ -99,7 +139,8 @@ export default function ScannerScreen() {
         }
       });
     } else {
-      alert(`Product not found for SKU: ${barcodeStr}`);
+      Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {});
+      setNotFoundSku(barcodeStr);
     }
   };
 
@@ -129,7 +170,7 @@ export default function ScannerScreen() {
         enableTorch={torch}
         onBarcodeScanned={handleBarcodeScanned}
         barcodeScannerSettings={{
-          barcodeTypes: ['qr', 'ean13', 'upc_a'],
+          barcodeTypes: ALL_BARCODE_TYPES,
         }}
       />
     );
@@ -315,14 +356,63 @@ export default function ScannerScreen() {
                 onPress={() => {
                   const barcode = manualBarcode.trim();
                   if (barcode) {
-                    handleBarcodeScanned({ data: barcode });
                     setManualInputVisible(false);
+                    handleBarcodeScanned({ data: barcode });
                   } else {
                     alert('Please enter a valid barcode or SKU.');
                   }
                 }}
               >
                 <Text style={styles.modalSubmitText}>Add Item</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Product Not Found Modal */}
+      <Modal
+        animationType="fade"
+        transparent={true}
+        visible={!!notFoundSku}
+        onRequestClose={() => setNotFoundSku(null)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            <View style={styles.modalHeader}>
+              <MaterialIcons name="inventory-2" size={24} color="#ba1a1a" />
+              <Text style={[styles.modalTitle, { color: '#ba1a1a' }]}>Product Not Found</Text>
+            </View>
+            <Text style={styles.modalDescription}>
+              No product found with barcode / SKU:
+            </Text>
+            <View style={{ backgroundColor: '#f1f5f9', padding: 12, borderRadius: 8, marginVertical: 12 }}>
+              <Text style={{ fontSize: 16, fontWeight: '700', color: '#1e293b', textAlign: 'center', letterSpacing: 1 }}>
+                {notFoundSku}
+              </Text>
+            </View>
+            <Text style={[styles.modalDescription, { fontSize: 12, color: '#64748b' }]}>
+              Would you like to register this as a new product in your inventory?
+            </Text>
+
+            <View style={styles.modalActionRow}>
+              <TouchableOpacity
+                style={styles.modalCancelBtn}
+                onPress={() => setNotFoundSku(null)}
+              >
+                <Text style={styles.modalCancelText}>Dismiss</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalSubmitBtn, { backgroundColor: '#004ac6' }]}
+                onPress={() => {
+                  const skuToRegister = notFoundSku;
+                  setNotFoundSku(null);
+                  if (skuToRegister) {
+                    router.replace({ pathname: '/add_product', params: { scannedSku: skuToRegister } });
+                  }
+                }}
+              >
+                <Text style={styles.modalSubmitText}>Create Product</Text>
               </TouchableOpacity>
             </View>
           </View>
