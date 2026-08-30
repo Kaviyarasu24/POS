@@ -238,7 +238,7 @@ const INITIAL_PRODUCTS: Product[] = [
 ];
 
 class ProductStore {
-  private products: Product[] = INITIAL_PRODUCTS;
+  private products: Product[] = [];
   private listeners: (() => void)[] = [];
   private isSynced = false;
   public scannedItems: { productId: string; quantity: number }[] = [];
@@ -365,6 +365,13 @@ class ProductStore {
   // Explicit login: persists the session (awaited) before returning, so a cold
   // start immediately after login still finds the token on disk.
   async login(user: UserSession): Promise<void> {
+    if (this._currentUser?.storeId !== user.storeId) {
+      // Store switched: clean out previous store's cached local transactions
+      this.localTransactions = [];
+      this.pendingCheckouts = [];
+      await AsyncStorage.removeItem(LOCAL_TXNS_KEY).catch(() => {});
+      await AsyncStorage.removeItem(PENDING_CHECKOUTS_KEY).catch(() => {});
+    }
     this._currentUser = user;
     await this.persistSession(user);
     this.isSynced = false;
@@ -373,9 +380,13 @@ class ProductStore {
     this.flushPendingCheckouts();
   }
 
-  // Explicit logout: clears the persisted session (awaited) and local catalog.
+  // Explicit logout: clears the persisted session (awaited), cached transactions, and local catalog.
   async logout(): Promise<void> {
     this._currentUser = null;
+    this.localTransactions = [];
+    this.pendingCheckouts = [];
+    await AsyncStorage.removeItem(LOCAL_TXNS_KEY).catch(() => {});
+    await AsyncStorage.removeItem(PENDING_CHECKOUTS_KEY).catch(() => {});
     await this.persistSession(null);
     this.isSynced = false;
     this.products = [];
@@ -421,6 +432,10 @@ class ProductStore {
   // Sets the private field directly (not the setter) to avoid re-triggering a sync loop.
   private handleUnauthorized() {
     this._currentUser = null;
+    this.localTransactions = [];
+    this.pendingCheckouts = [];
+    AsyncStorage.removeItem(LOCAL_TXNS_KEY).catch(() => {});
+    AsyncStorage.removeItem(PENDING_CHECKOUTS_KEY).catch(() => {});
     this.persistSession(null);
     this.isSynced = false;
     this.products = [];
@@ -795,6 +810,7 @@ class ProductStore {
     endDate?: string;
     limit?: number;
   }): Promise<GeneratedBill[]> {
+    const currentStoreId = this._currentUser?.storeId;
     try {
       const params = new URLSearchParams();
       if (filters?.query) params.append('query', filters.query);
@@ -813,13 +829,17 @@ class ProductStore {
 
       const serverList: GeneratedBill[] = data.map((t: any) => this.mapBill(t));
 
-      // Combine with any local non-synced transactions
+      // Combine only with pending unsynced transactions that belong to the current store
       const existingInvoices = new Set(serverList.map((s) => s.invoice_number));
-      const unsynced = this.localTransactions.filter((l) => !existingInvoices.has(l.invoice_number));
+      const unsynced = this.localTransactions.filter(
+        (l) => l.pending && (!currentStoreId || l.store_id === currentStoreId) && !existingInvoices.has(l.invoice_number)
+      );
       return [...unsynced, ...serverList];
     } catch (err) {
       console.warn('API transactions fetch failed, using local in-memory fallback:', err);
-      let results = [...this.localTransactions];
+      let results = this.localTransactions.filter(
+        (t) => !currentStoreId || t.store_id === currentStoreId
+      );
       if (filters?.paymentMethod && filters.paymentMethod !== 'ALL') {
         results = results.filter(
           (t) => t.payment_method.toUpperCase() === filters.paymentMethod?.toUpperCase()
@@ -848,7 +868,8 @@ class ProductStore {
     } catch (e) {
       console.warn('Fetch bill API error:', e);
     }
-    return this.localTransactions.find((t) => t.invoice_number === invoiceNumber) || null;
+    const currentStoreId = this._currentUser?.storeId;
+    return this.localTransactions.find((t) => (!currentStoreId || t.store_id === currentStoreId) && t.invoice_number === invoiceNumber) || null;
   }
 
   // Unified Checkout & Bill Generator API call
