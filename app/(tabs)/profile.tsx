@@ -73,7 +73,9 @@ export default function ProfileScreen() {
   // Modal Visibility States
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
   const [editProfileVisible, setEditProfileVisible] = useState(false);
-  const [shopInfoVisible, setShopInfoVisible] = useState(false);
+  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
+  const [gstModalVisible, setGstModalVisible] = useState(false);
+  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
   const [backupRestoreVisible, setBackupRestoreVisible] = useState(false);
   const [languageVisible, setLanguageVisible] = useState(false);
@@ -209,27 +211,47 @@ export default function ProfileScreen() {
     setEditProfileVisible(false);
   };
 
-  // Open Shop Details form
-  const openShopInfo = () => {
+  // Category modal handlers
+  const openCategoryModal = () => {
     setTempCategory(shopCategory);
-    setTempGst(gstNumber);
-    setTempAddress(businessAddress);
-    setShopInfoVisible(true);
+    setCategoryModalVisible(true);
   };
 
-  const saveShopInfo = async () => {
+  const saveCategory = async () => {
     if (!tempCategory.trim()) {
       Alert.alert('Required Field', 'Please select or enter a shop category.');
       return;
     }
-    
     await store.updateUserProfile({
       shopCategory: tempCategory.trim(),
+    });
+    setCategoryModalVisible(false);
+  };
+
+  // GST modal handlers
+  const openGstModal = () => {
+    setTempGst(gstNumber);
+    setGstModalVisible(true);
+  };
+
+  const saveGst = async () => {
+    await store.updateUserProfile({
       gstNumber: tempGst.trim(),
+    });
+    setGstModalVisible(false);
+  };
+
+  // Business address modal handlers
+  const openAddressModal = () => {
+    setTempAddress(businessAddress);
+    setAddressModalVisible(true);
+  };
+
+  const saveAddress = async () => {
+    await store.updateUserProfile({
       businessAddress: tempAddress.trim(),
     });
-    
-    setShopInfoVisible(false);
+    setAddressModalVisible(false);
   };
 
   // Backup catalog data to local JSON structure
@@ -326,7 +348,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* Category */}
-              <TouchableOpacity style={styles.rowItem} onPress={openShopInfo}>
+              <TouchableOpacity style={styles.rowItem} onPress={openCategoryModal}>
                 <View style={styles.rowLeft}>
                   <View style={styles.iconBackground}>
                     <MaterialIcons name="storefront" size={20} color="#434655" />
@@ -340,7 +362,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* GST Number */}
-              <TouchableOpacity style={styles.rowItem} onPress={openShopInfo}>
+              <TouchableOpacity style={styles.rowItem} onPress={openGstModal}>
                 <View style={styles.rowLeft}>
                   <View style={styles.iconBackground}>
                     <MaterialIcons name="receipt-long" size={20} color="#434655" />
@@ -382,7 +404,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* Address */}
-              <TouchableOpacity style={[styles.rowItem, styles.lastRowItem]} onPress={openShopInfo}>
+              <TouchableOpacity style={[styles.rowItem, styles.lastRowItem]} onPress={openAddressModal}>
                 <View style={styles.rowLeft}>
                   <View style={styles.iconBackground}>
                     <MaterialIcons name="location-on" size={20} color="#434655" />
@@ -390,7 +412,7 @@ export default function ProfileScreen() {
                   <View style={{ flex: 1 }}>
                     <Text style={styles.rowLabel}>Business Address</Text>
                     <Text style={styles.rowSubLabel} numberOfLines={1}>
-                      {businessAddress}
+                      {businessAddress || 'Not Provided'}
                     </Text>
                   </View>
                 </View>
@@ -774,18 +796,18 @@ export default function ProfileScreen() {
       </KeyboardAvoidingView>
     </Modal>
 
-      {/* 2. Edit Shop Details Modal */}
-      <Modal visible={shopInfoVisible} animationType="slide" transparent onRequestClose={() => setShopInfoVisible(false)}>
+      {/* 2. Edit Shop Category Modal */}
+      <Modal visible={categoryModalVisible} animationType="slide" transparent onRequestClose={() => setCategoryModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
             <View style={[styles.modalCard, { maxHeight: '90%' }]}>
-              <Text style={styles.modalTitle}>Shop Details</Text>
+              <Text style={styles.modalTitle}>Shop Category</Text>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-                <Text style={styles.fieldLabel}>Select Shop Category</Text>
+                <Text style={styles.fieldLabel}>Select Category</Text>
                 <View style={styles.categoryGrid}>
                   {SHOP_CATEGORIES.map((cat) => {
                     const isSelected =
@@ -839,36 +861,94 @@ export default function ProfileScreen() {
                   value={tempCategory}
                   onChangeText={setTempCategory}
                 />
-
-                <Text style={styles.fieldLabel}>GST Identification Number</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="Enter GSTIN (optional)"
-                  placeholderTextColor="#94a3b8"
-                  value={tempGst}
-                  onChangeText={setTempGst}
-                  autoCapitalize="characters"
-                />
-
-                <Text style={styles.fieldLabel}>Business Address</Text>
-                <TextInput
-                  style={[styles.inputField, { height: 72, textAlignVertical: 'top', paddingTop: 8 }]}
-                  placeholder="Enter business address"
-                  placeholderTextColor="#94a3b8"
-                  value={tempAddress}
-                  onChangeText={setTempAddress}
-                  multiline
-                />
               </ScrollView>
 
               <View style={styles.modalActions}>
                 <TouchableOpacity
                   style={styles.cancelBtn}
-                  onPress={() => setShopInfoVisible(false)}
+                  onPress={() => setCategoryModalVisible(false)}
                 >
                   <Text style={styles.cancelBtnText}>Cancel</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={saveShopInfo}>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveCategory}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 2b. Edit GST Number Modal */}
+      <Modal visible={gstModalVisible} animationType="slide" transparent onRequestClose={() => setGstModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>GST Number</Text>
+              <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' }}>
+                Enter GSTIN / Tax Identification number for printed bills and tax invoices
+              </Text>
+
+              <Text style={styles.fieldLabel}>GST Identification Number</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="e.g. 33AAAAA0000A1Z5"
+                placeholderTextColor="#94a3b8"
+                value={tempGst}
+                onChangeText={setTempGst}
+                autoCapitalize="characters"
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setGstModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveGst}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 2c. Edit Business Address Modal */}
+      <Modal visible={addressModalVisible} animationType="slide" transparent onRequestClose={() => setAddressModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Business Address</Text>
+              <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' }}>
+                Enter physical store address printed on receipts and invoices
+              </Text>
+
+              <Text style={styles.fieldLabel}>Address Details</Text>
+              <TextInput
+                style={[styles.inputField, { height: 90, textAlignVertical: 'top', paddingTop: 8 }]}
+                placeholder="Enter street, shop number, area, city, pincode"
+                placeholderTextColor="#94a3b8"
+                value={tempAddress}
+                onChangeText={setTempAddress}
+                multiline
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setAddressModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveAddress}>
                   <Text style={styles.saveBtnText}>Save</Text>
                 </TouchableOpacity>
               </View>
