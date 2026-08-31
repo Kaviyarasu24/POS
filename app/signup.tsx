@@ -21,18 +21,11 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { Colors } from '@/constants/theme';
-import { API_BASE_URL } from '@/constants/config';
+import { API_BASE_URL, SHOP_CATEGORIES } from '@/constants/config';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const categories = [
-  { label: 'Retail / Apparel', value: 'retail', icon: 'shopping-bag' },
-  { label: 'Food & Beverage', value: 'fnb', icon: 'restaurant' },
-  { label: 'Services', value: 'services', icon: 'build' },
-  { label: 'Grocery / Market', value: 'grocery', icon: 'local-grocery-store' },
-  { label: 'Electronics / Tech', value: 'electronics', icon: 'devices' },
-  { label: 'Other', value: 'other', icon: 'storefront' },
-];
+const categories = SHOP_CATEGORIES;
 
 const countryCodes = [
   { name: 'India', code: '+91', flag: '🇮🇳' },
