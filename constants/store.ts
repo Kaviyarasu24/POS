@@ -290,17 +290,18 @@ class ProductStore {
         storeId: data.store_id.toString(),
         userName: data.name,
         role: data.role,
-        shopName: data.shop_name || 'SmartPOS Store',
-        shopCategory: data.shop_category || 'Retail',
-        phone: data.phone || '',
+        shopName: data.shop_name || this._currentUser?.shopName || 'SmartPOS Store',
+        shopCategory: data.shop_category || this._currentUser?.shopCategory || 'Retail',
+        phone: data.phone || this._currentUser?.phone || '',
         email: data.email_or_username,
-        image: data.image || undefined,
-        gstNumber: data.gst_number || undefined,
-        businessAddress: data.business_address || undefined,
-        storePhone: data.store_phone || undefined,
+        image: data.image !== undefined ? data.image : this._currentUser?.image,
+        gstNumber: data.gst_number !== undefined ? data.gst_number : this._currentUser?.gstNumber,
+        businessAddress: data.business_address !== undefined ? data.business_address : this._currentUser?.businessAddress,
+        storePhone: data.store_phone !== undefined ? data.store_phone : this._currentUser?.storePhone,
+        token: this._currentUser.token,
       };
       this._currentUser = updatedUser;
-      this.persistSession(updatedUser);
+      await this.persistSession(updatedUser);
       this.notify();
     } catch (err) {
       console.warn('User profile sync failed:', err);
@@ -506,19 +507,28 @@ class ProductStore {
 
       if (userRes.ok) {
         const data = await userRes.json();
-        this.currentUser = {
+        const updatedUser: UserSession = {
+          ...this._currentUser,
           id: data.id.toString(),
           storeId: data.store_id.toString(),
           userName: data.name,
           role: data.role,
-          shopName: data.shop_name || 'SmartPOS Store',
-          shopCategory: data.shop_category || 'Retail',
-          phone: data.phone || '',
-          email: data.email_or_username,
-          image: data.image || undefined,
-          gstNumber: data.gst_number || undefined,
-          businessAddress: data.business_address || undefined,
-          storePhone: data.store_phone || undefined,
+          shopName: data.shop_name || updatedFields.shopName || this._currentUser.shopName || 'SmartPOS Store',
+          shopCategory: data.shop_category || updatedFields.shopCategory || this._currentUser.shopCategory || 'Retail',
+          phone: data.phone || updatedFields.phone || this._currentUser.phone || '',
+          email: data.email_or_username || updatedFields.email || this._currentUser.email,
+          image: data.image !== undefined ? data.image : (updatedFields.image !== undefined ? updatedFields.image : this._currentUser.image),
+          gstNumber: data.gst_number !== undefined ? data.gst_number : (updatedFields.gstNumber !== undefined ? updatedFields.gstNumber : this._currentUser.gstNumber),
+          businessAddress: data.business_address !== undefined ? data.business_address : (updatedFields.businessAddress !== undefined ? updatedFields.businessAddress : this._currentUser.businessAddress),
+          storePhone: data.store_phone !== undefined ? data.store_phone : (updatedFields.storePhone !== undefined ? updatedFields.storePhone : this._currentUser.storePhone),
+          token: this._currentUser.token,
+        };
+        this.currentUser = updatedUser;
+      } else {
+        this.currentUser = {
+          ...this._currentUser,
+          ...updatedFields,
+          token: this._currentUser.token,
         };
       }
     } catch (err) {
@@ -526,6 +536,7 @@ class ProductStore {
       this.currentUser = {
         ...this._currentUser,
         ...updatedFields,
+        token: this._currentUser.token,
       };
     }
   }

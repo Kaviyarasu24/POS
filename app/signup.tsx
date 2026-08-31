@@ -448,7 +448,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Shop Name *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter business / shop name"
                   placeholderTextColor="#94a3b8"
                   value={shopName}
@@ -480,7 +480,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>GST Number (Optional)</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter GSTIN (optional)"
                   placeholderTextColor="#94a3b8"
                   value={gstNumber}
@@ -494,7 +494,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Business Address (Optional)</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter street, area, city"
                   placeholderTextColor="#94a3b8"
                   value={businessAddress}
@@ -512,7 +512,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Store ID / Join Code *</Text>
               <View style={[styles.inputWrapper, verifiedStore && styles.inputWrapperSuccess]}>
                 <TextInput
-                  style={[styles.input, { letterSpacing: 1.5, fontWeight: '700' }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, { letterSpacing: 1.5, fontWeight: '700' }, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter store ID / join code"
                   placeholderTextColor="#94a3b8"
                   value={joinStoreId}
@@ -583,7 +583,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Full Name *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter your full name"
                   placeholderTextColor="#94a3b8"
                   value={fullName}
@@ -599,7 +599,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Email Address *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter your email address"
                   placeholderTextColor="#94a3b8"
                   value={email}
@@ -625,7 +625,7 @@ export default function SignupScreen() {
                 </TouchableOpacity>
                 <View style={styles.verticalDivider} />
                 <TextInput
-                  style={[styles.input, { paddingHorizontal: 12 }, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, { paddingHorizontal: 12 }, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Enter 10-digit mobile number"
                   placeholderTextColor="#94a3b8"
                   value={phone}
@@ -652,7 +652,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Password *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Create a secure password"
                   placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
@@ -677,7 +677,7 @@ export default function SignupScreen() {
               <Text style={styles.inputLabel}>Confirm Password *</Text>
               <View style={styles.inputWrapper}>
                 <TextInput
-                  style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                  style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                   placeholder="Confirm your password"
                   placeholderTextColor="#94a3b8"
                   secureTextEntry={!showPassword}
@@ -1317,6 +1317,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#16a34a',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  successTitle: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginTop: 8,
+    marginBottom: 8,
+    textAlign: 'center',
+  },
+  successSubtitle: {
+    fontSize: 14,
+    color: '#475569',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 4,
   },
   successMeta: {
     fontSize: 13,

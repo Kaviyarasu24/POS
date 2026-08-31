@@ -417,7 +417,7 @@ export default function LoginScreen() {
                     style={{ marginRight: 10 }}
                   />
                   <TextInput
-                    style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                    style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                     placeholder="Enter email or username"
                     placeholderTextColor={THEME.textSecondary}
                     value={email}
@@ -485,7 +485,7 @@ export default function LoginScreen() {
                     style={{ marginRight: 10 }}
                   />
                   <TextInput
-                    style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' }]}
+                    style={[styles.input, Platform.OS === 'web' && ({ outlineStyle: 'none' } as any)]}
                     placeholder="Enter your password"
                     placeholderTextColor={THEME.textSecondary}
                     secureTextEntry={!showPassword}

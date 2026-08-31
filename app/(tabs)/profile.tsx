@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { store } from '@/constants/store';
+import { SHOP_CATEGORIES, getShopCategoryLabel } from '@/constants/config';
 
 // Curated preset avatars for store profiles
 const PRESET_AVATARS = [
@@ -133,7 +134,6 @@ export default function ProfileScreen() {
     setAvatarImage(selectedAvatar);
     await store.updateUserProfile({ image: selectedAvatar || '' });
     setAvatarModalVisible(false);
-    Alert.alert('Avatar Updated', selectedAvatar ? 'Your new avatar is saved!' : 'Reset to default initials.');
   };
 
   // Custom photo upload from device (optional alternative)
@@ -207,7 +207,6 @@ export default function ProfileScreen() {
     });
     
     setEditProfileVisible(false);
-    Alert.alert('Success', 'Profile updated successfully.');
   };
 
   // Open Shop Details form
@@ -219,8 +218,8 @@ export default function ProfileScreen() {
   };
 
   const saveShopInfo = async () => {
-    if (!tempCategory.trim() || !tempAddress.trim()) {
-      alert('Category and Address are required.');
+    if (!tempCategory.trim()) {
+      Alert.alert('Required Field', 'Please select or enter a shop category.');
       return;
     }
     
@@ -231,7 +230,6 @@ export default function ProfileScreen() {
     });
     
     setShopInfoVisible(false);
-    alert('Shop details updated successfully.');
   };
 
   // Backup catalog data to local JSON structure
@@ -335,7 +333,7 @@ export default function ProfileScreen() {
                   </View>
                   <View>
                     <Text style={styles.rowLabel}>Shop Category</Text>
-                    <Text style={styles.rowSubLabel}>{shopCategory}</Text>
+                    <Text style={styles.rowSubLabel}>{getShopCategoryLabel(shopCategory)}</Text>
                   </View>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
@@ -777,59 +775,107 @@ export default function ProfileScreen() {
     </Modal>
 
       {/* 2. Edit Shop Details Modal */}
-      <Modal visible={shopInfoVisible} animationType="slide" transparent>
+      <Modal visible={shopInfoVisible} animationType="slide" transparent onRequestClose={() => setShopInfoVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Shop Details</Text>
+            <View style={[styles.modalCard, { maxHeight: '90%' }]}>
+              <Text style={styles.modalTitle}>Shop Details</Text>
 
-            <Text style={styles.fieldLabel}>Shop Category</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter shop category"
-              placeholderTextColor="#94a3b8"
-              value={tempCategory}
-              onChangeText={setTempCategory}
-            />
+              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
+                <Text style={styles.fieldLabel}>Select Shop Category</Text>
+                <View style={styles.categoryGrid}>
+                  {SHOP_CATEGORIES.map((cat) => {
+                    const isSelected =
+                      tempCategory.trim().toLowerCase() === cat.label.toLowerCase() ||
+                      tempCategory.trim().toLowerCase() === cat.value.toLowerCase() ||
+                      tempCategory.trim().toLowerCase() === cat.code.toLowerCase();
+                    return (
+                      <TouchableOpacity
+                        key={cat.code}
+                        style={[
+                          styles.categoryCard,
+                          isSelected && styles.categoryCardActive,
+                        ]}
+                        onPress={() => setTempCategory(cat.label)}
+                        activeOpacity={0.7}
+                      >
+                        <View
+                          style={[
+                            styles.categoryIconCircle,
+                            isSelected && styles.categoryIconCircleActive,
+                          ]}
+                        >
+                          <MaterialIcons
+                            name={cat.icon as any}
+                            size={18}
+                            color={isSelected ? '#004ac6' : '#64748b'}
+                          />
+                        </View>
+                        <Text
+                          style={[
+                            styles.categoryCardText,
+                            isSelected && styles.categoryCardTextActive,
+                          ]}
+                          numberOfLines={1}
+                        >
+                          {cat.label}
+                        </Text>
+                        {isSelected && (
+                          <MaterialIcons name="check-circle" size={16} color="#004ac6" />
+                        )}
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
 
-            <Text style={styles.fieldLabel}>GST Identification Number</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter GSTIN (optional)"
-              placeholderTextColor="#94a3b8"
-              value={tempGst}
-              onChangeText={setTempGst}
-              autoCapitalize="characters"
-            />
+                <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Category Name</Text>
+                <TextInput
+                  style={styles.inputField}
+                  placeholder="Enter or edit shop category"
+                  placeholderTextColor="#94a3b8"
+                  value={tempCategory}
+                  onChangeText={setTempCategory}
+                />
 
-            <Text style={styles.fieldLabel}>Business Address</Text>
-            <TextInput
-              style={[styles.inputField, { height: 80, textAlignVertical: 'top', paddingTop: 8 }]}
-              placeholder="Enter business address"
-              placeholderTextColor="#94a3b8"
-              value={tempAddress}
-              onChangeText={setTempAddress}
-              multiline
-            />
+                <Text style={styles.fieldLabel}>GST Identification Number</Text>
+                <TextInput
+                  style={styles.inputField}
+                  placeholder="Enter GSTIN (optional)"
+                  placeholderTextColor="#94a3b8"
+                  value={tempGst}
+                  onChangeText={setTempGst}
+                  autoCapitalize="characters"
+                />
 
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setShopInfoVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={saveShopInfo}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
+                <Text style={styles.fieldLabel}>Business Address</Text>
+                <TextInput
+                  style={[styles.inputField, { height: 72, textAlignVertical: 'top', paddingTop: 8 }]}
+                  placeholder="Enter business address"
+                  placeholderTextColor="#94a3b8"
+                  value={tempAddress}
+                  onChangeText={setTempAddress}
+                  multiline
+                />
+              </ScrollView>
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setShopInfoVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveShopInfo}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* 3. Printer Settings Modal */}
       <Modal visible={printerSettingsVisible} animationType="slide" transparent>
@@ -1473,4 +1519,50 @@ const styles = StyleSheet.create({
     color: '#004ac6',
     fontWeight: '600',
   },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'space-between',
+    rowGap: 8,
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  categoryCard: {
+    width: '48.5%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 8,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#faf8ff',
+    gap: 6,
+  },
+  categoryCardActive: {
+    borderColor: '#004ac6',
+    backgroundColor: '#eff6ff',
+  },
+  categoryIconCircle: {
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryIconCircleActive: {
+    backgroundColor: '#dbeafe',
+  },
+  categoryCardText: {
+    flex: 1,
+    fontSize: 11.5,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  categoryCardTextActive: {
+    color: '#004ac6',
+    fontWeight: '700',
+  },
 });
+
