@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -11,12 +11,15 @@ import {
   TextInput,
   Alert,
   KeyboardAvoidingView,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import Svg, { Defs, LinearGradient, Stop, Rect, Circle, Path } from 'react-native-svg';
 import { store } from '@/constants/store';
 import { SHOP_CATEGORIES, getShopCategoryLabel } from '@/constants/config';
 
@@ -38,6 +41,26 @@ const PRESET_AVATARS = [
 
 export default function ProfileScreen() {
   const router = useRouter();
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const translateYAnim = useRef(new Animated.Value(18)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 450,
+        useNativeDriver: true,
+      }),
+      Animated.timing(translateYAnim, {
+        toValue: 0,
+        duration: 450,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [fadeAnim, translateYAnim]);
 
   // Load session or defaults
   const userSession = store.currentUser;
@@ -119,9 +142,9 @@ export default function ProfileScreen() {
         setBusinessAddress(store.currentUser.businessAddress || '');
       }
     };
-    
+
     updateFromStore();
-    
+
     const unsubscribe = store.subscribe(() => {
       updateFromStore();
     });
@@ -221,7 +244,7 @@ export default function ProfileScreen() {
       phone: tempPhone.trim(),
       email: tempEmail.trim().toLowerCase(),
     });
-    
+
     setEditProfileVisible(false);
     showToast('✓ Profile details updated');
   };
@@ -280,25 +303,41 @@ export default function ProfileScreen() {
         products: store.getProducts(),
         shopName,
       };
-      // Simulated export
       console.log('Database backup content:', JSON.stringify(backupData, null, 2));
       const timeStr = new Date().toLocaleString();
       setLastBackup(timeStr);
-      alert(`Database Backup Successful!\nTimestamp: ${timeStr}\nRecords Exported: ${backupData.products.length} products`);
+      Alert.alert(
+        'Backup Successful',
+        `Database backup created!\nTimestamp: ${timeStr}\nRecords Exported: ${backupData.products.length} products`
+      );
     } catch {
-      alert('Backup failed.');
+      Alert.alert('Backup Failed', 'Could not compile database backup.');
     }
   };
 
   const executeRestore = () => {
-    alert('Database Restore Successful!\nAll product quantities and catalog schemas are synchronized.');
+    Alert.alert('Restore Successful', 'Product quantities and catalog schemas are synchronized with the server.');
   };
 
   const handleLogout = async () => {
-    // Clears the persisted session (JWT + user) before returning to login.
-    await store.logout();
-    router.replace('/login');
+    Alert.alert(
+      'Confirm Logout',
+      'Are you sure you want to log out from this device?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Logout',
+          style: 'destructive',
+          onPress: async () => {
+            await store.logout();
+            router.replace('/login');
+          },
+        },
+      ]
+    );
   };
+
+  const roleName = userSession?.role?.toLowerCase();
 
   return (
     <SafeAreaView style={styles.outerContainer} edges={['top']}>
@@ -310,9 +349,21 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Top App Bar */}
+      {/* Top App Bar with Clean Modern Glass Border */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>SmartPOS</Text>
+        <View style={styles.headerTitleGroup}>
+          <Text style={styles.headerBrand}>SmartPOS</Text>
+          <View style={styles.headerBadge}>
+            <Text style={styles.headerBadgeText}>Settings</Text>
+          </View>
+        </View>
+        <TouchableOpacity
+          style={styles.headerIconBtn}
+          onPress={() => router.push('/transactions')}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="receipt-long" size={22} color="#004ac6" />
+        </TouchableOpacity>
       </View>
 
       {/* Main Content Scroll List */}
@@ -320,353 +371,454 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.scrollContainer}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.mainContainer}>
-          {/* Profile Header Card with Modern Gradient Backdrop */}
-          <View style={styles.profileHeaderCard}>
-            <View style={styles.profileCardBanner} />
-
-            <TouchableOpacity
-              style={styles.avatarContainer}
-              onPress={openAvatarPicker}
-              activeOpacity={0.8}
-            >
-              {avatarImage ? (
-                <Image
-                  style={styles.avatarImage}
-                  source={avatarImage}
-                  contentFit="cover"
+        <Animated.View
+          style={[
+            styles.mainContainer,
+            {
+              opacity: fadeAnim,
+              transform: [{ translateY: translateYAnim }],
+            },
+          ]}
+        >
+          {/* Profile Hero Card with Lush Curved SVG Mesh Gradient */}
+          <View style={styles.profileHeroCard}>
+            <View style={styles.profileBannerSvgWrapper}>
+              <Svg width="100%" height={110} viewBox="0 0 400 110" preserveAspectRatio="none">
+                <Defs>
+                  <LinearGradient id="heroGradient" x1="0" y1="0" x2="1" y2="1">
+                    <Stop offset="0" stopColor="#003ea8" stopOpacity="1" />
+                    <Stop offset="0.5" stopColor="#004ac6" stopOpacity="1" />
+                    <Stop offset="1" stopColor="#2563eb" stopOpacity="1" />
+                  </LinearGradient>
+                  <LinearGradient id="accentGlow" x1="0" y1="0" x2="1" y2="0">
+                    <Stop offset="0" stopColor="#60a5fa" stopOpacity="0.4" />
+                    <Stop offset="1" stopColor="#38bdf8" stopOpacity="0" />
+                  </LinearGradient>
+                </Defs>
+                <Rect x="0" y="0" width="400" height="110" fill="url(#heroGradient)" />
+                <Circle cx="360" cy="20" r="70" fill="url(#accentGlow)" />
+                <Circle cx="40" cy="90" r="50" fill="rgba(255,255,255,0.06)" />
+                <Path
+                  d="M0 80 Q 200 120 400 80 L400 110 L0 110 Z"
+                  fill="#ffffff"
                 />
-              ) : (
-                <View style={styles.defaultAvatarContainer}>
-                  <Text style={styles.defaultAvatarText}>
-                    {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
-                  </Text>
-                </View>
-              )}
-              <View style={styles.editAvatarBtn}>
-                <MaterialIcons name="palette" size={14} color="#ffffff" />
+              </Svg>
+            </View>
+
+            {/* Avatar with Halo Ring & Edit Badge */}
+            <TouchableOpacity
+              style={styles.avatarWrapper}
+              onPress={openAvatarPicker}
+              activeOpacity={0.85}
+            >
+              <View style={styles.avatarHaloRing}>
+                {avatarImage ? (
+                  <Image
+                    style={styles.avatarImage}
+                    source={avatarImage}
+                    contentFit="cover"
+                  />
+                ) : (
+                  <View style={styles.defaultAvatarContainer}>
+                    <Text style={styles.defaultAvatarText}>
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                    </Text>
+                  </View>
+                )}
+              </View>
+              <View style={styles.editAvatarBadge}>
+                <MaterialIcons name="photo-camera" size={13} color="#ffffff" />
               </View>
             </TouchableOpacity>
 
-            <Text style={styles.shopNameText}>{shopName}</Text>
-            <Text style={styles.ownerNameText}>{ownerName}</Text>
+            {/* Store & Owner Names */}
+            <Text style={styles.heroShopName} numberOfLines={1}>{shopName}</Text>
+            <View style={styles.heroOwnerRow}>
+              <MaterialIcons name="person" size={15} color="#64748b" />
+              <Text style={styles.heroOwnerName}>{ownerName}</Text>
+            </View>
 
-            {/* Store Role & Live Status Pill Badges */}
-            <View style={styles.roleStatusRow}>
-              <View style={styles.roleBadge}>
-                <Text style={styles.roleBadgeText}>
-                  {userSession?.role?.toLowerCase() === 'manager'
+            {/* Role & Live Status Pill Badges */}
+            <View style={styles.heroBadgesRow}>
+              <View
+                style={[
+                  styles.rolePill,
+                  roleName === 'manager'
+                    ? styles.rolePillManager
+                    : roleName === 'cashier'
+                    ? styles.rolePillCashier
+                    : styles.rolePillOwner,
+                ]}
+              >
+                <Text
+                  style={[
+                    styles.rolePillText,
+                    roleName === 'manager'
+                      ? styles.rolePillTextManager
+                      : roleName === 'cashier'
+                      ? styles.rolePillTextCashier
+                      : styles.rolePillTextOwner,
+                  ]}
+                >
+                  {roleName === 'manager'
                     ? '🛡️ Store Manager'
-                    : userSession?.role?.toLowerCase() === 'cashier'
+                    : roleName === 'cashier'
                     ? '⚡ Cashier'
                     : '👑 Store Owner'}
                 </Text>
               </View>
-              <View style={styles.onlineBadge}>
-                <View style={styles.onlineDot} />
-                <Text style={styles.onlineBadgeText}>Online</Text>
+
+              <View style={styles.liveStatusPill}>
+                <View style={styles.liveStatusPulseDot} />
+                <Text style={styles.liveStatusPillText}>Terminal Active</Text>
               </View>
             </View>
 
-            <TouchableOpacity style={styles.editProfileBtn} onPress={openEditProfile}>
-              <MaterialIcons name="edit" size={16} color="#004ac6" />
-              <Text style={styles.editProfileBtnText}>Edit Profile</Text>
-            </TouchableOpacity>
+            {/* Hero Action Buttons */}
+            <View style={styles.heroActionsRow}>
+              <TouchableOpacity
+                style={styles.heroPrimaryBtn}
+                onPress={openEditProfile}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="edit" size={15} color="#ffffff" />
+                <Text style={styles.heroPrimaryBtnText}>Edit Profile</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.heroSecondaryBtn, copiedStoreId && styles.heroSecondaryBtnCopied]}
+                onPress={handleCopyStoreId}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons
+                  name={copiedStoreId ? 'check' : 'content-copy'}
+                  size={15}
+                  color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                />
+                <Text
+                  style={[
+                    styles.heroSecondaryBtnText,
+                    copiedStoreId && { color: '#16a34a' },
+                  ]}
+                >
+                  {copiedStoreId ? 'Copied' : storeId || 'Join Code'}
+                </Text>
+              </TouchableOpacity>
+            </View>
           </View>
 
-          {/* Shop Information Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Shop Information</Text>
-            <View style={styles.infoCard}>
+          {/* Section 1: Shop Information */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <MaterialIcons name="storefront" size={18} color="#004ac6" />
+              <Text style={styles.sectionTitle}>Shop Information</Text>
+            </View>
+            <View style={styles.cardContainer}>
               {/* Store ID / Join Code */}
-              <TouchableOpacity style={styles.rowItem} onPress={handleCopyStoreId}>
+              <TouchableOpacity style={styles.cardRow} onPress={handleCopyStoreId} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
-                  <View style={[styles.iconBackground, copiedStoreId && { backgroundColor: '#dcfce7' }]}>
+                  <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
                     <MaterialIcons
                       name={copiedStoreId ? 'check' : 'vpn-key'}
                       size={20}
                       color={copiedStoreId ? '#16a34a' : '#004ac6'}
                     />
                   </View>
-                  <View>
+                  <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
-                    <Text style={[styles.rowSubLabel, { fontWeight: '600', color: copiedStoreId ? '#16a34a' : '#004ac6' }]}>
+                    <Text
+                      style={[
+                        styles.rowSubLabel,
+                        { fontWeight: '700', color: copiedStoreId ? '#16a34a' : '#004ac6' },
+                      ]}
+                    >
                       {copiedStoreId ? '✓ Copied to clipboard!' : `${storeId || '—'} • Tap to copy`}
                     </Text>
                   </View>
                 </View>
-                <MaterialIcons
-                  name={copiedStoreId ? 'check-circle' : 'content-copy'}
-                  size={18}
-                  color={copiedStoreId ? '#16a34a' : '#004ac6'}
-                />
+                <View style={styles.rowBadgeChip}>
+                  <MaterialIcons
+                    name={copiedStoreId ? 'check-circle' : 'content-copy'}
+                    size={16}
+                    color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                  />
+                  <Text style={[styles.rowBadgeChipText, copiedStoreId && { color: '#16a34a' }]}>
+                    {copiedStoreId ? 'Copied' : 'Copy'}
+                  </Text>
+                </View>
               </TouchableOpacity>
 
               {/* Category */}
-              <TouchableOpacity style={styles.rowItem} onPress={openCategoryModal}>
+              <TouchableOpacity style={styles.cardRow} onPress={openCategoryModal} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="storefront" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#f3e8ff' }]}>
+                    <MaterialIcons name="category" size={20} color="#7c3aed" />
                   </View>
-                  <View>
+                  <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Shop Category</Text>
                     <Text style={styles.rowSubLabel}>{getShopCategoryLabel(shopCategory)}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* GST Number */}
-              <TouchableOpacity style={styles.rowItem} onPress={openGstModal}>
+              <TouchableOpacity style={styles.cardRow} onPress={openGstModal} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="receipt-long" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#e0e7ff' }]}>
+                    <MaterialIcons name="receipt-long" size={20} color="#4f46e5" />
                   </View>
-                  <View>
-                    <Text style={styles.rowLabel}>GST Number</Text>
-                    <Text style={styles.rowSubLabel}>{gstNumber || 'Not Provided'}</Text>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>GST Number (GSTIN)</Text>
+                    <Text style={styles.rowSubLabel}>{gstNumber || 'Not Provided (Tap to add)'}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Phone */}
-              <TouchableOpacity style={styles.rowItem} onPress={openEditProfile}>
+              <TouchableOpacity style={styles.cardRow} onPress={openEditProfile} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="phone" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#ccfbf1' }]}>
+                    <MaterialIcons name="phone" size={20} color="#0d9488" />
                   </View>
-                  <View>
+                  <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Registered Phone</Text>
-                    <Text style={styles.rowSubLabel}>{phone}</Text>
+                    <Text style={styles.rowSubLabel}>{phone || 'Not Provided'}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Email */}
-              <TouchableOpacity style={styles.rowItem} onPress={openEditProfile}>
+              <TouchableOpacity style={styles.cardRow} onPress={openEditProfile} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="email" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
+                    <MaterialIcons name="email" size={20} color="#0284c7" />
                   </View>
-                  <View>
+                  <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Contact Email</Text>
-                    <Text style={styles.rowSubLabel}>{email}</Text>
+                    <Text style={styles.rowSubLabel}>{email || 'Not Provided'}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Address */}
-              <TouchableOpacity style={[styles.rowItem, styles.lastRowItem]} onPress={openAddressModal}>
+              <TouchableOpacity
+                style={[styles.cardRow, styles.lastCardRow]}
+                onPress={openAddressModal}
+                activeOpacity={0.7}
+              >
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="location-on" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#ffe4e6' }]}>
+                    <MaterialIcons name="location-on" size={20} color="#e11d48" />
                   </View>
-                  <View style={{ flex: 1 }}>
+                  <View style={[styles.rowTextCol, { flex: 1 }]}>
                     <Text style={styles.rowLabel}>Business Address</Text>
                     <Text style={styles.rowSubLabel} numberOfLines={1}>
-                      {businessAddress || 'Not Provided'}
+                      {businessAddress || 'Not Provided (Tap to set)'}
                     </Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Business Management & Khata Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Business & Khata</Text>
-            <View style={styles.infoCard}>
+          {/* Section 2: Business & Khata Ledger */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <MaterialIcons name="account-balance-wallet" size={18} color="#004ac6" />
+              <Text style={styles.sectionTitle}>Business Management & Khata</Text>
+            </View>
+            <View style={styles.cardContainer}>
               {/* Customers & Credit Ledger */}
               <TouchableOpacity
-                style={styles.rowItem}
+                style={styles.cardRow}
                 onPress={() => router.push('/customers')}
+                activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
-                  <View style={[styles.iconBackground, { backgroundColor: '#eff6ff' }]}>
-                    <MaterialIcons name="people" size={20} color="#004ac6" />
+                  <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                    <MaterialIcons name="people-alt" size={20} color="#16a34a" />
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
-                    <Text style={styles.rowLabel}>Customers & Khata Ledger</Text>
-                    <Text style={styles.rowSubLabel}>View customer balances, credit debts & record payments</Text>
+                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
+                    <Text style={styles.rowLabel}>Customer Khata (Credit Book)</Text>
+                    <Text style={styles.rowSubLabel}>Manage balances, credit debts & record repayments</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Reports & Analytics */}
               <TouchableOpacity
-                style={styles.rowItem}
+                style={styles.cardRow}
                 onPress={() => router.push('/reports')}
+                activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
-                  <View style={[styles.iconBackground, { backgroundColor: '#f0fdf4' }]}>
-                    <MaterialIcons name="assessment" size={20} color="#16a34a" />
+                  <View style={[styles.iconBox, { backgroundColor: '#dbeafe' }]}>
+                    <MaterialIcons name="analytics" size={20} color="#2563eb" />
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
                     <Text style={styles.rowLabel}>Reports & GST Breakdown</Text>
-                    <Text style={styles.rowSubLabel}>Sales summaries, tax reports & PDF exports</Text>
+                    <Text style={styles.rowSubLabel}>Daily sales summary, tax reports & PDF exports</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Transactions History */}
               <TouchableOpacity
-                style={[styles.rowItem, styles.lastRowItem]}
+                style={[styles.cardRow, styles.lastCardRow]}
                 onPress={() => router.push('/transactions')}
+                activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
-                  <View style={[styles.iconBackground, { backgroundColor: '#fef3c7' }]}>
-                    <MaterialIcons name="receipt-long" size={20} color="#d97706" />
+                  <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
+                    <MaterialIcons name="receipt" size={20} color="#d97706" />
                   </View>
-                  <View style={{ flex: 1, paddingRight: 8 }}>
+                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
                     <Text style={styles.rowLabel}>Transaction Invoices</Text>
-                    <Text style={styles.rowSubLabel}>Search historical bills & reprint receipts</Text>
+                    <Text style={styles.rowSubLabel}>Search historical bills & reprint thermal receipts</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* App Settings Section */}
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>App Settings</Text>
-            <View style={styles.infoCard}>
-              {/* Dark Mode */}
-              <View style={styles.rowItem}>
+          {/* Section 3: App & Hardware Settings */}
+          <View style={styles.sectionContainer}>
+            <View style={styles.sectionHeaderRow}>
+              <MaterialIcons name="tune" size={18} color="#004ac6" />
+              <Text style={styles.sectionTitle}>App & Hardware Preferences</Text>
+            </View>
+            <View style={styles.cardContainer}>
+              {/* Printer Settings */}
+              <TouchableOpacity
+                style={styles.cardRow}
+                onPress={() => setPrinterSettingsVisible(true)}
+                activeOpacity={0.7}
+              >
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="dark-mode" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#ede9fe' }]}>
+                    <MaterialIcons name="print" size={20} color="#6366f1" />
                   </View>
-                  <Text style={styles.rowLabel}>Dark Mode</Text>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>Thermal Printer</Text>
+                    <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              {/* Dark Mode */}
+              <View style={styles.cardRow}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#f1f5f9' }]}>
+                    <MaterialIcons name="dark-mode" size={20} color="#334155" />
+                  </View>
+                  <Text style={styles.rowLabel}>Dark Mode (Auto / Light)</Text>
                 </View>
                 <Switch
                   value={darkMode}
                   onValueChange={setDarkMode}
-                  trackColor={{ false: '#eaedff', true: '#b4c5ff' }}
-                  thumbColor={darkMode ? '#004ac6' : '#737686'}
+                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                  thumbColor={darkMode ? '#004ac6' : '#94a3b8'}
                 />
               </View>
 
               {/* Push Notifications */}
-              <View style={styles.rowItem}>
+              <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="notifications-active" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
+                    <MaterialIcons name="notifications-active" size={20} color="#ef4444" />
                   </View>
-                  <Text style={styles.rowLabel}>Push Notifications</Text>
+                  <Text style={styles.rowLabel}>Low Stock Alerts</Text>
                 </View>
                 <Switch
                   value={pushNotifications}
                   onValueChange={setPushNotifications}
-                  trackColor={{ false: '#eaedff', true: '#b4c5ff' }}
-                  thumbColor={pushNotifications ? '#004ac6' : '#737686'}
+                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                  thumbColor={pushNotifications ? '#004ac6' : '#94a3b8'}
                 />
               </View>
 
               {/* Biometric Lock */}
-              <View style={styles.rowItem}>
+              <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="fingerprint" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
+                    <MaterialIcons name="fingerprint" size={20} color="#16a34a" />
                   </View>
-                  <Text style={styles.rowLabel}>Biometric Lock</Text>
+                  <Text style={styles.rowLabel}>Biometric POS Lock</Text>
                 </View>
                 <Switch
                   value={biometricLock}
                   onValueChange={setBiometricLock}
-                  trackColor={{ false: '#eaedff', true: '#b4c5ff' }}
-                  thumbColor={biometricLock ? '#004ac6' : '#737686'}
+                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                  thumbColor={biometricLock ? '#004ac6' : '#94a3b8'}
                 />
               </View>
 
-              {/* Transaction History & Receipts */}
-              <TouchableOpacity
-                style={styles.rowItem}
-                onPress={() => router.push('/transactions' as any)}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="receipt-long" size={20} color="#004ac6" />
-                  </View>
-                  <View>
-                    <Text style={styles.rowLabel}>Transaction History</Text>
-                    <Text style={styles.rowSubLabel}>View, search & reprint bills</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#004ac6" />
-              </TouchableOpacity>
-
-              {/* Printer Settings */}
-              <TouchableOpacity
-                style={styles.rowItem}
-                onPress={() => setPrinterSettingsVisible(true)}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="print" size={20} color="#434655" />
-                  </View>
-                  <View>
-                    <Text style={styles.rowLabel}>Printer Settings</Text>
-                    <Text style={styles.rowSubLabel}>{printerType} • {paperSize}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
-              </TouchableOpacity>
-
               {/* Backup & Restore */}
               <TouchableOpacity
-                style={styles.rowItem}
+                style={styles.cardRow}
                 onPress={() => setBackupRestoreVisible(true)}
+                activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="cloud-sync" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#cffafe' }]}>
+                    <MaterialIcons name="cloud-sync" size={20} color="#0891b2" />
                   </View>
-                  <View>
+                  <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Backup & Restore</Text>
-                    <Text style={styles.rowSubLabel}>Last: {lastBackup}</Text>
+                    <Text style={styles.rowSubLabel}>Last archive: {lastBackup}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
               {/* Language */}
               <TouchableOpacity
-                style={[styles.rowItem, styles.lastRowItem]}
+                style={[styles.cardRow, styles.lastCardRow]}
                 onPress={() => setLanguageVisible(true)}
+                activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="language" size={20} color="#434655" />
+                  <View style={[styles.iconBox, { backgroundColor: '#f8fafc' }]}>
+                    <MaterialIcons name="language" size={20} color="#475569" />
                   </View>
-                  <View>
-                    <Text style={styles.rowLabel}>Language</Text>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>System Language</Text>
                     <Text style={styles.rowSubLabel}>{language}</Text>
                   </View>
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#c3c6d7" />
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
             </View>
           </View>
 
-          {/* Logout Button */}
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#ba1a1a" />
-            <Text style={styles.logoutBtnText}>Logout</Text>
+          {/* Logout Action Button */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+            <MaterialIcons name="logout" size={18} color="#dc2626" />
+            <Text style={styles.logoutBtnText}>Sign Out from Store</Text>
           </TouchableOpacity>
-        </View>
+
+          <Text style={styles.footerVersionText}>SmartPOS Retail v2.0 • Secured Cloud</Text>
+        </Animated.View>
       </ScrollView>
 
-      {/* --- MODAL DIALOGS --- */}
+      {/* --- MODALS --- */}
 
       {/* 0. Avatar Selection Modal */}
-      <Modal visible={avatarModalVisible} animationType="slide" transparent onRequestClose={() => setAvatarModalVisible(false)}>
+      <Modal
+        visible={avatarModalVisible}
+        animationType="fade"
+        transparent
+        onRequestClose={() => setAvatarModalVisible(false)}
+      >
         <View style={styles.modalOverlay}>
           <View style={[styles.modalCard, { maxWidth: 440, maxHeight: '90%' }]}>
             <Text style={styles.modalTitle}>Choose Profile Avatar</Text>
@@ -691,9 +843,9 @@ export default function ProfileScreen() {
             </View>
 
             {/* Scrollable Grid of Avatars */}
-            <ScrollView style={{ maxHeight: 280, marginVertical: 8 }} showsVerticalScrollIndicator={false}>
-              {/* Default Badge Option */}
+            <ScrollView style={{ maxHeight: 270, marginVertical: 6 }} showsVerticalScrollIndicator={false}>
               <View style={styles.avatarGrid}>
+                {/* Default Initials Option */}
                 <TouchableOpacity
                   style={[
                     styles.avatarGridItem,
@@ -709,7 +861,7 @@ export default function ProfileScreen() {
                   <Text style={styles.avatarGridLabel} numberOfLines={1}>Default</Text>
                   {selectedAvatar === null && (
                     <View style={styles.checkBadge}>
-                      <MaterialIcons name="check" size={12} color="#ffffff" />
+                      <MaterialIcons name="check" size={11} color="#ffffff" />
                     </View>
                   )}
                 </TouchableOpacity>
@@ -732,7 +884,7 @@ export default function ProfileScreen() {
                       <Text style={styles.avatarGridLabel} numberOfLines={1}>{av.name.split(' ')[0]}</Text>
                       {isSelected && (
                         <View style={styles.checkBadge}>
-                          <MaterialIcons name="check" size={12} color="#ffffff" />
+                          <MaterialIcons name="check" size={11} color="#ffffff" />
                         </View>
                       )}
                     </TouchableOpacity>
@@ -742,8 +894,8 @@ export default function ProfileScreen() {
 
               {/* Custom Image Upload Option */}
               <TouchableOpacity style={styles.customUploadBtn} onPress={handlePickCustomImage}>
-                <MaterialIcons name="add-photo-alternate" size={20} color="#004ac6" />
-                <Text style={styles.customUploadText}>Or Upload Custom Photo from Device</Text>
+                <MaterialIcons name="add-photo-alternate" size={18} color="#004ac6" />
+                <Text style={styles.customUploadText}>Or Upload Photo from Device</Text>
               </TouchableOpacity>
             </ScrollView>
 
@@ -763,96 +915,96 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 1. Edit Profile Modal */}
-      <Modal visible={editProfileVisible} animationType="slide" transparent>
+      <Modal visible={editProfileVisible} animationType="fade" transparent onRequestClose={() => setEditProfileVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
-            
-            {/* Quick Avatar selection row in Edit Form */}
-            <TouchableOpacity
-              style={styles.formAvatarRow}
-              onPress={() => {
-                setEditProfileVisible(false);
-                setTimeout(() => openAvatarPicker(), 300);
-              }}
-            >
-              {avatarImage ? (
-                <Image style={styles.formAvatarThumb} source={avatarImage} contentFit="cover" />
-              ) : (
-                <View style={styles.formAvatarPlaceholder}>
-                  <Text style={styles.formAvatarPlaceholderText}>
-                    {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
-                  </Text>
-                </View>
-              )}
-              <View style={{ flex: 1 }}>
-                <Text style={styles.formAvatarLabel}>Store Avatar</Text>
-                <Text style={styles.formAvatarAction}>Tap to choose avatar</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={20} color="#737686" />
-            </TouchableOpacity>
+              <Text style={styles.modalTitle}>Edit Profile</Text>
 
-            <Text style={styles.fieldLabel}>Shop Name</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter shop name"
-              placeholderTextColor="#94a3b8"
-              value={tempShopName}
-              onChangeText={setTempShopName}
-            />
-
-            <Text style={styles.fieldLabel}>Owner Full Name</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter owner full name"
-              placeholderTextColor="#94a3b8"
-              value={tempOwnerName}
-              onChangeText={setTempOwnerName}
-            />
-
-            <Text style={styles.fieldLabel}>Phone Number</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter contact phone number"
-              placeholderTextColor="#94a3b8"
-              value={tempPhone}
-              onChangeText={setTempPhone}
-              keyboardType="phone-pad"
-            />
-
-            <Text style={styles.fieldLabel}>Email Address</Text>
-            <TextInput
-              style={styles.inputField}
-              placeholder="Enter email address"
-              placeholderTextColor="#94a3b8"
-              value={tempEmail}
-              onChangeText={setTempEmail}
-              keyboardType="email-address"
-              autoCapitalize="none"
-            />
-
-            <View style={styles.modalActions}>
+              {/* Quick Avatar selection row in Edit Form */}
               <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setEditProfileVisible(false)}
+                style={styles.formAvatarRow}
+                onPress={() => {
+                  setEditProfileVisible(false);
+                  setTimeout(() => openAvatarPicker(), 300);
+                }}
               >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                {avatarImage ? (
+                  <Image style={styles.formAvatarThumb} source={avatarImage} contentFit="cover" />
+                ) : (
+                  <View style={styles.formAvatarPlaceholder}>
+                    <Text style={styles.formAvatarPlaceholderText}>
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                    </Text>
+                  </View>
+                )}
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.formAvatarLabel}>Store Avatar</Text>
+                  <Text style={styles.formAvatarAction}>Tap to choose avatar</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#737686" />
               </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
-                <Text style={styles.saveBtnText}>Save</Text>
-              </TouchableOpacity>
+
+              <Text style={styles.fieldLabel}>Shop Name</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="Enter shop name"
+                placeholderTextColor="#94a3b8"
+                value={tempShopName}
+                onChangeText={setTempShopName}
+              />
+
+              <Text style={styles.fieldLabel}>Owner Full Name</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="Enter owner full name"
+                placeholderTextColor="#94a3b8"
+                value={tempOwnerName}
+                onChangeText={setTempOwnerName}
+              />
+
+              <Text style={styles.fieldLabel}>Phone Number</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="Enter contact phone number"
+                placeholderTextColor="#94a3b8"
+                value={tempPhone}
+                onChangeText={setTempPhone}
+                keyboardType="phone-pad"
+              />
+
+              <Text style={styles.fieldLabel}>Email Address</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="Enter email address"
+                placeholderTextColor="#94a3b8"
+                value={tempEmail}
+                onChangeText={setTempEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setEditProfileVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
+                  <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
-        </View>
-      </KeyboardAvoidingView>
-    </Modal>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* 2. Edit Shop Category Modal */}
-      <Modal visible={categoryModalVisible} animationType="slide" transparent onRequestClose={() => setCategoryModalVisible(false)}>
+      <Modal visible={categoryModalVisible} animationType="fade" transparent onRequestClose={() => setCategoryModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -862,7 +1014,7 @@ export default function ProfileScreen() {
               <Text style={styles.modalTitle}>Shop Category</Text>
 
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-                <Text style={styles.fieldLabel}>Select Category</Text>
+                <Text style={styles.fieldLabel}>Select Preset Category</Text>
                 <View style={styles.categoryGrid}>
                   {SHOP_CATEGORIES.map((cat) => {
                     const isSelected =
@@ -908,10 +1060,10 @@ export default function ProfileScreen() {
                   })}
                 </View>
 
-                <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Category Name</Text>
+                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Or Enter Custom Category</Text>
                 <TextInput
                   style={styles.inputField}
-                  placeholder="Enter or edit shop category"
+                  placeholder="e.g. Specialty Bakery / Cafe"
                   placeholderTextColor="#94a3b8"
                   value={tempCategory}
                   onChangeText={setTempCategory}
@@ -935,16 +1087,16 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 2b. Edit GST Number Modal */}
-      <Modal visible={gstModalVisible} animationType="slide" transparent onRequestClose={() => setGstModalVisible(false)}>
+      <Modal visible={gstModalVisible} animationType="fade" transparent onRequestClose={() => setGstModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>GST Number</Text>
-              <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' }}>
-                Enter GSTIN / Tax Identification number for printed bills and tax invoices
+              <Text style={styles.modalTitle}>GST Number (GSTIN)</Text>
+              <Text style={styles.modalSubtitle}>
+                Enter your Goods and Services Tax number to display on customer receipts and tax reports
               </Text>
 
               <Text style={styles.fieldLabel}>GST Identification Number</Text>
@@ -974,7 +1126,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 2c. Edit Business Address Modal */}
-      <Modal visible={addressModalVisible} animationType="slide" transparent onRequestClose={() => setAddressModalVisible(false)}>
+      <Modal visible={addressModalVisible} animationType="fade" transparent onRequestClose={() => setAddressModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
@@ -982,14 +1134,14 @@ export default function ProfileScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Business Address</Text>
-              <Text style={{ fontSize: 13, color: '#64748b', marginBottom: 12, textAlign: 'center' }}>
-                Enter physical store address printed on receipts and invoices
+              <Text style={styles.modalSubtitle}>
+                Physical store address printed on bill headers and tax invoices
               </Text>
 
               <Text style={styles.fieldLabel}>Address Details</Text>
               <TextInput
-                style={[styles.inputField, { height: 90, textAlignVertical: 'top', paddingTop: 8 }]}
-                placeholder="Enter street, shop number, area, city, pincode"
+                style={[styles.inputField, { height: 85, textAlignVertical: 'top', paddingTop: 10 }]}
+                placeholder="Shop No., Street, Area, City, Pincode"
                 placeholderTextColor="#94a3b8"
                 value={tempAddress}
                 onChangeText={setTempAddress}
@@ -1013,10 +1165,10 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 3. Printer Settings Modal */}
-      <Modal visible={printerSettingsVisible} animationType="slide" transparent>
+      <Modal visible={printerSettingsVisible} animationType="fade" transparent onRequestClose={() => setPrinterSettingsVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Printer Configuration</Text>
+            <Text style={styles.modalTitle}>Thermal Printer Setup</Text>
 
             <Text style={styles.fieldLabel}>Connection Interface</Text>
             <View style={styles.optionRow}>
@@ -1054,13 +1206,16 @@ export default function ProfileScreen() {
               ))}
             </View>
 
-            <View style={[styles.rowItem, { borderBottomWidth: 0, paddingHorizontal: 0, marginTop: 12 }]}>
-              <Text style={styles.rowLabel}>Auto Print Receipt on Sale</Text>
+            <View style={[styles.cardRow, { borderBottomWidth: 0, paddingHorizontal: 0, marginTop: 12 }]}>
+              <View>
+                <Text style={styles.rowLabel}>Auto-Print on Checkout</Text>
+                <Text style={styles.rowSubLabel}>Immediately print thermal slip</Text>
+              </View>
               <Switch
                 value={autoPrint}
                 onValueChange={setAutoPrint}
-                trackColor={{ false: '#eaedff', true: '#b4c5ff' }}
-                thumbColor={autoPrint ? '#004ac6' : '#737686'}
+                trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                thumbColor={autoPrint ? '#004ac6' : '#94a3b8'}
               />
             </View>
 
@@ -1069,7 +1224,7 @@ export default function ProfileScreen() {
                 style={[styles.saveBtn, { width: '100%' }]}
                 onPress={() => setPrinterSettingsVisible(false)}
               >
-                <Text style={styles.saveBtnText}>Done</Text>
+                <Text style={styles.saveBtnText}>Save Preferences</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -1077,28 +1232,31 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 4. Backup & Restore Modal */}
-      <Modal visible={backupRestoreVisible} animationType="slide" transparent>
+      <Modal visible={backupRestoreVisible} animationType="fade" transparent onRequestClose={() => setBackupRestoreVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Backup & Restore</Text>
-            
-            <Text style={{ fontSize: 14, color: '#434655', marginBottom: 20, textAlign: 'center' }}>
-              Securely export your product catalog inventory records to local JSON archives.
+            <Text style={styles.modalTitle}>Backup & Cloud Sync</Text>
+            <Text style={styles.modalSubtitle}>
+              Export or synchronize product catalog data and register archives
             </Text>
 
-            <TouchableOpacity style={styles.backupActionBtn} onPress={executeBackup}>
-              <MaterialIcons name="cloud-upload" size={24} color="#004ac6" />
-              <View>
-                <Text style={styles.backupBtnTitle}>Export Backup</Text>
-                <Text style={styles.backupBtnSub}>Compile databases into local JSON data</Text>
+            <TouchableOpacity style={styles.backupActionBtn} onPress={executeBackup} activeOpacity={0.8}>
+              <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+                <MaterialIcons name="cloud-upload" size={22} color="#004ac6" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.backupBtnTitle}>Export Local Archive</Text>
+                <Text style={styles.backupBtnSub}>Compile inventory catalog into JSON</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backupActionBtn} onPress={executeRestore}>
-              <MaterialIcons name="cloud-download" size={24} color="#004ac6" />
-              <View>
-                <Text style={styles.backupBtnTitle}>Restore Catalog</Text>
-                <Text style={styles.backupBtnSub}>Load inventory metrics data</Text>
+            <TouchableOpacity style={styles.backupActionBtn} onPress={executeRestore} activeOpacity={0.8}>
+              <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
+                <MaterialIcons name="cloud-download" size={22} color="#16a34a" />
+              </View>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.backupBtnTitle}>Sync Cloud Catalog</Text>
+                <Text style={styles.backupBtnSub}>Fetch latest catalog from database</Text>
               </View>
             </TouchableOpacity>
 
@@ -1115,7 +1273,7 @@ export default function ProfileScreen() {
       </Modal>
 
       {/* 5. Language Selection Modal */}
-      <Modal visible={languageVisible} animationType="slide" transparent>
+      <Modal visible={languageVisible} animationType="fade" transparent onRequestClose={() => setLanguageVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
             <Text style={styles.modalTitle}>Select Language</Text>
@@ -1135,21 +1293,21 @@ export default function ProfileScreen() {
                 onPress={() => {
                   setLanguage(lang.val);
                   setLanguageVisible(false);
-                  alert(`Language changed to ${lang.label}`);
+                  showToast(`Language set to ${lang.label}`);
                 }}
               >
                 <Text style={[styles.languageText, language === lang.val && styles.languageTextActive]}>
                   {lang.label}
                 </Text>
                 {language === lang.val && (
-                  <MaterialIcons name="check-circle" size={20} color="#004ac6" />
+                  <MaterialIcons name="check-circle" size={18} color="#004ac6" />
                 )}
               </TouchableOpacity>
             ))}
 
             <View style={styles.modalActions}>
               <TouchableOpacity
-                style={[styles.cancelBtn, { width: '100%', marginTop: 12 }]}
+                style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]}
                 onPress={() => setLanguageVisible(false)}
               >
                 <Text style={styles.cancelBtnText}>Cancel</Text>
@@ -1177,12 +1335,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingVertical: 10,
-    paddingHorizontal: 18,
+    paddingHorizontal: 20,
     borderRadius: 9999,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.25,
-    shadowRadius: 12,
+    shadowRadius: 14,
     elevation: 10,
   },
   floatingToastText: {
@@ -1191,221 +1349,522 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
-    height: 64,
+    height: 60,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f2f3ff',
+    borderBottomColor: '#f1f5f9',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    paddingHorizontal: 20,
   },
-  headerIconButton: {
-    width: 40,
-    height: 40,
+  headerTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerBrand: {
+    fontSize: 21,
+    fontWeight: '800',
+    color: '#004ac6',
+    letterSpacing: -0.5,
+  },
+  headerBadge: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#dbeafe',
+  },
+  headerBadgeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#2563eb',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  headerIconBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 20,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#004ac6',
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingVertical: 16,
+    paddingVertical: 18,
     paddingHorizontal: 16,
-    paddingBottom: 40,
+    paddingBottom: 48,
   },
   mainContainer: {
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-    gap: 20,
+    gap: 22,
   },
-  profileHeaderCard: {
+
+  /* Hero Card */
+  profileHeroCard: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.3)',
-    borderRadius: 20,
-    padding: 24,
+    borderColor: 'rgba(226, 232, 240, 0.85)',
+    borderRadius: 24,
+    paddingBottom: 22,
     alignItems: 'center',
-    shadowColor: 'rgba(0,0,0,0.03)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 2,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.05,
+    shadowRadius: 18,
+    elevation: 3,
     overflow: 'hidden',
     position: 'relative',
   },
-  profileCardBanner: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 75,
-    backgroundColor: '#004ac6',
-    opacity: 0.08,
-    borderBottomLeftRadius: 36,
-    borderBottomRightRadius: 36,
+  profileBannerSvgWrapper: {
+    width: '100%',
+    height: 110,
+    overflow: 'hidden',
   },
-  roleStatusRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    marginTop: 4,
-    marginBottom: 16,
+  avatarWrapper: {
+    marginTop: -48,
+    position: 'relative',
+    marginBottom: 12,
   },
-  roleBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  roleBadgeText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#1d4ed8',
-  },
-  onlineBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-  },
-  onlineDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#16a34a',
-  },
-  onlineBadgeText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#15803d',
-  },
-  avatarContainer: {
+  avatarHaloRing: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    borderWidth: 3,
+    borderWidth: 4,
     borderColor: '#ffffff',
     backgroundColor: '#ffffff',
-    position: 'relative',
-    marginBottom: 12,
-    overflow: 'visible',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowColor: '#004ac6',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 6,
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   avatarImage: {
     width: '100%',
     height: '100%',
-    borderRadius: 48,
   },
   defaultAvatarContainer: {
     width: '100%',
     height: '100%',
-    borderRadius: 48,
-    backgroundColor: '#e0e7ff',
+    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   defaultAvatarText: {
     fontSize: 32,
-    fontWeight: '700',
+    fontWeight: '800',
     color: '#004ac6',
   },
-  editAvatarBtn: {
+  editAvatarBadge: {
     position: 'absolute',
-    bottom: 0,
-    right: 0,
+    bottom: 2,
+    right: 2,
     backgroundColor: '#004ac6',
-    width: 30,
-    height: 30,
-    borderRadius: 15,
-    borderWidth: 2,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    borderWidth: 2.5,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
+    elevation: 4,
+  },
+  heroShopName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.4,
+    marginBottom: 4,
+    textAlign: 'center',
+    paddingHorizontal: 16,
+  },
+  heroOwnerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 12,
+  },
+  heroOwnerName: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  heroBadgesRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 16,
+  },
+  rolePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 4.5,
+    borderRadius: 9999,
+    borderWidth: 1,
+  },
+  rolePillOwner: {
+    backgroundColor: '#fffbeb',
+    borderColor: '#fde68a',
+  },
+  rolePillManager: {
+    backgroundColor: '#eff6ff',
+    borderColor: '#bfdbfe',
+  },
+  rolePillCashier: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+  },
+  rolePillText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  rolePillTextOwner: {
+    color: '#b45309',
+  },
+  rolePillTextManager: {
+    color: '#1d4ed8',
+  },
+  rolePillTextCashier: {
+    color: '#15803d',
+  },
+  liveStatusPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 4.5,
+    borderRadius: 9999,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  liveStatusPulseDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#16a34a',
+  },
+  liveStatusPillText: {
+    fontSize: 11.5,
+    fontWeight: '600',
+    color: '#15803d',
+  },
+  heroActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    width: '100%',
+    paddingHorizontal: 24,
+  },
+  heroPrimaryBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#004ac6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    shadowColor: '#004ac6',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
     elevation: 3,
   },
-  modalSubtitle: {
+  heroPrimaryBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+  heroSecondaryBtn: {
+    flex: 1,
+    height: 42,
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  heroSecondaryBtnCopied: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  heroSecondaryBtnText: {
     fontSize: 13,
-    color: '#737686',
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+
+  /* Sections */
+  sectionContainer: {
+    gap: 8,
+  },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingLeft: 4,
+  },
+  sectionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#1e293b',
+    letterSpacing: -0.2,
+    textTransform: 'uppercase',
+  },
+  cardContainer: {
+    backgroundColor: '#ffffff',
+    borderWidth: 1,
+    borderColor: 'rgba(226, 232, 240, 0.9)',
+    borderRadius: 18,
+    overflow: 'hidden',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.03,
+    shadowRadius: 10,
+    elevation: 2,
+  },
+  cardRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    height: 62,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  lastCardRow: {
+    borderBottomWidth: 0,
+  },
+  rowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    flex: 1,
+  },
+  iconBox: {
+    width: 38,
+    height: 38,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  rowTextCol: {
+    justifyContent: 'center',
+  },
+  rowLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  rowSubLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  rowBadgeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+  },
+  rowBadgeChipText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+
+  /* Logout */
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#fef2f2',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    borderRadius: 14,
+    height: 50,
+    marginTop: 4,
+  },
+  logoutBtnText: {
+    fontSize: 14.5,
+    fontWeight: '700',
+    color: '#dc2626',
+  },
+  footerVersionText: {
+    textAlign: 'center',
+    fontSize: 11.5,
+    color: '#94a3b8',
+    marginTop: -8,
+    marginBottom: 8,
+  },
+
+  /* Modal Styles */
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 18,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#ffffff',
+    borderRadius: 24,
+    padding: 22,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.2,
+    shadowRadius: 28,
+    elevation: 8,
+  },
+  modalTitle: {
+    fontSize: 19,
+    fontWeight: '800',
+    color: '#0f172a',
+    marginBottom: 4,
+    textAlign: 'center',
+    letterSpacing: -0.3,
+  },
+  modalSubtitle: {
+    fontSize: 12.5,
+    color: '#64748b',
     textAlign: 'center',
     marginBottom: 16,
-    marginTop: -8,
+    lineHeight: 18,
   },
+  fieldLabel: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#004ac6',
+    marginBottom: 6,
+    marginTop: 10,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  inputField: {
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    borderRadius: 12,
+    height: 46,
+    paddingHorizontal: 14,
+    fontSize: 14,
+    color: '#0f172a',
+    backgroundColor: '#f8fafc',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 20,
+  },
+  cancelBtn: {
+    height: 44,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 18,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    backgroundColor: '#ffffff',
+  },
+  cancelBtnText: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  saveBtn: {
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#004ac6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 22,
+  },
+  saveBtnText: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#ffffff',
+  },
+
+  /* Avatar Modal specifics */
   avatarPreviewSection: {
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 12,
+    marginBottom: 10,
     paddingVertical: 12,
-    backgroundColor: '#faf8ff',
-    borderRadius: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#eaedff',
+    borderColor: '#e2e8f0',
   },
   avatarPreviewCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 76,
+    height: 76,
+    borderRadius: 38,
     borderWidth: 3,
     borderColor: '#004ac6',
     overflow: 'hidden',
     marginBottom: 6,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#e0e7ff',
+    backgroundColor: '#eff6ff',
   },
   avatarPreviewImage: {
     width: '100%',
     height: '100%',
   },
   avatarPreviewLabel: {
-    fontSize: 12,
-    fontWeight: '600',
+    fontSize: 11.5,
+    fontWeight: '700',
     color: '#004ac6',
   },
   avatarGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 10,
+    gap: 8,
     justifyContent: 'space-between',
   },
   avatarGridItem: {
-    width: '30%',
+    width: '31%',
     alignItems: 'center',
-    padding: 8,
-    borderRadius: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 4,
+    borderRadius: 14,
     borderWidth: 1.5,
-    borderColor: '#eaedff',
+    borderColor: '#e2e8f0',
     backgroundColor: '#ffffff',
     position: 'relative',
   },
   avatarGridItemActive: {
     borderColor: '#004ac6',
-    backgroundColor: '#e0e7ff',
+    backgroundColor: '#eff6ff',
   },
   avatarThumbCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1415,18 +1874,18 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   avatarGridLabel: {
-    fontSize: 11,
+    fontSize: 10.5,
     fontWeight: '600',
-    color: '#131b2e',
+    color: '#0f172a',
     marginTop: 4,
   },
   checkBadge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    width: 18,
-    height: 18,
-    borderRadius: 9,
+    width: 16,
+    height: 16,
+    borderRadius: 8,
     backgroundColor: '#004ac6',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1437,16 +1896,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     padding: 12,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#93c5fd',
     borderStyle: 'dashed',
-    marginTop: 14,
-    backgroundColor: '#ffffff',
+    marginTop: 12,
+    backgroundColor: '#eff6ff',
   },
   customUploadText: {
     fontSize: 12,
-    fontWeight: '600',
+    fontWeight: '700',
     color: '#004ac6',
   },
   formAvatarRow: {
@@ -1454,22 +1913,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#eaedff',
-    backgroundColor: '#faf8ff',
-    marginBottom: 16,
+    borderColor: '#dbeafe',
+    backgroundColor: '#f8fafc',
+    marginBottom: 12,
   },
   formAvatarThumb: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 42,
+    height: 42,
+    borderRadius: 21,
   },
   formAvatarPlaceholder: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#e0e7ff',
+    width: 42,
+    height: 42,
+    borderRadius: 21,
+    backgroundColor: '#eff6ff',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1480,237 +1939,64 @@ const styles = StyleSheet.create({
   },
   formAvatarLabel: {
     fontSize: 13,
-    fontWeight: '600',
-    color: '#131b2e',
+    fontWeight: '700',
+    color: '#0f172a',
   },
   formAvatarAction: {
     fontSize: 11,
     color: '#004ac6',
     marginTop: 2,
-  },
-  shopNameText: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#131b2e',
-    marginBottom: 4,
-  },
-  ownerNameText: {
-    fontSize: 14,
-    color: '#434655',
-    marginBottom: 16,
-  },
-  editProfileBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#004ac6',
-    borderRadius: 9999,
-    paddingHorizontal: 20,
-    height: 40,
-  },
-  editProfileBtnText: {
-    fontSize: 14,
     fontWeight: '600',
-    color: '#004ac6',
   },
-  section: {
-    gap: 8,
-  },
-  sectionTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#004ac6',
-    paddingLeft: 4,
-  },
-  infoCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.3)',
-    borderRadius: 16,
-    overflow: 'hidden',
-    shadowColor: 'rgba(0,0,0,0.02)',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 1,
-    shadowRadius: 16,
-    elevation: 2,
-  },
-  rowItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    height: 56,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f2f3ff',
-  },
-  lastRowItem: {
-    borderBottomWidth: 0,
-  },
-  rowLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  iconBackground: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#eaedff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowLabel: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#131b2e',
-  },
-  rowSubLabel: {
-    fontSize: 12,
-    color: '#434655',
-    marginTop: 2,
-  },
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ffdad6',
-    borderRadius: 12,
-    height: 48,
-    marginTop: 12,
-  },
-  logoutBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ba1a1a',
-  },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 450,
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: 'rgba(0,0,0,0.1)',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 5,
-  },
-  modalTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#131b2e',
-    marginBottom: 20,
-    textAlign: 'center',
-  },
-  fieldLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: '#004ac6',
-    marginBottom: 6,
-    marginTop: 12,
-  },
-  inputField: {
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-    borderRadius: 8,
-    height: 44,
-    paddingHorizontal: 12,
-    fontSize: 14,
-    color: '#131b2e',
-    backgroundColor: '#faf8ff',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-    marginTop: 24,
-  },
-  cancelBtn: {
-    height: 44,
-    borderRadius: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 20,
-    borderWidth: 1,
-    borderColor: '#c3c6d7',
-  },
-  cancelBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#434655',
-  },
-  saveBtn: {
-    height: 44,
-    borderRadius: 8,
-    backgroundColor: '#004ac6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 24,
-  },
-  saveBtnText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ffffff',
-  },
+
+  /* Options row */
   optionRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   optionButton: {
     flex: 1,
     height: 40,
     borderWidth: 1,
-    borderColor: '#c3c6d7',
-    borderRadius: 8,
+    borderColor: '#cbd5e1',
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#faf8ff',
+    backgroundColor: '#f8fafc',
   },
   optionButtonActive: {
     borderColor: '#004ac6',
-    backgroundColor: '#eaedff',
+    backgroundColor: '#eff6ff',
   },
   optionBtnText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#434655',
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#475569',
   },
   optionBtnTextActive: {
     color: '#004ac6',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   backupActionBtn: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    padding: 16,
-    borderRadius: 12,
+    gap: 12,
+    padding: 14,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#eaedff',
-    backgroundColor: '#faf8ff',
-    marginBottom: 12,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    marginBottom: 10,
   },
   backupBtnTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#131b2e',
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0f172a',
   },
   backupBtnSub: {
-    fontSize: 11,
-    color: '#737686',
+    fontSize: 11.5,
+    color: '#64748b',
     marginTop: 2,
   },
   languageSelectRow: {
@@ -1718,25 +2004,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 52,
+    height: 48,
     borderWidth: 1,
-    borderColor: '#eaedff',
-    borderRadius: 10,
-    backgroundColor: '#faf8ff',
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    backgroundColor: '#f8fafc',
     marginBottom: 8,
   },
   languageSelectRowActive: {
     borderColor: '#004ac6',
-    backgroundColor: '#eaedff',
+    backgroundColor: '#eff6ff',
   },
   languageText: {
-    fontSize: 14,
-    color: '#434655',
+    fontSize: 13.5,
+    color: '#334155',
     fontWeight: '500',
   },
   languageTextActive: {
     color: '#004ac6',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   categoryGrid: {
     flexDirection: 'row',
@@ -1750,12 +2036,12 @@ const styles = StyleSheet.create({
     width: '48.5%',
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 9,
     paddingHorizontal: 8,
     borderRadius: 10,
     borderWidth: 1.5,
     borderColor: '#e2e8f0',
-    backgroundColor: '#faf8ff',
+    backgroundColor: '#f8fafc',
     gap: 6,
   },
   categoryCardActive: {
@@ -1763,9 +2049,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#eff6ff',
   },
   categoryIconCircle: {
-    width: 30,
-    height: 30,
-    borderRadius: 15,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     backgroundColor: '#f1f5f9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1775,8 +2061,8 @@ const styles = StyleSheet.create({
   },
   categoryCardText: {
     flex: 1,
-    fontSize: 11.5,
-    fontWeight: '500',
+    fontSize: 11,
+    fontWeight: '600',
     color: '#475569',
   },
   categoryCardTextActive: {
@@ -1784,4 +2070,3 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 });
-
