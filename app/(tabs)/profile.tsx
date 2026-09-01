@@ -90,6 +90,19 @@ export default function ProfileScreen() {
   const [tempGst, setTempGst] = useState('');
   const [tempAddress, setTempAddress] = useState('');
 
+  // Floating Toast Notification State
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [copiedStoreId, setCopiedStoreId] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+    setTimeout(() => {
+      setToastVisible(false);
+    }, 2200);
+  };
+
   // Sync shop and credentials when store currentUser changes
   useEffect(() => {
     const updateFromStore = () => {
@@ -119,10 +132,10 @@ export default function ProfileScreen() {
     const code = storeId;
     if (Platform.OS === 'web' && typeof navigator !== 'undefined' && navigator.clipboard) {
       navigator.clipboard.writeText(code);
-      Alert.alert('Copied!', `Store ID (Join Code) "${code}" copied to clipboard.\nShare this with users so they can join your store.`);
-    } else {
-      Alert.alert('Store ID / Join Code', `Store ID: ${code}\nShare this code with your staff/cashiers during signup to join this store.`);
     }
+    setCopiedStoreId(true);
+    showToast('✓ Store ID (Join Code) copied to clipboard');
+    setTimeout(() => setCopiedStoreId(false), 2500);
   };
 
   // Open Avatar Selection Modal
@@ -136,6 +149,7 @@ export default function ProfileScreen() {
     setAvatarImage(selectedAvatar);
     await store.updateUserProfile({ image: selectedAvatar || '' });
     setAvatarModalVisible(false);
+    showToast('✓ Avatar updated successfully');
   };
 
   // Custom photo upload from device (optional alternative)
@@ -209,6 +223,7 @@ export default function ProfileScreen() {
     });
     
     setEditProfileVisible(false);
+    showToast('✓ Profile details updated');
   };
 
   // Category modal handlers
@@ -226,6 +241,7 @@ export default function ProfileScreen() {
       shopCategory: tempCategory.trim(),
     });
     setCategoryModalVisible(false);
+    showToast('✓ Shop Category updated');
   };
 
   // GST modal handlers
@@ -239,6 +255,7 @@ export default function ProfileScreen() {
       gstNumber: tempGst.trim(),
     });
     setGstModalVisible(false);
+    showToast('✓ GST Number updated');
   };
 
   // Business address modal handlers
@@ -252,6 +269,7 @@ export default function ProfileScreen() {
       businessAddress: tempAddress.trim(),
     });
     setAddressModalVisible(false);
+    showToast('✓ Business Address updated');
   };
 
   // Backup catalog data to local JSON structure
@@ -284,6 +302,14 @@ export default function ProfileScreen() {
 
   return (
     <SafeAreaView style={styles.outerContainer} edges={['top']}>
+      {/* Sleek Floating Toast Feedback */}
+      {toastVisible && (
+        <View style={styles.floatingToast}>
+          <MaterialIcons name="check-circle" size={18} color="#22c55e" />
+          <Text style={styles.floatingToastText}>{toastMsg}</Text>
+        </View>
+      )}
+
       {/* Top App Bar */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SmartPOS</Text>
@@ -295,8 +321,10 @@ export default function ProfileScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View style={styles.mainContainer}>
-          {/* Profile Header Card */}
+          {/* Profile Header Card with Modern Gradient Backdrop */}
           <View style={styles.profileHeaderCard}>
+            <View style={styles.profileCardBanner} />
+
             <TouchableOpacity
               style={styles.avatarContainer}
               onPress={openAvatarPicker}
@@ -319,8 +347,27 @@ export default function ProfileScreen() {
                 <MaterialIcons name="palette" size={14} color="#ffffff" />
               </View>
             </TouchableOpacity>
+
             <Text style={styles.shopNameText}>{shopName}</Text>
             <Text style={styles.ownerNameText}>{ownerName}</Text>
+
+            {/* Store Role & Live Status Pill Badges */}
+            <View style={styles.roleStatusRow}>
+              <View style={styles.roleBadge}>
+                <Text style={styles.roleBadgeText}>
+                  {userSession?.role?.toLowerCase() === 'manager'
+                    ? '🛡️ Store Manager'
+                    : userSession?.role?.toLowerCase() === 'cashier'
+                    ? '⚡ Cashier'
+                    : '👑 Store Owner'}
+                </Text>
+              </View>
+              <View style={styles.onlineBadge}>
+                <View style={styles.onlineDot} />
+                <Text style={styles.onlineBadgeText}>Online</Text>
+              </View>
+            </View>
+
             <TouchableOpacity style={styles.editProfileBtn} onPress={openEditProfile}>
               <MaterialIcons name="edit" size={16} color="#004ac6" />
               <Text style={styles.editProfileBtnText}>Edit Profile</Text>
@@ -334,17 +381,25 @@ export default function ProfileScreen() {
               {/* Store ID / Join Code */}
               <TouchableOpacity style={styles.rowItem} onPress={handleCopyStoreId}>
                 <View style={styles.rowLeft}>
-                  <View style={styles.iconBackground}>
-                    <MaterialIcons name="vpn-key" size={20} color="#004ac6" />
+                  <View style={[styles.iconBackground, copiedStoreId && { backgroundColor: '#dcfce7' }]}>
+                    <MaterialIcons
+                      name={copiedStoreId ? 'check' : 'vpn-key'}
+                      size={20}
+                      color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                    />
                   </View>
                   <View>
                     <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
-                    <Text style={[styles.rowSubLabel, { fontWeight: '600', color: '#004ac6' }]}>
-                      {storeId || '—'} • Tap to copy
+                    <Text style={[styles.rowSubLabel, { fontWeight: '600', color: copiedStoreId ? '#16a34a' : '#004ac6' }]}>
+                      {copiedStoreId ? '✓ Copied to clipboard!' : `${storeId || '—'} • Tap to copy`}
                     </Text>
                   </View>
                 </View>
-                <MaterialIcons name="content-copy" size={18} color="#004ac6" />
+                <MaterialIcons
+                  name={copiedStoreId ? 'check-circle' : 'content-copy'}
+                  size={18}
+                  color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                />
               </TouchableOpacity>
 
               {/* Category */}
@@ -1112,6 +1167,29 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#faf8ff',
   },
+  floatingToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 24,
+    alignSelf: 'center',
+    zIndex: 99999,
+    backgroundColor: '#0f172a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  floatingToastText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
   header: {
     height: 64,
     backgroundColor: '#ffffff',
@@ -1150,24 +1228,85 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderWidth: 1,
     borderColor: 'rgba(195,198,215,0.3)',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 24,
     alignItems: 'center',
-    shadowColor: 'rgba(0,0,0,0.02)',
+    shadowColor: 'rgba(0,0,0,0.03)',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 1,
     shadowRadius: 16,
     elevation: 2,
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  profileCardBanner: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    height: 75,
+    backgroundColor: '#004ac6',
+    opacity: 0.08,
+    borderBottomLeftRadius: 36,
+    borderBottomRightRadius: 36,
+  },
+  roleStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 4,
+    marginBottom: 16,
+  },
+  roleBadge: {
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  roleBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1d4ed8',
+  },
+  onlineBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 9999,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  onlineDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#16a34a',
+  },
+  onlineBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#15803d',
   },
   avatarContainer: {
     width: 96,
     height: 96,
     borderRadius: 48,
-    borderWidth: 2,
-    borderColor: '#c3c6d7',
+    borderWidth: 3,
+    borderColor: '#ffffff',
+    backgroundColor: '#ffffff',
     position: 'relative',
     marginBottom: 12,
     overflow: 'visible',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   avatarImage: {
     width: '100%',

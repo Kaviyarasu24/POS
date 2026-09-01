@@ -5,6 +5,10 @@ import {
   Text,
   TouchableOpacity,
   FlatList,
+  Modal,
+  TextInput,
+  Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
@@ -13,6 +17,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { store, Product } from '@/constants/store';
 
 const FILTERS = ['All Stock', 'Low Stock', 'Out of Stock'];
+const RESTOCK_PRESETS = [5, 10, 25, 50, 100];
 
 export default function InventoryScreen() {
   const router = useRouter();
@@ -20,6 +25,21 @@ export default function InventoryScreen() {
   // State
   const [inventory, setInventory] = useState<Product[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('All Stock');
+
+  // Quick Restock Modal State
+  const [restockModalVisible, setRestockModalVisible] = useState(false);
+  const [targetProduct, setTargetProduct] = useState<Product | null>(null);
+  const [restockQty, setRestockQty] = useState(10);
+
+  // Floating Toast State
+  const [toastMsg, setToastMsg] = useState<string | null>(null);
+  const [toastVisible, setToastVisible] = useState(false);
+
+  const showToast = (msg: string) => {
+    setToastMsg(msg);
+    setToastVisible(true);
+    setTimeout(() => setToastVisible(false), 2200);
+  };
 
   // Subscribe to store updates
   useEffect(() => {
@@ -54,18 +74,29 @@ export default function InventoryScreen() {
   }, [inventory, selectedFilter]);
 
   // Actions
-  const handleRestock = (itemId: string) => {
-    store.restockProduct(itemId, 20);
-    alert('Restocked 20 units successfully.');
+  const openRestockModal = (item: Product, defaultAdd = 10) => {
+    setTargetProduct(item);
+    setRestockQty(defaultAdd);
+    setRestockModalVisible(true);
   };
 
-  const handleReorder = (itemId: string) => {
-    store.restockProduct(itemId, 50);
-    alert('Reordered 50 units successfully.');
+  const handleConfirmRestock = async () => {
+    if (!targetProduct || restockQty <= 0) return;
+    await store.restockProduct(targetProduct.id, restockQty);
+    setRestockModalVisible(false);
+    showToast(`✓ Added +${restockQty} ${targetProduct.unit || 'pcs'} to ${targetProduct.name}`);
   };
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
+      {/* Floating Toast Notification */}
+      {toastVisible && (
+        <View style={styles.floatingToast}>
+          <MaterialIcons name="check-circle" size={18} color="#22c55e" />
+          <Text style={styles.floatingToastText}>{toastMsg}</Text>
+        </View>
+      )}
+
       {/* Top Bar */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SmartPOS</Text>
@@ -129,6 +160,7 @@ export default function InventoryScreen() {
                 isLowStock && styles.itemCardLowStock,
               ]}
               onPress={() => router.push(`/add_product?id=${item.id}`)}
+              activeOpacity={0.85}
             >
               <View style={styles.cardHeaderRow}>
                 {/* Thumbnail */}
@@ -179,26 +211,25 @@ export default function InventoryScreen() {
                 </View>
               </View>
 
-              {/* Dynamic Restock / Reorder button */}
-              {isLowStock && (
+              {/* Quick Restock Action Button */}
+              <View style={styles.cardActionsRow}>
                 <TouchableOpacity
-                  style={styles.actionBtnPrimary}
-                  onPress={() => handleRestock(item.id)}
+                  style={[
+                    styles.actionBtnPrimary,
+                    isOutOfStock && styles.actionBtnDanger,
+                  ]}
+                  onPress={(e) => {
+                    e.stopPropagation();
+                    openRestockModal(item, isOutOfStock ? 25 : 10);
+                  }}
+                  activeOpacity={0.8}
                 >
-                  <MaterialIcons name="add-shopping-cart" size={16} color="#ffffff" />
-                  <Text style={styles.actionBtnPrimaryText}>Restock</Text>
+                  <MaterialIcons name="add" size={16} color="#ffffff" />
+                  <Text style={styles.actionBtnPrimaryText}>
+                    {isOutOfStock ? 'Reorder / Restock' : 'Quick Restock'}
+                  </Text>
                 </TouchableOpacity>
-              )}
-
-              {isOutOfStock && (
-                <TouchableOpacity
-                  style={styles.actionBtnOutline}
-                  onPress={() => handleReorder(item.id)}
-                >
-                  <MaterialIcons name="sync" size={16} color="#004ac6" />
-                  <Text style={styles.actionBtnOutlineText}>Reorder</Text>
-                </TouchableOpacity>
-              )}
+              </View>
             </TouchableOpacity>
           );
         }}
@@ -209,6 +240,136 @@ export default function InventoryScreen() {
           </View>
         }
       />
+
+      {/* Quick Restock Modal Dialog */}
+      <Modal
+        visible={restockModalVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setRestockModalVisible(false)}
+      >
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <View style={styles.modalHeaderRow}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={styles.modalIconCircle}>
+                    <MaterialIcons name="add-business" size={20} color="#004ac6" />
+                  </View>
+                  <Text style={styles.modalTitle}>Quick Restock</Text>
+                </View>
+                <TouchableOpacity
+                  onPress={() => setRestockModalVisible(false)}
+                  style={styles.modalCloseBtn}
+                >
+                  <MaterialIcons name="close" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              {targetProduct && (
+                <View style={styles.restockProductHeader}>
+                  <View style={styles.restockThumbnailWrapper}>
+                    {targetProduct.image ? (
+                      <Image source={{ uri: targetProduct.image }} style={styles.thumbnail} contentFit="cover" />
+                    ) : (
+                      <MaterialIcons name="inventory-2" size={24} color="#004ac6" />
+                    )}
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <Text style={styles.restockProductName} numberOfLines={1}>
+                      {targetProduct.name}
+                    </Text>
+                    <Text style={styles.restockProductMeta}>
+                      SKU: {targetProduct.sku} • Current: <Text style={{ fontWeight: '700', color: targetProduct.stock <= targetProduct.lowStockAlert ? '#dc2626' : '#16a34a' }}>{targetProduct.stock} {targetProduct.unit || 'pcs'}</Text>
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Quantity Stepper */}
+              <Text style={styles.restockLabel}>Restock Quantity to Add</Text>
+              <View style={styles.stepperRow}>
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => setRestockQty((prev) => Math.max(1, prev - 1))}
+                >
+                  <MaterialIcons name="remove" size={20} color="#004ac6" />
+                </TouchableOpacity>
+
+                <TextInput
+                  style={styles.stepperInput}
+                  value={restockQty.toString()}
+                  onChangeText={(val) => {
+                    const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+                    setRestockQty(isNaN(num) ? 0 : num);
+                  }}
+                  keyboardType="number-pad"
+                  textAlign="center"
+                />
+
+                <TouchableOpacity
+                  style={styles.stepperBtn}
+                  onPress={() => setRestockQty((prev) => prev + 1)}
+                >
+                  <MaterialIcons name="add" size={20} color="#004ac6" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Preset Quick Chips */}
+              <View style={styles.presetChipsRow}>
+                {RESTOCK_PRESETS.map((qty) => (
+                  <TouchableOpacity
+                    key={qty}
+                    style={[
+                      styles.presetChip,
+                      restockQty === qty && styles.presetChipActive,
+                    ]}
+                    onPress={() => setRestockQty(qty)}
+                  >
+                    <Text
+                      style={[
+                        styles.presetChipText,
+                        restockQty === qty && styles.presetChipTextActive,
+                      ]}
+                    >
+                      +{qty}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {/* Live Preview Calculation */}
+              {targetProduct && (
+                <View style={styles.previewBox}>
+                  <Text style={styles.previewBoxLabel}>Stock After Restock:</Text>
+                  <Text style={styles.previewBoxValue}>
+                    {targetProduct.stock + restockQty} {targetProduct.unit || 'pcs'}
+                  </Text>
+                </View>
+              )}
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setRestockModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.confirmRestockBtn}
+                  onPress={handleConfirmRestock}
+                >
+                  <MaterialIcons name="check" size={18} color="#ffffff" />
+                  <Text style={styles.confirmRestockBtnText}>Confirm Restock</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
 
       {/* Floating Action Button */}
       <TouchableOpacity
@@ -409,37 +570,25 @@ const styles = StyleSheet.create({
     color: '#ba1a1a',
     fontWeight: '600',
   },
+  cardActionsRow: {
+    marginTop: 12,
+  },
   actionBtnPrimary: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#004ac6',
-    height: 40,
+    height: 38,
     borderRadius: 8,
-    marginTop: 12,
-    gap: 8,
+    gap: 6,
   },
   actionBtnPrimaryText: {
     color: '#ffffff',
     fontSize: 13,
     fontWeight: '600',
   },
-  actionBtnOutline: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#004ac6',
-    height: 40,
-    borderRadius: 8,
-    marginTop: 12,
-    gap: 8,
-    backgroundColor: 'transparent',
-  },
-  actionBtnOutlineText: {
-    color: '#004ac6',
-    fontSize: 13,
-    fontWeight: '600',
+  actionBtnDanger: {
+    backgroundColor: '#dc2626',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -467,5 +616,221 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.22,
     shadowRadius: 8,
     elevation: 4,
+  },
+  // Floating Toast
+  floatingToast: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 56 : 20,
+    alignSelf: 'center',
+    zIndex: 99999,
+    backgroundColor: '#0f172a',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 18,
+    borderRadius: 9999,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.25,
+    shadowRadius: 12,
+    elevation: 10,
+  },
+  floatingToastText: {
+    color: '#ffffff',
+    fontSize: 13,
+    fontWeight: '600',
+  },
+  // Modal Styles
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.45)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 440,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 24,
+    shadowColor: 'rgba(0,0,0,0.15)',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 1,
+    shadowRadius: 24,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  modalIconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  restockProductHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#f8fafc',
+    padding: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
+  },
+  restockThumbnailWrapper: {
+    width: 44,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#eff6ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  restockProductName: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  restockProductMeta: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  restockLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#004ac6',
+    marginBottom: 8,
+  },
+  stepperRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 12,
+    marginBottom: 12,
+  },
+  stepperBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  stepperInput: {
+    width: 100,
+    height: 44,
+    borderRadius: 10,
+    backgroundColor: '#faf8ff',
+    borderWidth: 1.5,
+    borderColor: '#004ac6',
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+  presetChipsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 6,
+    marginBottom: 16,
+  },
+  presetChip: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  presetChipActive: {
+    backgroundColor: '#004ac6',
+    borderColor: '#004ac6',
+  },
+  presetChipText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#475569',
+  },
+  presetChipTextActive: {
+    color: '#ffffff',
+  },
+  previewBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    padding: 12,
+    borderRadius: 10,
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    marginBottom: 16,
+  },
+  previewBoxLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#166534',
+  },
+  previewBoxValue: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#15803d',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+  },
+  cancelBtn: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#cbd5e1',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  confirmRestockBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    backgroundColor: '#004ac6',
+    justifyContent: 'center',
+  },
+  confirmRestockBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ffffff',
   },
 });
