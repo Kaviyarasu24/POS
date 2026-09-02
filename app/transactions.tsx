@@ -13,10 +13,11 @@ import {
   Alert,
   ScrollView,
   Dimensions,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -212,6 +213,44 @@ export default function TransactionsScreen() {
       });
     } catch (err: any) {
       Alert.alert('Share Error', err.message || 'Could not share receipt');
+    }
+  };
+
+  // Handle WhatsApp Receipt
+  const handleWhatsAppReceipt = async (bill: GeneratedBill) => {
+    try {
+      const itemsList = bill.items
+        .map((i) => `• ${i.product_name} (x${i.quantity}) - ₹${formatCurrency(i.price * i.quantity)}`)
+        .join('\n');
+
+      const message = `🧾 RECEIPT - ${bill.shop_name}\n` +
+        `Invoice: ${bill.invoice_number}\n` +
+        `Date: ${formatDate(bill.created_at)}\n` +
+        `--------------------------------\n` +
+        `${itemsList}\n` +
+        `--------------------------------\n` +
+        `Subtotal: ₹${formatCurrency(bill.subtotal)}\n` +
+        (bill.discount > 0 ? `Discount: -₹${formatCurrency(bill.discount)}\n` : '') +
+        `GST (8%): ₹${formatCurrency(bill.tax)}\n` +
+        `TOTAL: ₹${formatCurrency(bill.total)}\n` +
+        `Payment: ${bill.payment_method} (${bill.payment_status})\n` +
+        `Thank you for shopping with us!`;
+
+      const encodedMessage = encodeURIComponent(message);
+      let url = `whatsapp://send?text=${encodedMessage}`;
+      
+      if (bill.customer_phone) {
+        url += `&phone=${bill.customer_phone.replace(/\D/g, '')}`;
+      }
+
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+      } else {
+        Alert.alert('WhatsApp Not Installed', 'Please install WhatsApp to send digital receipts.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Could not open WhatsApp');
     }
   };
 
@@ -621,11 +660,19 @@ export default function TransactionsScreen() {
             {selectedBill ? (
               <View style={styles.modalActionButtons}>
                 <TouchableOpacity
+                  style={[styles.modalActionBtn, styles.whatsappBtn]}
+                  onPress={() => handleWhatsAppReceipt(selectedBill)}
+                >
+                  <FontAwesome5 name="whatsapp" size={20} color="#ffffff" />
+                  <Text style={styles.printBtnText}>WhatsApp</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
                   style={[styles.modalActionBtn, styles.shareBtn]}
                   onPress={() => handleShareReceipt(selectedBill)}
                 >
                   <MaterialIcons name="share" size={20} color="#004ac6" />
-                  <Text style={styles.shareBtnText}>Share / WhatsApp</Text>
+                  <Text style={styles.shareBtnText}>Share</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity
@@ -633,7 +680,7 @@ export default function TransactionsScreen() {
                   onPress={() => handlePrintReceipt(selectedBill)}
                 >
                   <MaterialIcons name="print" size={20} color="#ffffff" />
-                  <Text style={styles.printBtnText}>Print Receipt</Text>
+                  <Text style={styles.printBtnText}>Print</Text>
                 </TouchableOpacity>
               </View>
             ) : null}
@@ -645,6 +692,10 @@ export default function TransactionsScreen() {
 }
 
 const styles = StyleSheet.create({
+  whatsappBtn: {
+    backgroundColor: '#25D366',
+    borderColor: '#25D366',
+  },
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',

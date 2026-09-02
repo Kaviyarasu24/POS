@@ -100,6 +100,9 @@ class ProductBase(BaseModel):
 class ProductCreate(ProductBase):
     pass
 
+class BulkProductCreate(BaseModel):
+    products: List[ProductCreate]
+
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
     sku: Optional[str] = None

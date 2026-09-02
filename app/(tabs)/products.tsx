@@ -10,11 +10,16 @@ import {
   Modal,
   Platform,
   RefreshControl,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import * as DocumentPicker from 'expo-document-picker';
+import Papa from 'papaparse';
 import { store, Product } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
 
@@ -46,6 +51,7 @@ export default function ProductsScreen() {
   const [selectedSortId, setSelectedSortId] = useState('name_asc');
   const [sortModalVisible, setSortModalVisible] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [isFabOpen, setIsFabOpen] = useState(false);
 
   const refreshCatalog = useCallback(async () => {
     setRefreshing(true);
@@ -100,17 +106,93 @@ export default function ProductsScreen() {
     return result;
   }, [products, selectedFilter, searchQuery, selectedSortId]);
 
+  const handleDownloadTemplate = async () => {
+    try {
+      const csvContent = "Name,SKU,Price,Cost Price,Stock,Category,Unit,Tax Rate,Low Stock Alert\nExample Product,SKU123,100,80,50,Snacks,pcs,8,10\n";
+      const fileUri = `${FileSystem.documentDirectory}Template.csv`;
+      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: 'Download Bulk Import Template' });
+      } else {
+        Alert.alert('Sharing not available', 'Cannot download template on this device.');
+      }
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to download template');
+    }
+  };
+
+  const handleImportProducts = async () => {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled || !result.assets || result.assets.length === 0) {
+        return;
+      }
+
+      const fileUri = result.assets[0].uri;
+      const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+
+      Papa.parse(fileContent, {
+        header: true,
+        skipEmptyLines: true,
+        complete: async (results) => {
+          if (results.errors && results.errors.length > 0) {
+            Alert.alert('CSV Parse Error', results.errors[0].message);
+            return;
+          }
+
+          const newProducts: Omit<Product, 'id'>[] = [];
+          for (const row of results.data as any[]) {
+            if (!row['Name'] || !row['Price'] || !row['Stock'] || !row['Category']) {
+              Alert.alert('Validation Error', 'Name, Price, Stock, and Category are required for all products.');
+              return;
+            }
+            newProducts.push({
+              name: row['Name'],
+              sku: row['SKU'] || '',
+              price: parseFloat(row['Price']),
+              costPrice: parseFloat(row['Cost Price']) || 0,
+              stock: parseFloat(row['Stock']),
+              category: row['Category'],
+              unit: row['Unit'] || 'pcs',
+              taxRate: parseFloat(row['Tax Rate']) || 8,
+              lowStockAlert: parseFloat(row['Low Stock Alert']) || 5,
+            });
+          }
+
+          if (newProducts.length === 0) {
+            Alert.alert('Empty File', 'No valid products found in the CSV.');
+            return;
+          }
+
+          try {
+            setRefreshing(true);
+            const res = await store.bulkAddProducts(newProducts);
+            Alert.alert('Success', res.message || `Imported ${res.added} products.`);
+            refreshCatalog();
+          } catch (err: any) {
+            Alert.alert('Import Failed', err.message || 'Could not import products.');
+          } finally {
+            setRefreshing(false);
+          }
+        },
+        error: (error: any) => {
+          Alert.alert('CSV Error', error.message);
+        }
+      });
+    } catch (err: any) {
+      Alert.alert('Error', err.message || 'Failed to pick or read file.');
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
       {/* Top Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>Products Catalog</Text>
-        <TouchableOpacity
-          style={styles.headerIconButton}
-          onPress={() => router.push('/add_product')}
-        >
-          <MaterialIcons name="add-circle" size={24} color="#004ac6" />
-        </TouchableOpacity>
       </View>
 
       {/* Main List */}
@@ -281,13 +363,53 @@ export default function ProductsScreen() {
         }
       />
 
-      {/* Floating Action Button */}
+      {/* Floating Action Buttons */}
+      {isFabOpen && (
+        <TouchableOpacity 
+          style={[StyleSheet.absoluteFill, { backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9 }]} 
+          activeOpacity={1} 
+          onPress={() => setIsFabOpen(false)} 
+        />
+      )}
+      
+      {isFabOpen && (
+        <View style={styles.fabMenu}>
+          <TouchableOpacity
+            style={styles.fabMenuItem}
+            onPress={() => { setIsFabOpen(false); handleDownloadTemplate(); }}
+          >
+            <Text style={styles.fabMenuLabel}>Download Template</Text>
+            <View style={[styles.fab, styles.fabSecondary]}>
+              <MaterialIcons name="file-download" size={24} color="#004ac6" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fabMenuItem}
+            onPress={() => { setIsFabOpen(false); handleImportProducts(); }}
+          >
+            <Text style={styles.fabMenuLabel}>Bulk Import</Text>
+            <View style={[styles.fab, styles.fabSecondary]}>
+              <MaterialIcons name="upload-file" size={24} color="#004ac6" />
+            </View>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.fabMenuItem}
+            onPress={() => { setIsFabOpen(false); router.push('/add_product'); }}
+          >
+            <Text style={styles.fabMenuLabel}>Add Product</Text>
+            <View style={[styles.fab, styles.fabSecondary]}>
+              <MaterialIcons name="add" size={24} color="#004ac6" />
+            </View>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/add_product')}
+        style={[styles.fab, { zIndex: 10 }]}
+        onPress={() => setIsFabOpen(!isFabOpen)}
         activeOpacity={0.85}
       >
-        <MaterialIcons name="add" size={28} color="#ffffff" />
+        <MaterialIcons name={isFabOpen ? "close" : "add"} size={28} color="#ffffff" />
       </TouchableOpacity>
 
       {/* Sort Options Modal Sheet */}
@@ -652,6 +774,38 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.25,
     shadowRadius: 8,
     elevation: 4,
+  },
+  fabMenu: {
+    position: 'absolute',
+    bottom: 96,
+    right: 24,
+    alignItems: 'flex-end',
+    zIndex: 10,
+    gap: 16,
+  },
+  fabMenuItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  fabMenuLabel: {
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#131b2e',
+    overflow: 'hidden',
+  },
+  fabSecondary: {
+    position: 'relative',
+    bottom: 0,
+    right: 0,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#ffffff',
   },
   modalOverlay: {
     flex: 1,

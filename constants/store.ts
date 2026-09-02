@@ -421,6 +421,41 @@ class ProductStore {
     await this.syncProducts();
   }
 
+  async bulkAddProducts(products: Omit<Product, 'id'>[]) {
+    const payload = products.map((p) => ({
+      name: p.name,
+      sku: p.sku.toUpperCase(),
+      price: p.price,
+      cost_price: p.costPrice,
+      stock: p.stock,
+      low_stock_alert: p.lowStockAlert,
+      category: p.category,
+      unit: p.unit || null,
+      tax_rate: p.taxRate,
+      image: p.image || null,
+    }));
+
+    const response = await fetch(`${API_BASE_URL}/api/products/bulk`, {
+      method: 'POST',
+      headers: this.getHeaders(),
+      body: JSON.stringify({ products: payload }),
+    });
+
+    if (response.status === 401) {
+      this.handleUnauthorized();
+      throw new Error('Session expired or unauthorized. Please log in again.');
+    }
+
+    if (!response.ok) {
+      const errorDetail = await response.json().catch(() => ({}));
+      throw new Error(errorDetail.detail || 'Failed to bulk import products in database');
+    }
+
+    const data = await response.json();
+    await this.syncProducts();
+    return data;
+  }
+
   async updateProduct(id: string, updatedFields: Partial<Product>) {
     const bodyPayload: any = {};
     if (updatedFields.name !== undefined) bodyPayload.name = updatedFields.name;

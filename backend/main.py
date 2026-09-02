@@ -617,6 +617,55 @@ def create_product(
     db.refresh(db_product)
     return db_product
 
+@app.post("/api/products/bulk", status_code=status.HTTP_201_CREATED)
+def create_products_bulk(
+    bulk: schemas.BulkProductCreate,
+    x_store_id: str = Depends(get_store_id),
+    db: Session = Depends(get_db)
+):
+    added_count = 0
+    errors = []
+    
+    for idx, product in enumerate(bulk.products):
+        sku = product.sku.upper() if product.sku else f"SKU-{int(datetime.now().timestamp())}-{idx}"
+        
+        # Check for existing SKU
+        existing = db.query(models.Product).filter(
+            models.Product.sku == sku,
+            models.Product.store_id == x_store_id,
+            models.Product.is_active != False
+        ).first()
+        
+        if existing:
+            errors.append(f"Row {idx + 1}: SKU '{sku}' already exists.")
+            continue
+            
+        db_product = models.Product(
+            store_id=x_store_id,
+            name=product.name,
+            sku=sku,
+            price=product.price,
+            cost_price=product.cost_price,
+            stock=product.stock,
+            low_stock_alert=product.low_stock_alert,
+            category=product.category,
+            unit=product.unit,
+            tax_rate=product.tax_rate,
+            image=product.image,
+            is_active=True
+        )
+        db.add(db_product)
+        added_count += 1
+        
+    if added_count > 0:
+        db.commit()
+        
+    return {
+        "message": f"Successfully imported {added_count} products.",
+        "added": added_count,
+        "errors": errors
+    }
+
 @app.put("/api/products/{product_id}", response_model=schemas.ProductResponse)
 def update_product(
     product_id: int, 
