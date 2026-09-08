@@ -19,7 +19,6 @@ import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import Svg, { Defs, LinearGradient, Stop, Rect, Circle, Path } from 'react-native-svg';
 import { store } from '@/constants/store';
 import { SHOP_CATEGORIES, getShopCategoryLabel } from '@/constants/config';
 
@@ -349,21 +348,9 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Top App Bar with Clean Modern Glass Border */}
+      {/* Top Header */}
       <View style={styles.header}>
-        <View style={styles.headerTitleGroup}>
-          <Text style={styles.headerBrand}>SmartPOS</Text>
-          <View style={styles.headerBadge}>
-            <Text style={styles.headerBadgeText}>Settings</Text>
-          </View>
-        </View>
-        <TouchableOpacity
-          style={styles.headerIconBtn}
-          onPress={() => router.push('/transactions')}
-          activeOpacity={0.7}
-        >
-          <MaterialIcons name="receipt-long" size={22} color="#004ac6" />
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>My Profile</Text>
       </View>
 
       {/* Main Content Scroll List */}
@@ -380,38 +367,15 @@ export default function ProfileScreen() {
             },
           ]}
         >
-          {/* Profile Hero Card with Lush Curved SVG Mesh Gradient */}
-          <View style={styles.profileHeroCard}>
-            <View style={styles.profileBannerSvgWrapper}>
-              <Svg width="100%" height={110} viewBox="0 0 400 110" preserveAspectRatio="none">
-                <Defs>
-                  <LinearGradient id="heroGradient" x1="0" y1="0" x2="1" y2="1">
-                    <Stop offset="0" stopColor="#003ea8" stopOpacity="1" />
-                    <Stop offset="0.5" stopColor="#004ac6" stopOpacity="1" />
-                    <Stop offset="1" stopColor="#2563eb" stopOpacity="1" />
-                  </LinearGradient>
-                  <LinearGradient id="accentGlow" x1="0" y1="0" x2="1" y2="0">
-                    <Stop offset="0" stopColor="#60a5fa" stopOpacity="0.4" />
-                    <Stop offset="1" stopColor="#38bdf8" stopOpacity="0" />
-                  </LinearGradient>
-                </Defs>
-                <Rect x="0" y="0" width="400" height="110" fill="url(#heroGradient)" />
-                <Circle cx="360" cy="20" r="70" fill="url(#accentGlow)" />
-                <Circle cx="40" cy="90" r="50" fill="rgba(255,255,255,0.06)" />
-                <Path
-                  d="M0 80 Q 200 120 400 80 L400 110 L0 110 Z"
-                  fill="#ffffff"
-                />
-              </Svg>
-            </View>
-
-            {/* Avatar with Halo Ring & Edit Badge */}
+          {/* Profile Card */}
+          <View style={styles.profileCard}>
+            {/* Avatar with Edit Badge */}
             <TouchableOpacity
               style={styles.avatarWrapper}
               onPress={openAvatarPicker}
               activeOpacity={0.85}
             >
-              <View style={styles.avatarHaloRing}>
+              <View style={styles.avatarCircle}>
                 {avatarImage ? (
                   <Image
                     style={styles.avatarImage}
@@ -421,24 +385,21 @@ export default function ProfileScreen() {
                 ) : (
                   <View style={styles.defaultAvatarContainer}>
                     <Text style={styles.defaultAvatarText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : ''}
                     </Text>
                   </View>
                 )}
               </View>
               <View style={styles.editAvatarBadge}>
-                <MaterialIcons name="photo-camera" size={13} color="#ffffff" />
+                <MaterialIcons name="photo-camera" size={12} color="#ffffff" />
               </View>
             </TouchableOpacity>
 
             {/* Store & Owner Names */}
             <Text style={styles.heroShopName} numberOfLines={1}>{shopName}</Text>
-            <View style={styles.heroOwnerRow}>
-              <MaterialIcons name="person" size={15} color="#64748b" />
-              <Text style={styles.heroOwnerName}>{ownerName}</Text>
-            </View>
+            <Text style={styles.heroOwnerName}>{ownerName}</Text>
 
-            {/* Role & Live Status Pill Badges */}
+            {/* Role & Status Badges */}
             <View style={styles.heroBadgesRow}>
               <View
                 style={[
@@ -461,20 +422,20 @@ export default function ProfileScreen() {
                   ]}
                 >
                   {roleName === 'manager'
-                    ? '🛡️ Store Manager'
+                    ? 'Store Manager'
                     : roleName === 'cashier'
-                    ? '⚡ Cashier'
-                    : '👑 Store Owner'}
+                    ? 'Cashier'
+                    : 'Store Owner'}
                 </Text>
               </View>
 
               <View style={styles.liveStatusPill}>
                 <View style={styles.liveStatusPulseDot} />
-                <Text style={styles.liveStatusPillText}>Terminal Active</Text>
+                <Text style={styles.liveStatusPillText}>Active</Text>
               </View>
             </View>
 
-            {/* Hero Action Buttons */}
+            {/* Action Buttons */}
             <View style={styles.heroActionsRow}>
               <TouchableOpacity
                 style={styles.heroPrimaryBtn}
@@ -509,10 +470,7 @@ export default function ProfileScreen() {
 
           {/* Section 1: Shop Information */}
           <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <MaterialIcons name="storefront" size={18} color="#004ac6" />
-              <Text style={styles.sectionTitle}>Shop Information</Text>
-            </View>
+            <Text style={styles.sectionLabel}>Shop Information</Text>
             <View style={styles.cardContainer}>
               {/* Store ID / Join Code */}
               <TouchableOpacity style={styles.cardRow} onPress={handleCopyStoreId} activeOpacity={0.7}>
@@ -628,10 +586,7 @@ export default function ProfileScreen() {
 
           {/* Section 2: Business & Khata Ledger */}
           <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <MaterialIcons name="account-balance-wallet" size={18} color="#004ac6" />
-              <Text style={styles.sectionTitle}>Business Management & Khata</Text>
-            </View>
+            <Text style={styles.sectionLabel}>Business Management</Text>
             <View style={styles.cardContainer}>
               {/* Customers & Credit Ledger */}
               <TouchableOpacity
@@ -691,10 +646,7 @@ export default function ProfileScreen() {
 
           {/* Section 3: App & Hardware Settings */}
           <View style={styles.sectionContainer}>
-            <View style={styles.sectionHeaderRow}>
-              <MaterialIcons name="tune" size={18} color="#004ac6" />
-              <Text style={styles.sectionTitle}>App & Hardware Preferences</Text>
-            </View>
+            <Text style={styles.sectionLabel}>App & Hardware</Text>
             <View style={styles.cardContainer}>
               {/* Printer Settings */}
               <TouchableOpacity
@@ -800,13 +752,13 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* Logout Action Button */}
+          {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-            <MaterialIcons name="logout" size={18} color="#dc2626" />
-            <Text style={styles.logoutBtnText}>Sign Out from Store</Text>
+            <MaterialIcons name="logout" size={18} color="#ba1a1a" />
+            <Text style={styles.logoutBtnText}>Sign Out</Text>
           </TouchableOpacity>
 
-          <Text style={styles.footerVersionText}>SmartPOS Retail v2.0 • Secured Cloud</Text>
+          <Text style={styles.footerVersionText}>SmartPOS v1.0.0</Text>
         </Animated.View>
       </ScrollView>
 
@@ -1330,7 +1282,7 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 56 : 24,
     alignSelf: 'center',
     zIndex: 99999,
-    backgroundColor: '#0f172a',
+    backgroundColor: '#131b2e',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -1338,10 +1290,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     borderRadius: 9999,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.25,
-    shadowRadius: 14,
-    elevation: 10,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    elevation: 8,
   },
   floatingToastText: {
     color: '#ffffff',
@@ -1349,54 +1301,22 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   header: {
-    height: 60,
+    height: 56,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
+    borderBottomColor: 'rgba(195,198,215,0.2)',
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
-  headerTitleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-  },
-  headerBrand: {
-    fontSize: 21,
-    fontWeight: '800',
-    color: '#004ac6',
-    letterSpacing: -0.5,
-  },
-  headerBadge: {
-    backgroundColor: '#eff6ff',
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#dbeafe',
-  },
-  headerBadgeText: {
-    fontSize: 11,
+  headerTitle: {
+    fontSize: 20,
     fontWeight: '700',
-    color: '#2563eb',
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  headerIconBtn: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    alignItems: 'center',
-    justifyContent: 'center',
+    color: '#004ac6',
   },
   scrollContainer: {
     flexGrow: 1,
-    paddingVertical: 18,
+    paddingVertical: 16,
     paddingHorizontal: 16,
     paddingBottom: 48,
   },
@@ -1404,50 +1324,42 @@ const styles = StyleSheet.create({
     width: '100%',
     maxWidth: 600,
     alignSelf: 'center',
-    gap: 22,
+    gap: 16,
   },
 
-  /* Hero Card */
-  profileHeroCard: {
+  /* Profile Card */
+  profileCard: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.85)',
-    borderRadius: 24,
-    paddingBottom: 22,
+    borderColor: 'rgba(195,198,215,0.3)',
+    borderRadius: 12,
+    padding: 20,
     alignItems: 'center',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.05,
-    shadowRadius: 18,
-    elevation: 3,
-    overflow: 'hidden',
-    position: 'relative',
-  },
-  profileBannerSvgWrapper: {
-    width: '100%',
-    height: 110,
-    overflow: 'hidden',
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   avatarWrapper: {
-    marginTop: -48,
     position: 'relative',
     marginBottom: 12,
   },
-  avatarHaloRing: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 4,
-    borderColor: '#ffffff',
-    backgroundColor: '#ffffff',
-    shadowColor: '#004ac6',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.18,
-    shadowRadius: 12,
-    elevation: 6,
+  avatarCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 3,
+    borderColor: '#eff6ff',
   },
   avatarImage: {
     width: '100%',
@@ -1461,47 +1373,35 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   defaultAvatarText: {
-    fontSize: 32,
-    fontWeight: '800',
+    fontSize: 28,
+    fontWeight: '700',
     color: '#004ac6',
   },
   editAvatarBadge: {
     position: 'absolute',
-    bottom: 2,
-    right: 2,
+    bottom: 0,
+    right: 0,
     backgroundColor: '#004ac6',
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    borderWidth: 2.5,
+    width: 26,
+    height: 26,
+    borderRadius: 13,
+    borderWidth: 2,
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 4,
   },
   heroShopName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#0f172a',
-    letterSpacing: -0.4,
-    marginBottom: 4,
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#131b2e',
+    marginBottom: 2,
     textAlign: 'center',
-    paddingHorizontal: 16,
-  },
-  heroOwnerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 12,
   },
   heroOwnerName: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
-    color: '#64748b',
+    color: '#737686',
+    marginBottom: 12,
   },
   heroBadgesRow: {
     flexDirection: 'row',
@@ -1510,92 +1410,80 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   rolePill: {
-    paddingHorizontal: 12,
-    paddingVertical: 4.5,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
     borderRadius: 9999,
-    borderWidth: 1,
   },
   rolePillOwner: {
-    backgroundColor: '#fffbeb',
-    borderColor: '#fde68a',
+    backgroundColor: '#eff6ff',
   },
   rolePillManager: {
     backgroundColor: '#eff6ff',
-    borderColor: '#bfdbfe',
   },
   rolePillCashier: {
-    backgroundColor: '#f0fdf4',
-    borderColor: '#bbf7d0',
+    backgroundColor: '#dcfce7',
   },
   rolePillText: {
-    fontSize: 12,
-    fontWeight: '700',
+    fontSize: 11,
+    fontWeight: '600',
   },
   rolePillTextOwner: {
-    color: '#b45309',
+    color: '#004ac6',
   },
   rolePillTextManager: {
-    color: '#1d4ed8',
+    color: '#004ac6',
   },
   rolePillTextCashier: {
-    color: '#15803d',
+    color: '#166534',
   },
   liveStatusPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 5,
     paddingHorizontal: 10,
-    paddingVertical: 4.5,
+    paddingVertical: 4,
     borderRadius: 9999,
-    backgroundColor: '#f0fdf4',
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
+    backgroundColor: '#dcfce7',
   },
   liveStatusPulseDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#16a34a',
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: '#166534',
   },
   liveStatusPillText: {
-    fontSize: 11.5,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#15803d',
+    color: '#166534',
   },
   heroActionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     width: '100%',
-    paddingHorizontal: 24,
   },
   heroPrimaryBtn: {
     flex: 1,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#004ac6',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
-    shadowColor: '#004ac6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 3,
   },
   heroPrimaryBtnText: {
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: '700',
     color: '#ffffff',
   },
   heroSecondaryBtn: {
     flex: 1,
     height: 42,
-    borderRadius: 12,
+    borderRadius: 10,
     backgroundColor: '#f8fafc',
     borderWidth: 1,
-    borderColor: '#cbd5e1',
+    borderColor: '#e2e8f0',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1606,7 +1494,7 @@ const styles = StyleSheet.create({
     borderColor: '#86efac',
   },
   heroSecondaryBtnText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: '#004ac6',
   },
@@ -1615,37 +1503,36 @@ const styles = StyleSheet.create({
   sectionContainer: {
     gap: 8,
   },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+  sectionLabel: {
+    fontSize: 14,
+    color: '#434655',
+    fontWeight: '500',
     paddingLeft: 4,
-  },
-  sectionTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#1e293b',
-    letterSpacing: -0.2,
-    textTransform: 'uppercase',
   },
   cardContainer: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(226, 232, 240, 0.9)',
-    borderRadius: 18,
+    borderColor: 'rgba(195,198,215,0.3)',
+    borderRadius: 12,
     overflow: 'hidden',
-    shadowColor: '#0f172a',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.03,
-    shadowRadius: 10,
-    elevation: 2,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.03,
+        shadowRadius: 3,
+      },
+      android: {
+        elevation: 1,
+      },
+    }),
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    height: 62,
+    height: 60,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -1659,23 +1546,24 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   iconBox: {
-    width: 38,
-    height: 38,
-    borderRadius: 12,
+    width: 36,
+    height: 36,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
   },
   rowTextCol: {
     justifyContent: 'center',
+    flex: 1,
   },
   rowLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#0f172a',
+    color: '#131b2e',
   },
   rowSubLabel: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#737686',
     marginTop: 2,
   },
   rowBadgeChip: {
@@ -1689,7 +1577,7 @@ const styles = StyleSheet.create({
   },
   rowBadgeChipText: {
     fontSize: 11,
-    fontWeight: '700',
+    fontWeight: '600',
     color: '#004ac6',
   },
 
@@ -1699,24 +1587,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#fef2f2',
-    borderWidth: 1,
-    borderColor: '#fecaca',
-    borderRadius: 14,
-    height: 50,
+    backgroundColor: '#ffdad6',
+    borderRadius: 12,
+    height: 48,
     marginTop: 4,
   },
   logoutBtnText: {
-    fontSize: 14.5,
+    fontSize: 14,
     fontWeight: '700',
-    color: '#dc2626',
+    color: '#ba1a1a',
   },
   footerVersionText: {
     textAlign: 'center',
-    fontSize: 11.5,
+    fontSize: 11,
     color: '#94a3b8',
-    marginTop: -8,
-    marginBottom: 8,
+    marginTop: 4,
   },
 
   /* Modal Styles */
