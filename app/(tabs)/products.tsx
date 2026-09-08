@@ -20,8 +20,11 @@ import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import Papa from 'papaparse';
+import * as XLSX from 'xlsx';
+import { Asset } from 'expo-asset';
 import { store, Product } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
+import templateAsset from '@/assets/products-template.xlsx';
 
 const FILTERS = ['All', ...PRODUCT_CATEGORIES];
 
@@ -40,6 +43,8 @@ const SORT_OPTIONS: SortOption[] = [
   { id: 'stock_asc', label: 'Stock (Low to High)', shortLabel: 'Stock ↑', icon: 'inventory-2' },
   { id: 'stock_desc', label: 'Stock (High to Low)', shortLabel: 'Stock ↓', icon: 'inventory' },
 ];
+
+const XLSX_MIME = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
 
 export default function ProductsScreen() {
   const router = useRouter();
@@ -108,24 +113,33 @@ export default function ProductsScreen() {
 
   const handleDownloadTemplate = async () => {
     try {
-      const csvContent = "Name,SKU,Price,Cost Price,Stock,Category,Unit,Tax Rate,Low Stock Alert\nExample Product,SKU123,100,80,50,Snacks,pcs,8,10\n";
+      // The template (with Category/Unit dropdowns) is pre-built by
+      // scripts/generate-template.js and bundled as a static asset.
+      const asset = Asset.fromModule(templateAsset);
       
       if (Platform.OS === 'web') {
-        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const link = document.createElement('a');
-        const url = URL.createObjectURL(blob);
-        link.setAttribute('href', url);
-        link.setAttribute('download', 'Template.csv');
+        link.setAttribute('href', asset.uri);
+        link.setAttribute('download', 'products-template.xlsx');
         link.style.visibility = 'hidden';
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
       } else {
-        const file = new File(Paths.document, 'Template.csv');
-        file.create({ overwrite: true });
-        file.write(csvContent);
+        await asset.downloadAsync();
+        if (!asset.localUri) {
+          Alert.alert('Error', 'Template file could not be loaded.');
+          return;
+        }
+        // Copy into the document directory under a friendly name, then share.
+        // copy() refuses to overwrite an existing file, so remove it first.
+        const file = new File(Paths.document, 'products-template.xlsx');
+        if (file.exists) {
+          file.delete();
+        }
+        new File(asset.localUri).copy(file);
         if (await Sharing.isAvailableAsync()) {
-          await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', dialogTitle: 'Download Bulk Import Template' });
+          await Sharing.shareAsync(file.uri, { mimeType: XLSX_MIME, dialogTitle: 'Download Bulk Import Template' });
         } else {
           Alert.alert('Sharing not available', 'Cannot download template on this device.');
         }
@@ -135,10 +149,57 @@ export default function ProductsScreen() {
     }
   };
 
+  /** Map parsed rows (CSV or XLSX) to products and push them in bulk. */
+  const importProductRows = async (rows: Record<string, string>[]) => {
+    const newProducts: Omit<Product, 'id'>[] = [];
+    for (const row of rows) {
+      if (!row['Name'] || !row['Price'] || !row['Stock'] || !row['Category']) {
+        Alert.alert('Validation Error', 'Name, Price, Stock, and Category are required for all products.');
+        return;
+      }
+      newProducts.push({
+        name: row['Name'],
+        sku: row['SKU'] || '',
+        price: parseFloat(row['Price']),
+        costPrice: parseFloat(row['Cost Price']) || 0,
+        stock: parseFloat(row['Stock']),
+        category: row['Category'],
+        unit: row['Unit'] || 'pcs',
+        taxRate: parseFloat(row['Tax Rate']) || 8,
+        lowStockAlert: parseFloat(row['Low Stock Alert']) || 5,
+      });
+    }
+
+    if (newProducts.length === 0) {
+      Alert.alert('Empty File', 'No valid products found in the file.');
+      return;
+    }
+
+    try {
+      setRefreshing(true);
+      const res = await store.bulkAddProducts(newProducts);
+      Alert.alert('Success', res.message || `Imported ${res.added} products.`);
+      refreshCatalog();
+    } catch (err: any) {
+      Alert.alert('Import Failed', err.message || 'Could not import products.');
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  /** Read the first worksheet of an .xlsx file into header-keyed rows. */
+  const readXlsxRows = async (uri: string): Promise<Record<string, string>[]> => {
+    const buffer = await new File(uri).arrayBuffer();
+    const workbook = XLSX.read(new Uint8Array(buffer), { type: 'array' });
+    const sheet = workbook.Sheets[workbook.SheetNames[0]];
+    if (!sheet) return [];
+    return XLSX.utils.sheet_to_json<Record<string, string>>(sheet, { raw: false, defval: '' });
+  };
+
   const handleImportProducts = async () => {
     try {
       const result = await DocumentPicker.getDocumentAsync({
-        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values'],
+        type: ['text/csv', 'application/vnd.ms-excel', 'text/comma-separated-values', XLSX_MIME],
         copyToCacheDirectory: true,
       });
 
@@ -146,52 +207,23 @@ export default function ProductsScreen() {
         return;
       }
 
-      const fileUri = result.assets[0].uri;
-      const fileContent = await new File(fileUri).text();
+      const asset = result.assets[0];
+      if (asset.uri.toLowerCase().endsWith('.xlsx') || asset.mimeType === XLSX_MIME) {
+        importProductRows(await readXlsxRows(asset.uri));
+        return;
+      }
+
+      const fileContent = await new File(asset.uri).text();
 
       Papa.parse(fileContent, {
         header: true,
         skipEmptyLines: true,
-        complete: async (results) => {
+        complete: (results) => {
           if (results.errors && results.errors.length > 0) {
             Alert.alert('CSV Parse Error', results.errors[0].message);
             return;
           }
-
-          const newProducts: Omit<Product, 'id'>[] = [];
-          for (const row of results.data as any[]) {
-            if (!row['Name'] || !row['Price'] || !row['Stock'] || !row['Category']) {
-              Alert.alert('Validation Error', 'Name, Price, Stock, and Category are required for all products.');
-              return;
-            }
-            newProducts.push({
-              name: row['Name'],
-              sku: row['SKU'] || '',
-              price: parseFloat(row['Price']),
-              costPrice: parseFloat(row['Cost Price']) || 0,
-              stock: parseFloat(row['Stock']),
-              category: row['Category'],
-              unit: row['Unit'] || 'pcs',
-              taxRate: parseFloat(row['Tax Rate']) || 8,
-              lowStockAlert: parseFloat(row['Low Stock Alert']) || 5,
-            });
-          }
-
-          if (newProducts.length === 0) {
-            Alert.alert('Empty File', 'No valid products found in the CSV.');
-            return;
-          }
-
-          try {
-            setRefreshing(true);
-            const res = await store.bulkAddProducts(newProducts);
-            Alert.alert('Success', res.message || `Imported ${res.added} products.`);
-            refreshCatalog();
-          } catch (err: any) {
-            Alert.alert('Import Failed', err.message || 'Could not import products.');
-          } finally {
-            setRefreshing(false);
-          }
+          importProductRows(results.data as Record<string, string>[]);
         },
         error: (error: any) => {
           Alert.alert('CSV Error', error.message);

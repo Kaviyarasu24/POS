@@ -14,6 +14,10 @@ export const PRODUCT_CATEGORIES = [
   'Other',
 ] as const;
 
+// Unit values accepted by the Add/Edit Product form and bulk import. Kept in
+// sync with UNIT_OPTIONS in app/add_product.tsx.
+export const PRODUCT_UNITS = ['pcs', 'kg', 'g', 'pack', 'box', 'l', 'ml'] as const;
+
 export interface ShopCategoryItem {
   label: string;
   value: string;
