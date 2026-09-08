@@ -19,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
+import { formatBillDate } from '@/constants/receipt';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -42,22 +43,12 @@ const formatCurrency = (val: any) => {
   return isNaN(n) ? '0.00' : n.toFixed(2);
 };
 
+// Always show the full date (never "Today"/"Yesterday") with 12-hour AM/PM time.
 const formatDate = (isoStr: string) => {
   try {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
-
-    const today = new Date();
-    const isToday =
-      d.getDate() === today.getDate() &&
-      d.getMonth() === today.getMonth() &&
-      d.getFullYear() === today.getFullYear();
-
-    const timeStr = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    if (isToday) return `Today, ${timeStr}`;
-
-    const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-    return `${d.getDate()} ${monthNames[d.getMonth()]}, ${timeStr}`;
+    return formatBillDate(d);
   } catch (e) {
     return isoStr;
   }

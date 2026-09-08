@@ -23,7 +23,7 @@ import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import { store, Product, GeneratedBill, Customer } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
-import { buildReceiptHtml, gstSplit } from '@/constants/receipt';
+import { buildReceiptHtml, formatBillDate } from '@/constants/receipt';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -401,8 +401,7 @@ export default function BillingScreen() {
 
       const billText = `🧾 *${generatedBill.shop_name} - Bill Receipt*\n` +
         `Invoice: ${generatedBill.invoice_number}\n` +
-        `Date: ${new Date(generatedBill.created_at).toLocaleString()}\n` +
-        `Billed By: ${generatedBill.cashier_name || 'Cashier'}\n` +
+        `Date: ${formatBillDate(generatedBill.created_at)}\n` +
         `Payment: ${generatedBill.payment_method}\n` +
         `------------------------\n` +
         `${itemsText}\n` +
@@ -456,11 +455,6 @@ export default function BillingScreen() {
               {store.currentUser?.shopName || 'Store'}
             </Text>
           </View>
-        </View>
-        <View style={styles.headerRight}>
-          <Text style={styles.cashierNameText}>
-            👤 {store.currentUser?.userName || 'Owner'}
-          </Text>
         </View>
       </View>
 
@@ -1113,13 +1107,7 @@ export default function BillingScreen() {
                 <View style={styles.receiptMetaRow}>
                   <Text style={styles.receiptMetaKey}>Date & Time:</Text>
                   <Text style={styles.receiptMetaVal}>
-                    {generatedBill ? new Date(generatedBill.created_at).toLocaleString() : ''}
-                  </Text>
-                </View>
-                <View style={styles.receiptMetaRow}>
-                  <Text style={styles.receiptMetaKey}>Cashier:</Text>
-                  <Text style={styles.receiptMetaVal}>
-                    {generatedBill?.cashier_name || 'Owner'}
+                    {generatedBill ? formatBillDate(generatedBill.created_at) : ''}
                   </Text>
                 </View>
                 <View style={styles.receiptMetaRow}>
@@ -1181,27 +1169,10 @@ export default function BillingScreen() {
                     </Text>
                   </View>
                 )}
-                {generatedBill?.gst_number ? (
-                  <>
-                    <View style={styles.billSummaryRow}>
-                      <Text style={styles.billSummaryLabel}>CGST</Text>
-                      <Text style={styles.billSummaryVal}>
-                        ₹{formatNum(gstSplit(generatedBill?.tax || 0).cgst)}
-                      </Text>
-                    </View>
-                    <View style={styles.billSummaryRow}>
-                      <Text style={styles.billSummaryLabel}>SGST</Text>
-                      <Text style={styles.billSummaryVal}>
-                        ₹{formatNum(gstSplit(generatedBill?.tax || 0).sgst)}
-                      </Text>
-                    </View>
-                  </>
-                ) : (
-                  <View style={styles.billSummaryRow}>
-                    <Text style={styles.billSummaryLabel}>Tax</Text>
-                    <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.tax)}</Text>
-                  </View>
-                )}
+                <View style={styles.billSummaryRow}>
+                  <Text style={styles.billSummaryLabel}>Tax</Text>
+                  <Text style={styles.billSummaryVal}>₹{formatNum(generatedBill?.tax)}</Text>
+                </View>
                 <View style={[styles.billSummaryRow, styles.billGrandTotalRow]}>
                   <Text style={styles.billGrandTotalLabel}>Grand Total</Text>
                   <Text style={styles.billGrandTotalVal}>₹{formatNum(generatedBill?.total)}</Text>
@@ -1501,19 +1472,6 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '600',
     color: '#004ac6',
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  cashierNameText: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#434655',
-    backgroundColor: '#f3f3fa',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 999,
   },
   mainContent: {
     flex: 1,

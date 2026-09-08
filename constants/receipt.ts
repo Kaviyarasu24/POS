@@ -20,11 +20,33 @@ function escapeHtml(value: unknown): string {
     .replace(/'/g, '&#39;');
 }
 
+const MONTH_NAMES = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * Deterministic bill date format: "DD <Full Month> YYYY, HH:MM AM/PM",
+ * e.g. "08 September 2026, 02:30 PM". Built by hand instead of
+ * toLocaleString so the output is identical on Android, iOS and web.
+ */
+export function formatBillDate(iso?: string | Date): string {
+  if (!iso) return '';
+  const d = typeof iso === 'string' ? new Date(iso) : iso;
+  if (isNaN(d.getTime())) return String(iso);
+  let hours = d.getHours();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  hours = hours % 12 || 12;
+  return `${pad2(d.getDate())} ${MONTH_NAMES[d.getMonth()]} ${d.getFullYear()}, ${pad2(hours)}:${pad2(d.getMinutes())} ${ampm}`;
+}
+
 function formatDate(iso?: string): string {
   if (!iso) return '';
   const d = new Date(iso);
   if (isNaN(d.getTime())) return escapeHtml(iso);
-  return d.toLocaleString();
+  return escapeHtml(formatBillDate(d));
 }
 
 export interface ReceiptOptions {
@@ -41,7 +63,6 @@ export function buildReceiptHtml(bill: GeneratedBill, opts: ReceiptOptions = {})
   const currency = opts.currency ?? '₹';
   const money = (n: number) => `${currency}${(n || 0).toFixed(2)}`;
   const hasGst = !!(bill.gst_number && String(bill.gst_number).trim());
-  const { cgst, sgst } = gstSplit(bill.tax);
 
   const itemRows = (bill.items || [])
     .map((it) => {
@@ -63,10 +84,7 @@ export function buildReceiptHtml(bill: GeneratedBill, opts: ReceiptOptions = {})
         )}${bill.customer_phone ? ` · ${escapeHtml(bill.customer_phone)}` : ''}</span></div>`
       : '';
 
-  const taxBlock = hasGst
-    ? `<div class="row"><span>CGST</span><span>${money(cgst)}</span></div>
-       <div class="row"><span>SGST</span><span>${money(sgst)}</span></div>`
-    : `<div class="row"><span>Tax</span><span>${money(bill.tax)}</span></div>`;
+  const taxBlock = `<div class="row"><span>Tax</span><span>${money(bill.tax)}</span></div>`;
 
   const tenderedBlock =
     bill.amount_paid !== undefined
@@ -110,7 +128,6 @@ export function buildReceiptHtml(bill: GeneratedBill, opts: ReceiptOptions = {})
     <hr class="divider" />
     <div class="row"><span>Invoice</span><span>${escapeHtml(bill.invoice_number)}</span></div>
     <div class="row"><span>Date</span><span>${formatDate(bill.created_at)}</span></div>
-    ${bill.cashier_name ? `<div class="row"><span>Cashier</span><span>${escapeHtml(bill.cashier_name)}</span></div>` : ''}
     ${customerBlock}
     <table>
       <thead>
