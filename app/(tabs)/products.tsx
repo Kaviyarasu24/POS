@@ -16,7 +16,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as FileSystem from 'expo-file-system';
+import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import * as DocumentPicker from 'expo-document-picker';
 import Papa from 'papaparse';
@@ -109,12 +109,26 @@ export default function ProductsScreen() {
   const handleDownloadTemplate = async () => {
     try {
       const csvContent = "Name,SKU,Price,Cost Price,Stock,Category,Unit,Tax Rate,Low Stock Alert\nExample Product,SKU123,100,80,50,Snacks,pcs,8,10\n";
-      const fileUri = `${FileSystem.documentDirectory}Template.csv`;
-      await FileSystem.writeAsStringAsync(fileUri, csvContent, { encoding: FileSystem.EncodingType.UTF8 });
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, { mimeType: 'text/csv', dialogTitle: 'Download Bulk Import Template' });
+      
+      if (Platform.OS === 'web') {
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', 'Template.csv');
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } else {
-        Alert.alert('Sharing not available', 'Cannot download template on this device.');
+        const file = new File(Paths.document, 'Template.csv');
+        file.create({ overwrite: true });
+        file.write(csvContent);
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(file.uri, { mimeType: 'text/csv', dialogTitle: 'Download Bulk Import Template' });
+        } else {
+          Alert.alert('Sharing not available', 'Cannot download template on this device.');
+        }
       }
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Failed to download template');
@@ -133,7 +147,7 @@ export default function ProductsScreen() {
       }
 
       const fileUri = result.assets[0].uri;
-      const fileContent = await FileSystem.readAsStringAsync(fileUri, { encoding: FileSystem.EncodingType.UTF8 });
+      const fileContent = await new File(fileUri).text();
 
       Papa.parse(fileContent, {
         header: true,
