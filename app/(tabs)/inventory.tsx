@@ -54,7 +54,7 @@ export default function InventoryScreen() {
   // Calculations
   const metrics = useMemo(() => {
     const totalValue = inventory.reduce((acc, item) => acc + item.price * item.stock, 0);
-    const totalCount = inventory.reduce((acc, item) => acc + item.stock, 0);
+    const totalCount = inventory.length; // count of distinct products, not total stock
     return {
       totalValue,
       totalCount,
@@ -136,7 +136,7 @@ export default function InventoryScreen() {
                 </Text>
               </View>
               <View style={styles.metricCard}>
-                <Text style={styles.metricLabel}>Total Items</Text>
+                <Text style={styles.metricLabel}>Total Products</Text>
                 <Text style={styles.metricValue}>
                   {metrics.totalCount.toLocaleString()}
                 </Text>
