@@ -114,7 +114,12 @@ export default function InventoryScreen() {
             <View style={styles.metricsGrid}>
               <View style={styles.metricCard}>
                 <Text style={styles.metricLabel}>Total Stock Value</Text>
-                <Text style={styles.metricValuePrimary}>
+                <Text
+                  style={styles.metricValuePrimary}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                  minimumFontScale={0.6}
+                >
                   ₹{metrics.totalValue.toLocaleString(undefined, {
                     minimumFractionDigits: 2,
                     maximumFractionDigits: 2,
@@ -241,7 +246,7 @@ export default function InventoryScreen() {
         }
       />
 
-      {/* Quick Restock Modal Dialog */}
+      {/* Quick Restock — Bottom Sheet Drawer */}
       <Modal
         visible={restockModalVisible}
         animationType="slide"
@@ -252,120 +257,137 @@ export default function InventoryScreen() {
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           style={{ flex: 1 }}
         >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <View style={styles.modalHeaderRow}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={styles.modalIconCircle}>
-                    <MaterialIcons name="add-business" size={20} color="#004ac6" />
-                  </View>
-                  <Text style={styles.modalTitle}>Quick Restock</Text>
+          {/* Dim backdrop — tap to dismiss */}
+          <TouchableOpacity
+            style={styles.sheetBackdrop}
+            activeOpacity={1}
+            onPress={() => setRestockModalVisible(false)}
+          />
+
+          {/* Sheet card anchored to the bottom */}
+          <View style={styles.sheetCard}>
+            {/* Drag handle */}
+            <View style={styles.sheetHandle} />
+
+            {/* Sheet header */}
+            <View style={styles.modalHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <View style={styles.modalIconCircle}>
+                  <MaterialIcons name="add-business" size={20} color="#004ac6" />
                 </View>
-                <TouchableOpacity
-                  onPress={() => setRestockModalVisible(false)}
-                  style={styles.modalCloseBtn}
-                >
-                  <MaterialIcons name="close" size={20} color="#64748b" />
-                </TouchableOpacity>
+                <Text style={styles.modalTitle}>Quick Restock</Text>
               </View>
+              <TouchableOpacity
+                onPress={() => setRestockModalVisible(false)}
+                style={styles.modalCloseBtn}
+              >
+                <MaterialIcons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
 
-              {targetProduct && (
-                <View style={styles.restockProductHeader}>
-                  <View style={styles.restockThumbnailWrapper}>
-                    {targetProduct.image ? (
-                      <Image source={{ uri: targetProduct.image }} style={styles.thumbnail} contentFit="cover" />
-                    ) : (
-                      <MaterialIcons name="inventory-2" size={24} color="#004ac6" />
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.restockProductName} numberOfLines={1}>
-                      {targetProduct.name}
-                    </Text>
-                    <Text style={styles.restockProductMeta}>
-                      SKU: {targetProduct.sku} • Current: <Text style={{ fontWeight: '700', color: targetProduct.stock <= targetProduct.lowStockAlert ? '#dc2626' : '#16a34a' }}>{targetProduct.stock} {targetProduct.unit || 'pcs'}</Text>
-                    </Text>
-                  </View>
+            {/* Product info card */}
+            {targetProduct && (
+              <View style={styles.restockProductHeader}>
+                <View style={styles.restockThumbnailWrapper}>
+                  {targetProduct.image ? (
+                    <Image source={{ uri: targetProduct.image }} style={styles.thumbnail} contentFit="cover" />
+                  ) : (
+                    <MaterialIcons name="inventory-2" size={24} color="#004ac6" />
+                  )}
                 </View>
-              )}
-
-              {/* Quantity Stepper */}
-              <Text style={styles.restockLabel}>Restock Quantity to Add</Text>
-              <View style={styles.stepperRow}>
-                <TouchableOpacity
-                  style={styles.stepperBtn}
-                  onPress={() => setRestockQty((prev) => Math.max(1, prev - 1))}
-                >
-                  <MaterialIcons name="remove" size={20} color="#004ac6" />
-                </TouchableOpacity>
-
-                <TextInput
-                  style={styles.stepperInput}
-                  value={restockQty.toString()}
-                  onChangeText={(val) => {
-                    const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
-                    setRestockQty(isNaN(num) ? 0 : num);
-                  }}
-                  keyboardType="number-pad"
-                  textAlign="center"
-                />
-
-                <TouchableOpacity
-                  style={styles.stepperBtn}
-                  onPress={() => setRestockQty((prev) => prev + 1)}
-                >
-                  <MaterialIcons name="add" size={20} color="#004ac6" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Preset Quick Chips */}
-              <View style={styles.presetChipsRow}>
-                {RESTOCK_PRESETS.map((qty) => (
-                  <TouchableOpacity
-                    key={qty}
-                    style={[
-                      styles.presetChip,
-                      restockQty === qty && styles.presetChipActive,
-                    ]}
-                    onPress={() => setRestockQty(qty)}
-                  >
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.restockProductName} numberOfLines={1}>
+                    {targetProduct.name}
+                  </Text>
+                  <Text style={styles.restockProductMeta}>
+                    SKU: {targetProduct.sku} • Current:{' '}
                     <Text
-                      style={[
-                        styles.presetChipText,
-                        restockQty === qty && styles.presetChipTextActive,
-                      ]}
+                      style={{
+                        fontWeight: '700',
+                        color:
+                          targetProduct.stock <= targetProduct.lowStockAlert
+                            ? '#dc2626'
+                            : '#16a34a',
+                      }}
                     >
-                      +{qty}
+                      {targetProduct.stock} {targetProduct.unit || 'pcs'}
                     </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-
-              {/* Live Preview Calculation */}
-              {targetProduct && (
-                <View style={styles.previewBox}>
-                  <Text style={styles.previewBoxLabel}>Stock After Restock:</Text>
-                  <Text style={styles.previewBoxValue}>
-                    {targetProduct.stock + restockQty} {targetProduct.unit || 'pcs'}
                   </Text>
                 </View>
-              )}
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setRestockModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.confirmRestockBtn}
-                  onPress={handleConfirmRestock}
-                >
-                  <MaterialIcons name="check" size={18} color="#ffffff" />
-                  <Text style={styles.confirmRestockBtnText}>Confirm Restock</Text>
-                </TouchableOpacity>
               </View>
+            )}
+
+            {/* Quantity label */}
+            <Text style={styles.restockLabel}>Restock Quantity to Add</Text>
+
+            {/* Stepper */}
+            <View style={styles.stepperRow}>
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => setRestockQty((prev) => Math.max(1, prev - 1))}
+              >
+                <MaterialIcons name="remove" size={20} color="#004ac6" />
+              </TouchableOpacity>
+              <TextInput
+                style={styles.stepperInput}
+                value={restockQty.toString()}
+                onChangeText={(val) => {
+                  const num = parseInt(val.replace(/[^0-9]/g, ''), 10);
+                  setRestockQty(isNaN(num) ? 0 : num);
+                }}
+                keyboardType="number-pad"
+                textAlign="center"
+              />
+              <TouchableOpacity
+                style={styles.stepperBtn}
+                onPress={() => setRestockQty((prev) => prev + 1)}
+              >
+                <MaterialIcons name="add" size={20} color="#004ac6" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Preset chips */}
+            <View style={styles.presetChipsRow}>
+              {RESTOCK_PRESETS.map((qty) => (
+                <TouchableOpacity
+                  key={qty}
+                  style={[styles.presetChip, restockQty === qty && styles.presetChipActive]}
+                  onPress={() => setRestockQty(qty)}
+                >
+                  <Text
+                    style={[styles.presetChipText, restockQty === qty && styles.presetChipTextActive]}
+                  >
+                    +{qty}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            {/* Live preview */}
+            {targetProduct && (
+              <View style={styles.previewBox}>
+                <Text style={styles.previewBoxLabel}>Stock After Restock:</Text>
+                <Text style={styles.previewBoxValue}>
+                  {targetProduct.stock + restockQty} {targetProduct.unit || 'pcs'}
+                </Text>
+              </View>
+            )}
+
+            {/* Action buttons — full width in sheet */}
+            <View style={styles.sheetActions}>
+              <TouchableOpacity
+                style={styles.cancelBtn}
+                onPress={() => setRestockModalVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmRestockBtn, { flex: 1 }]}
+                onPress={handleConfirmRestock}
+              >
+                <MaterialIcons name="check" size={18} color="#ffffff" />
+                <Text style={styles.confirmRestockBtnText}>Confirm Restock</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </KeyboardAvoidingView>
@@ -641,25 +663,40 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  // Modal Styles
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.45)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
+  // Bottom-sheet drawer styles
+  sheetBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'transparent',
   },
-  modalCard: {
-    width: '100%',
-    maxWidth: 440,
+  sheetCard: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
     backgroundColor: '#ffffff',
-    borderRadius: 20,
-    padding: 24,
-    shadowColor: 'rgba(0,0,0,0.15)',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 1,
-    shadowRadius: 24,
-    elevation: 8,
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingHorizontal: 20,
+    paddingBottom: Platform.OS === 'ios' ? 36 : 24,
+    paddingTop: 12,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 16,
+  },
+  sheetHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 9999,
+    backgroundColor: '#cbd5e1',
+    alignSelf: 'center',
+    marginBottom: 16,
+  },
+  sheetActions: {
+    flexDirection: 'row',
+    gap: 10,
+    marginTop: 4,
   },
   modalHeaderRow: {
     flexDirection: 'row',
@@ -799,22 +836,17 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#15803d',
   },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-  },
   cancelBtn: {
-    paddingVertical: 10,
+    paddingVertical: 13,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#cbd5e1',
     alignItems: 'center',
     justifyContent: 'center',
   },
   cancelBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#475569',
   },
@@ -822,14 +854,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
-    paddingVertical: 10,
+    paddingVertical: 13,
     paddingHorizontal: 20,
-    borderRadius: 8,
+    borderRadius: 10,
     backgroundColor: '#004ac6',
     justifyContent: 'center',
   },
   confirmRestockBtnText: {
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '600',
     color: '#ffffff',
   },
