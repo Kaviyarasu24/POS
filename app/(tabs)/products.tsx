@@ -26,6 +26,7 @@ import { store, Product } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
 import templateAsset from '@/assets/products-template.xlsx';
 
+import { Palette } from '@/constants/theme';
 import {
   CategoryFilters,
   CategoryFilterState,
@@ -343,11 +344,17 @@ export default function ProductsScreen() {
               <TouchableOpacity
                 style={styles.sortPillButton}
                 onPress={() => setSortModalVisible(true)}
-                activeOpacity={0.8}
+                activeOpacity={0.7}
               >
-                <MaterialIcons name={activeSort.icon as any} size={14} color="#004ac6" />
-                <Text style={styles.sortPillText}>{activeSort.shortLabel}</Text>
-                <MaterialIcons name="arrow-drop-down" size={18} color="#004ac6" />
+                <View style={styles.sortPillTag}>
+                  <MaterialIcons name="sort" size={13} color={Palette.primary} />
+                  <Text style={styles.sortPillTagText}>Sort</Text>
+                </View>
+                <View style={styles.sortPillValue}>
+                  <MaterialIcons name={activeSort.icon as any} size={13} color={Palette.text} />
+                  <Text style={styles.sortPillText} numberOfLines={1}>{activeSort.shortLabel}</Text>
+                  <MaterialIcons name="arrow-drop-down" size={14} color={Palette.textSecondary} />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
@@ -683,18 +690,39 @@ const styles = StyleSheet.create({
   sortPillButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#eff6ff',
+    height: 30,
     borderRadius: 8,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    gap: 4,
+    backgroundColor: '#f1f5f9',
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+  },
+  sortPillTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    height: '100%',
+    backgroundColor: '#eaedff',
+  },
+  sortPillTagText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+  sortPillValue: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    height: '100%',
+    backgroundColor: '#f8fafc',
   },
   sortPillText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
-    color: '#004ac6',
+    color: '#131b2e',
+    maxWidth: 90,
   },
   productItemCard: {
     flexDirection: 'row',
@@ -898,15 +926,21 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: 'rgba(19, 27, 46, 0.45)',
     justifyContent: 'flex-end',
   },
   modalSheet: {
     backgroundColor: '#ffffff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 36,
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 32,
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.16,
+    shadowRadius: 20,
+    elevation: 12,
   },
   modalHandle: {
     width: 36,
@@ -914,35 +948,36 @@ const styles = StyleSheet.create({
     backgroundColor: '#cbd5e1',
     borderRadius: 2,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   modalHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e6e8f2',
+    marginBottom: 10,
   },
   modalTitle: {
-    fontSize: 17,
+    fontSize: 16,
     fontWeight: '700',
     color: '#131b2e',
   },
   sortList: {
-    gap: 6,
+    gap: 4,
   },
   sortOptionRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    backgroundColor: '#ffffff',
   },
   sortOptionRowActive: {
-    backgroundColor: '#eff6ff',
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
+    backgroundColor: '#eaedff',
   },
   sortOptionLeft: {
     flexDirection: 'row',
@@ -950,8 +985,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   sortOptionLabel: {
-    fontSize: 14,
-    color: '#334155',
+    fontSize: 13.5,
+    color: '#131b2e',
     fontWeight: '500',
   },
   sortOptionLabelActive: {
