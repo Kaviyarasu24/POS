@@ -1077,9 +1077,6 @@ export default function BillingScreen() {
             <ScrollView showsVerticalScrollIndicator={false}>
               {/* Receipt Header */}
               <View style={styles.receiptHeader}>
-                <View style={styles.receiptCheckIcon}>
-                  <MaterialIcons name="check" size={20} color="#ffffff" />
-                </View>
                 <Text style={styles.receiptShopName}>
                   {generatedBill?.shop_name || 'SmartPOS Supermart'}
                 </Text>
@@ -2254,15 +2251,6 @@ const styles = StyleSheet.create({
   receiptHeader: {
     alignItems: 'center',
     paddingVertical: 6,
-  },
-  receiptCheckIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#006329',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 8,
   },
   receiptShopName: {
     fontSize: 18,
