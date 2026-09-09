@@ -33,6 +33,16 @@ export default function DashboardScreen() {
       const response = await fetch(`${API_BASE_URL}/api/dashboard`, {
         headers: store.getHeaders(),
       });
+      // ─── Fix 1: Explicit 401 guard ─────────────────────────────────────────
+      // The dashboard calls fetch() directly (bypassing store.* methods), so a
+      // 401 would previously be swallowed as a generic error and the user would
+      // stay on screen seeing stale zeroes. We now detect the 401 explicitly,
+      // call store.logout() to clear the session + fire notify(), which triggers
+      // the root layout guard to redirect to /login.
+      if (response.status === 401) {
+        await store.logout();
+        return;
+      }
       if (!response.ok) throw new Error('Failed to fetch dashboard metrics');
       const data = await response.json();
       setMetrics({

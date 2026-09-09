@@ -9,8 +9,18 @@ export default function TabLayout() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
-  // Watch for session expiration / logout and redirect to login
+  // ─── Fix 2: Auth guard with immediate mount check ────────────────────────
+  // The root _layout.tsx handles the reactive (notify-driven) redirect for all
+  // screens. This useEffect adds an *immediate* check on mount so the tab UI
+  // never flashes for a split second before the first notify fires.
   useEffect(() => {
+    // Immediate check: if the token is already gone when the tabs mount, bail
+    // straight to /login without waiting for the next store notification.
+    if (!store.currentUser?.token) {
+      router.replace('/login');
+      return;
+    }
+    // Reactive check: keep watching for mid-session expiry / logout events.
     const checkAuth = () => {
       if (!store.currentUser?.token) {
         router.replace('/login');
