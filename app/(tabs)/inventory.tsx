@@ -25,6 +25,7 @@ export default function InventoryScreen() {
   // State
   const [inventory, setInventory] = useState<Product[]>([]);
   const [selectedFilter, setSelectedFilter] = useState('All Stock');
+  const [searchQuery, setSearchQuery] = useState('');
 
   // Quick Restock Modal State
   const [restockModalVisible, setRestockModalVisible] = useState(false);
@@ -60,18 +61,26 @@ export default function InventoryScreen() {
     };
   }, [inventory]);
 
-  // Filtered list
   const filteredInventory = useMemo(() => {
     return inventory.filter((item) => {
+      // Search filter
+      if (searchQuery.trim()) {
+        const q = searchQuery.toLowerCase();
+        const matchesSearch =
+          item.name.toLowerCase().includes(q) ||
+          item.sku.toLowerCase().includes(q);
+        if (!matchesSearch) return false;
+      }
+      // Status filter
       if (selectedFilter === 'Low Stock') {
         return item.stock > 0 && item.stock <= item.lowStockAlert;
       }
       if (selectedFilter === 'Out of Stock') {
         return item.stock === 0;
       }
-      return true; // All Stock
+      return true;
     });
-  }, [inventory, selectedFilter]);
+  }, [inventory, selectedFilter, searchQuery]);
 
   // Actions
   const openRestockModal = (item: Product, defaultAdd = 10) => {
@@ -134,7 +143,26 @@ export default function InventoryScreen() {
               </View>
             </View>
 
-            {/* Tabs Row */}
+            {/* Search Box */}
+            <View style={styles.searchRow}>
+              <MaterialIcons name="search" size={18} color="#737686" style={styles.searchIcon} />
+              <TextInput
+                style={styles.searchInput}
+                placeholder="Search by name or SKU..."
+                placeholderTextColor="#9ca3af"
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                clearButtonMode="while-editing"
+                returnKeyType="search"
+              />
+              {searchQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setSearchQuery('')} style={styles.searchClear}>
+                  <MaterialIcons name="close" size={16} color="#737686" />
+                </TouchableOpacity>
+              )}
+            </View>
+
+            {/* Filter Chips */}
             <View style={styles.tabsRow}>
               {FILTERS.map((filter) => {
                 const active = selectedFilter === filter;
@@ -158,84 +186,74 @@ export default function InventoryScreen() {
           const isLowStock = item.stock > 0 && item.stock <= item.lowStockAlert;
 
           return (
-            <TouchableOpacity
-              style={[
-                styles.itemCard,
-                isOutOfStock && styles.itemCardOutOfStock,
-                isLowStock && styles.itemCardLowStock,
-              ]}
-              onPress={() => router.push(`/add_product?id=${item.id}`)}
-              activeOpacity={0.85}
-            >
-              <View style={styles.cardHeaderRow}>
-                {/* Thumbnail */}
-                <View style={styles.thumbnailWrapper}>
-                  {item.image ? (
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.thumbnail}
-                      contentFit="cover"
-                    />
+          <TouchableOpacity
+            style={[
+              styles.itemCard,
+              isOutOfStock && styles.itemCardOutOfStock,
+              isLowStock && styles.itemCardLowStock,
+            ]}
+            onPress={() => router.push(`/add_product?id=${item.id}`)}
+            activeOpacity={0.85}
+          >
+            <View style={styles.cardHeaderRow}>
+              {/* Thumbnail */}
+              <View style={styles.thumbnailWrapper}>
+                {item.image ? (
+                  <Image source={{ uri: item.image }} style={styles.thumbnail} contentFit="cover" />
+                ) : (
+                  <MaterialIcons name="inventory-2" size={20} color="#737686" />
+                )}
+              </View>
+
+              {/* Details */}
+              <View style={styles.itemDetails}>
+                <Text style={[styles.itemName, isOutOfStock && styles.textSecondary]} numberOfLines={1}>
+                  {item.name}
+                </Text>
+                <Text style={styles.itemSku}>SKU: {item.sku}</Text>
+                <View style={styles.itemMetaRow}>
+                  <Text style={[styles.itemPrice, isOutOfStock && styles.textSecondary]}>
+                    ₹{item.price.toFixed(2)}
+                    <Text style={{ fontSize: 10, fontWeight: '500', color: '#64748b' }}>/{item.unit || 'pc'}</Text>
+                  </Text>
+                  {isOutOfStock ? (
+                    <View style={[styles.badge, styles.badgeError]}>
+                      <MaterialIcons name="error" size={11} color="#ba1a1a" />
+                      <Text style={styles.badgeTextError}>Out of stock</Text>
+                    </View>
+                  ) : isLowStock ? (
+                    <View style={[styles.badge, styles.badgeWarning]}>
+                      <MaterialIcons name="warning" size={11} color="#854d0e" />
+                      <Text style={styles.badgeTextWarning}>{item.stock} {item.unit || 'pcs'} left</Text>
+                    </View>
                   ) : (
-                    <MaterialIcons name="inventory-2" size={24} color="#737686" />
+                    <View style={[styles.badge, styles.badgeSuccess]}>
+                      <MaterialIcons name="check-circle" size={11} color="#166534" />
+                      <Text style={styles.badgeTextSuccess}>{item.stock} {item.unit || 'pcs'}</Text>
+                    </View>
                   )}
                 </View>
-
-                {/* Details */}
-                <View style={styles.itemDetails}>
-                  <Text
-                    style={[styles.itemName, isOutOfStock && styles.textSecondary]}
-                    numberOfLines={1}
-                  >
-                    {item.name}
-                  </Text>
-                  <Text style={styles.itemSku}>SKU: {item.sku}</Text>
-                  <View style={styles.itemMetaRow}>
-                    <Text style={[styles.itemPrice, isOutOfStock && styles.textSecondary]}>
-                      ₹{item.price.toFixed(2)}<Text style={{ fontSize: 11, fontWeight: '500', color: '#64748b' }}>/{item.unit || 'pc'}</Text>
-                    </Text>
-
-                    {/* Stock status badge */}
-                    {isOutOfStock ? (
-                      <View style={[styles.badge, styles.badgeError]}>
-                        <MaterialIcons name="error" size={12} color="#ba1a1a" />
-                        <Text style={styles.badgeTextError}>Out of stock</Text>
-                      </View>
-                    ) : isLowStock ? (
-                      <View style={[styles.badge, styles.badgeWarning]}>
-                        <MaterialIcons name="warning" size={12} color="#854d0e" />
-                        <Text style={styles.badgeTextWarning}>{item.stock} {item.unit || 'pcs'} left</Text>
-                      </View>
-                    ) : (
-                      <View style={[styles.badge, styles.badgeSuccess]}>
-                        <MaterialIcons name="check-circle" size={12} color="#166534" />
-                        <Text style={styles.badgeTextSuccess}>{item.stock} {item.unit || 'pcs'}</Text>
-                      </View>
-                    )}
-                  </View>
-                </View>
               </View>
 
-              {/* Quick Restock Action Button */}
-              <View style={styles.cardActionsRow}>
-                <TouchableOpacity
-                  style={[
-                    styles.actionBtnPrimary,
-                    isOutOfStock && styles.actionBtnDanger,
-                  ]}
-                  onPress={(e) => {
-                    e.stopPropagation();
-                    openRestockModal(item, isOutOfStock ? 25 : 10);
-                  }}
-                  activeOpacity={0.8}
-                >
-                  <MaterialIcons name="add" size={16} color="#ffffff" />
-                  <Text style={styles.actionBtnPrimaryText}>
-                    {isOutOfStock ? 'Reorder / Restock' : 'Quick Restock'}
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </TouchableOpacity>
+              {/* Quick Restock — compact icon button on the right */}
+              <TouchableOpacity
+                style={[
+                  styles.restockIconBtn,
+                  isOutOfStock && styles.restockIconBtnDanger,
+                ]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  openRestockModal(item, isOutOfStock ? 25 : 10);
+                }}
+                activeOpacity={0.8}
+              >
+                <MaterialIcons name="add" size={18} color="#ffffff" />
+                <Text style={styles.restockIconBtnText}>
+                  {isOutOfStock ? 'Reorder' : 'Restock'}
+                </Text>
+              </TouchableOpacity>
+            </View>
+          </TouchableOpacity>
           );
         }}
         ListEmptyComponent={
@@ -471,12 +489,12 @@ const styles = StyleSheet.create({
   },
   tabsRow: {
     flexDirection: 'row',
-    gap: 8,
-    marginBottom: 20,
+    gap: 6,
+    marginBottom: 16,
   },
   tabChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
     borderRadius: 9999,
     backgroundColor: '#eaedff',
     borderWidth: 1,
@@ -487,7 +505,7 @@ const styles = StyleSheet.create({
     borderColor: '#004ac6',
   },
   tabChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: '#434655',
   },
@@ -495,10 +513,34 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '600',
   },
+  // Search box
+  searchRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ffffff',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#c3c6d7',
+    paddingHorizontal: 10,
+    marginBottom: 10,
+    height: 40,
+  },
+  searchIcon: {
+    marginRight: 6,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 13,
+    color: '#131b2e',
+    height: '100%',
+  },
+  searchClear: {
+    padding: 4,
+  },
   itemCard: {
     backgroundColor: '#ffffff',
-    padding: 16,
-    borderRadius: 12,
+    padding: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: 'rgba(195,198,215,0.4)',
     shadowColor: '#000',
@@ -506,7 +548,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.03,
     shadowRadius: 2,
     elevation: 1,
-    marginBottom: 12,
+    marginBottom: 8,
   },
   itemCardOutOfStock: {
     borderColor: '#ba1a1a',
@@ -517,11 +559,12 @@ const styles = StyleSheet.create({
   },
   cardHeaderRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    gap: 10,
   },
   thumbnailWrapper: {
-    width: 64,
-    height: 64,
+    width: 52,
+    height: 52,
     borderRadius: 8,
     backgroundColor: '#f2f3ff',
     alignItems: 'center',
@@ -537,23 +580,23 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   itemName: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#131b2e',
   },
   itemSku: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#737686',
-    marginTop: 2,
+    marginTop: 1,
   },
   itemMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginTop: 8,
+    marginTop: 5,
   },
   itemPrice: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '700',
     color: '#131b2e',
   },
@@ -592,25 +635,26 @@ const styles = StyleSheet.create({
     color: '#ba1a1a',
     fontWeight: '600',
   },
-  cardActionsRow: {
-    marginTop: 12,
-  },
-  actionBtnPrimary: {
-    flexDirection: 'row',
+  // Compact side restock button
+  restockIconBtn: {
+    flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#004ac6',
-    height: 38,
     borderRadius: 8,
-    gap: 6,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 2,
+    minWidth: 60,
+    alignSelf: 'center',
   },
-  actionBtnPrimaryText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  actionBtnDanger: {
+  restockIconBtnDanger: {
     backgroundColor: '#dc2626',
+  },
+  restockIconBtnText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
