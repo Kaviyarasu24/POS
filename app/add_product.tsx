@@ -9,8 +9,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   Alert,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { Image } from 'expo-image';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
@@ -109,6 +111,8 @@ export default function AddProductScreen() {
   const [initialStock, setInitialStock] = useState('');
   const [lowStock, setLowStock] = useState('');
   const [imageUrl, setImageUrl] = useState('');
+  const [imageLoading, setImageLoading] = useState(false);
+  const [imageError, setImageError] = useState(false);
   const [error, setError] = useState('');
 
   const [showCategoryDropdown, setShowCategoryDropdown] = useState(false);
@@ -123,21 +127,40 @@ export default function AddProductScreen() {
 
   useEffect(() => {
     if (isEdit && id) {
-      const product = store.getProductById(id);
-      if (product) {
-        setName(product.name);
-        setSku(product.sku);
-        setCategory(product.category);
-        setUnit(product.unit || 'pcs');
-        setCostPrice(product.costPrice.toString());
-        setSellingPrice(product.price.toString());
-        setTaxRate(product.taxRate.toString());
-        setInitialStock(product.stock.toString());
-        setLowStock(product.lowStockAlert.toString());
-        setImageUrl(product.image || '');
-      }
+      const loadProduct = () => {
+        const product = store.getProductById(id);
+        if (product) {
+          setName(product.name);
+          setSku(product.sku);
+          setCategory(product.category);
+          setUnit(product.unit || 'pcs');
+          setCostPrice(product.costPrice.toString());
+          setSellingPrice(product.price.toString());
+          setTaxRate(product.taxRate.toString());
+          setInitialStock(product.stock.toString());
+          setLowStock(product.lowStockAlert.toString());
+          const img = product.image || '';
+          setImageUrl(img);
+          setImageError(false);
+          setImageLoading(!!img.trim());
+        }
+      };
+
+      loadProduct();
+      const unsubscribe = store.subscribe(loadProduct);
+      return unsubscribe;
     }
   }, [isEdit, id]);
+
+  const handleImageUrlChange = (text: string) => {
+    setImageUrl(text);
+    setImageError(false);
+    if (text.trim()) {
+      setImageLoading(true);
+    } else {
+      setImageLoading(false);
+    }
+  };
 
   const [isSaving, setIsSaving] = useState(false);
 
@@ -205,7 +228,10 @@ export default function AddProductScreen() {
     setIsSaving(true);
     try {
       if (isEdit && id) {
-        await store.updateProduct(id, productData);
+        await store.updateProduct(id, {
+          ...productData,
+          image: imageUrl.trim() || '',
+        });
       } else {
         await store.addProduct(productData);
       }
@@ -278,17 +304,93 @@ export default function AddProductScreen() {
 
           {/* Product Image Section */}
           <View style={styles.sectionCard}>
-            <Text style={styles.sectionHeader}>Product Image</Text>
-            <TouchableOpacity style={styles.imageUploadArea} onPress={() => alert('Camera roll features are under development.')}>
-              <MaterialIcons name="add-photo-alternate" size={32} color="#737686" />
-              <Text style={styles.uploadText}>Tap to upload image</Text>
-            </TouchableOpacity>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionHeader}>Product Image</Text>
+              {imageUrl.trim() ? (
+                <TouchableOpacity
+                  style={styles.clearImageBtn}
+                  onPress={() => {
+                    setImageUrl('');
+                    setImageError(false);
+                    setImageLoading(false);
+                  }}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <MaterialIcons name="delete-outline" size={16} color="#ba1a1a" />
+                  <Text style={styles.clearImageBtnText}>Remove Image</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+
+            {imageUrl.trim() ? (
+              <View style={styles.imagePreviewWrapper}>
+                <Image
+                  source={{ uri: imageUrl.trim() }}
+                  style={styles.imagePreview}
+                  contentFit="contain"
+                  transition={200}
+                  onLoadStart={() => {
+                    setImageLoading(true);
+                    setImageError(false);
+                  }}
+                  onLoad={() => {
+                    setImageLoading(false);
+                    setImageError(false);
+                  }}
+                  onError={() => {
+                    setImageLoading(false);
+                    setImageError(true);
+                  }}
+                />
+
+                {imageLoading && (
+                  <View style={styles.imageLoadingOverlay}>
+                    <ActivityIndicator size="small" color="#004ac6" />
+                    <Text style={styles.imageLoadingText}>Fetching image...</Text>
+                  </View>
+                )}
+
+                {imageError && (
+                  <View style={styles.imageErrorOverlay}>
+                    <MaterialIcons name="broken-image" size={32} color="#ba1a1a" />
+                    <Text style={styles.imageErrorTitle}>Unable to load image</Text>
+                    <Text style={styles.imageErrorSub}>Check URL or try a direct image link</Text>
+                  </View>
+                )}
+
+                {!imageLoading && !imageError && (
+                  <View style={styles.imageSuccessBadge}>
+                    <MaterialIcons name="check-circle" size={13} color="#16a34a" />
+                    <Text style={styles.imageSuccessBadgeText}>Image Loaded</Text>
+                  </View>
+                )}
+              </View>
+            ) : (
+              <View style={styles.imagePlaceholderArea}>
+                <View style={styles.placeholderIconCircle}>
+                  <MaterialIcons name="image" size={26} color="#737686" />
+                </View>
+                <Text style={styles.placeholderTitle}>No Image Provided</Text>
+                <Text style={styles.placeholderSub}>Enter an image URL below to fetch and preview</Text>
+              </View>
+            )}
+
             <View style={{ marginTop: 12 }}>
               <FormField
                 label="Image URL (Optional)"
                 value={imageUrl}
-                onChangeText={setImageUrl}
-                placeholder="Image link (optional)"
+                onChangeText={handleImageUrlChange}
+                placeholder="https://example.com/product.jpg"
+                iconRight={imageUrl ? 'close' : undefined}
+                onIconRightPress={
+                  imageUrl
+                    ? () => {
+                        setImageUrl('');
+                        setImageError(false);
+                        setImageLoading(false);
+                      }
+                    : undefined
+                }
               />
             </View>
           </View>
@@ -598,21 +700,122 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontWeight: '700',
   },
-  imageUploadArea: {
-    height: 90,
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  clearImageBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 6,
+    backgroundColor: '#fee2e2',
+  },
+  clearImageBtnText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#ba1a1a',
+  },
+  imagePreviewWrapper: {
+    width: '100%',
+    height: 180,
     borderRadius: 12,
-    borderWidth: 2,
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    overflow: 'hidden',
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  imagePreview: {
+    width: '100%',
+    height: '100%',
+  },
+  imageLoadingOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(248, 250, 252, 0.85)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
+  imageLoadingText: {
+    fontSize: 12,
+    color: '#004ac6',
+    fontWeight: '500',
+  },
+  imageErrorOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: '#fef2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 12,
+  },
+  imageErrorTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#ba1a1a',
+    marginTop: 4,
+  },
+  imageErrorSub: {
+    fontSize: 11,
+    color: '#991b1b',
+    textAlign: 'center',
+    marginTop: 2,
+  },
+  imageSuccessBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 9999,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  imageSuccessBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#16a34a',
+  },
+  imagePlaceholderArea: {
+    height: 110,
+    borderRadius: 12,
+    borderWidth: 1.5,
     borderColor: '#c3c6d7',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#faf8ff',
+    paddingHorizontal: 16,
   },
-  uploadText: {
-    fontSize: 12.5,
+  placeholderIconCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eff2ff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 6,
+  },
+  placeholderTitle: {
+    fontSize: 13,
+    color: '#334155',
+    fontWeight: '600',
+  },
+  placeholderSub: {
+    fontSize: 11.5,
     color: '#737686',
-    marginTop: 6,
-    fontWeight: '500',
+    marginTop: 2,
+    textAlign: 'center',
   },
   inputGroup: {
     marginBottom: 12,
