@@ -88,9 +88,7 @@ export default function ProfileScreen() {
   const [language, setLanguage] = useState('English (US)');
 
   // Toggle Settings States
-  const [darkMode, setDarkMode] = useState(false);
   const [pushNotifications, setPushNotifications] = useState(true);
-  const [biometricLock, setBiometricLock] = useState(true);
 
   // Modal Visibility States
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
@@ -666,22 +664,6 @@ export default function ProfileScreen() {
                 <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
 
-              {/* Dark Mode */}
-              <View style={styles.cardRow}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#f1f5f9' }]}>
-                    <MaterialIcons name="dark-mode" size={20} color="#334155" />
-                  </View>
-                  <Text style={styles.rowLabel}>Dark Mode (Auto / Light)</Text>
-                </View>
-                <Switch
-                  value={darkMode}
-                  onValueChange={setDarkMode}
-                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                  thumbColor={darkMode ? '#004ac6' : '#94a3b8'}
-                />
-              </View>
-
               {/* Push Notifications */}
               <View style={styles.cardRow}>
                 <View style={styles.rowLeft}>
@@ -695,22 +677,6 @@ export default function ProfileScreen() {
                   onValueChange={setPushNotifications}
                   trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
                   thumbColor={pushNotifications ? '#004ac6' : '#94a3b8'}
-                />
-              </View>
-
-              {/* Biometric Lock */}
-              <View style={styles.cardRow}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
-                    <MaterialIcons name="fingerprint" size={20} color="#16a34a" />
-                  </View>
-                  <Text style={styles.rowLabel}>Biometric POS Lock</Text>
-                </View>
-                <Switch
-                  value={biometricLock}
-                  onValueChange={setBiometricLock}
-                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                  thumbColor={biometricLock ? '#004ac6' : '#94a3b8'}
                 />
               </View>
 
