@@ -26,7 +26,10 @@ import { store, Product } from '@/constants/store';
 import { PRODUCT_CATEGORIES } from '@/constants/config';
 import templateAsset from '@/assets/products-template.xlsx';
 
-const FILTERS = ['All', ...PRODUCT_CATEGORIES];
+import {
+  CategoryFilters,
+  CategoryFilterState,
+} from '@/components/category_filter';
 
 interface SortOption {
   id: string;
@@ -51,7 +54,12 @@ export default function ProductsScreen() {
 
   // State
   const [products, setProducts] = useState<Product[]>([]);
-  const [selectedFilter, setSelectedFilter] = useState('All');
+  const [categoryFilterState, setCategoryFilterState] = useState<CategoryFilterState>({
+    enabled: false,
+    operator: 'is',
+    values: [],
+  });
+  const [categoryFilterModalOpen, setCategoryFilterModalOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSortId, setSelectedSortId] = useState('name_asc');
   const [sortModalVisible, setSortModalVisible] = useState(false);
@@ -84,16 +92,40 @@ export default function ProductsScreen() {
 
   const activeSort = SORT_OPTIONS.find((s) => s.id === selectedSortId) || SORT_OPTIONS[0];
 
+  // Category counts map for the combobox badges
+  const categoryCounts = useMemo(() => {
+    const counts: Record<string, number> = {};
+    PRODUCT_CATEGORIES.forEach((cat) => {
+      counts[cat] = products.filter(
+        (p) => (p.category || '').toLowerCase() === cat.toLowerCase()
+      ).length;
+    });
+    return counts;
+  }, [products]);
+
   // Filtering & Sorting products logic
   const processedProducts = useMemo(() => {
     // 1. Filter
     let result = products.filter((product) => {
-      const matchesCategory =
-        selectedFilter === 'All' ||
-        product.category?.toLowerCase() === selectedFilter.toLowerCase();
+      const prodCategory = (product.category || '').toLowerCase();
+
+      // Advanced Category Filter Check
+      let matchesCategory = true;
+      if (categoryFilterState.enabled && categoryFilterState.values.length > 0) {
+        const filterVals = categoryFilterState.values.map((v) => v.toLowerCase());
+        if (categoryFilterState.operator === 'is') {
+          matchesCategory = prodCategory === filterVals[0];
+        } else if (categoryFilterState.operator === 'is not') {
+          matchesCategory = !filterVals.includes(prodCategory);
+        } else if (categoryFilterState.operator === 'is any of') {
+          matchesCategory = filterVals.includes(prodCategory);
+        }
+      }
+
       const matchesSearch =
         (product.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
         (product.sku || '').toLowerCase().includes(searchQuery.toLowerCase());
+
       return matchesCategory && matchesSearch;
     });
 
@@ -109,7 +141,7 @@ export default function ProductsScreen() {
     });
 
     return result;
-  }, [products, selectedFilter, searchQuery, selectedSortId]);
+  }, [products, categoryFilterState, searchQuery, selectedSortId]);
 
   const handleDownloadTemplate = async () => {
     try {
@@ -268,53 +300,44 @@ export default function ProductsScreen() {
                 </TouchableOpacity>
               )}
               <TouchableOpacity
-                style={styles.scanBtn}
-                onPress={() => router.push('/scanner')}
+                style={[
+                  styles.filterIconBtn,
+                  categoryFilterState.enabled && categoryFilterState.values.length > 0 && styles.filterIconBtnActive,
+                ]}
+                onPress={() => setCategoryFilterModalOpen(true)}
+                activeOpacity={0.7}
               >
-                <MaterialIcons name="qr-code-scanner" size={20} color="#004ac6" />
+                <MaterialIcons
+                  name="tune"
+                  size={20}
+                  color={
+                    categoryFilterState.enabled && categoryFilterState.values.length > 0
+                      ? '#004ac6'
+                      : '#434655'
+                  }
+                />
+                {categoryFilterState.enabled && categoryFilterState.values.length > 0 && (
+                  <View style={styles.filterIconDot} />
+                )}
               </TouchableOpacity>
             </View>
 
-            {/* 2. Full-Width Dedicated Category Pill Carousel */}
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.filterScroll}
-            >
-              {FILTERS.map((filter) => {
-                const active = selectedFilter === filter;
-                const count =
-                  filter === 'All'
-                    ? products.length
-                    : products.filter((p) => p.category === filter).length;
-
-                return (
-                  <TouchableOpacity
-                    key={filter}
-                    style={[styles.filterChip, active && styles.filterChipActive]}
-                    onPress={() => setSelectedFilter(filter)}
-                    activeOpacity={0.8}
-                  >
-                    <Text
-                      style={[styles.filterChipText, active && styles.filterChipTextActive]}
-                    >
-                      {filter}
-                    </Text>
-                    <View style={[styles.filterBadge, active && styles.filterBadgeActive]}>
-                      <Text style={[styles.filterBadgeText, active && styles.filterBadgeTextActive]}>
-                        {count}
-                      </Text>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+            {/* 2. Advanced Dynamic Category Filter */}
+            <CategoryFilters
+              categoryFilter={categoryFilterState}
+              onFilterChange={setCategoryFilterState}
+              categoryCounts={categoryCounts}
+              isModalOpen={categoryFilterModalOpen}
+              onOpenModalChange={setCategoryFilterModalOpen}
+            />
 
             {/* 3. Sub-bar: Item Count & Dedicated Sort Modal Trigger */}
             <View style={styles.metaRow}>
               <Text style={styles.resultsCount}>
                 Showing <Text style={{ fontWeight: '700', color: '#131b2e' }}>{processedProducts.length}</Text> {processedProducts.length === 1 ? 'item' : 'items'}
-                {selectedFilter !== 'All' ? ` in ${selectedFilter}` : ''}
+                {categoryFilterState.enabled && categoryFilterState.values.length > 0
+                  ? ` (Category ${categoryFilterState.operator} ${categoryFilterState.values.join(', ')})`
+                  : ''}
               </Text>
 
               <TouchableOpacity
@@ -390,16 +413,20 @@ export default function ProductsScreen() {
             <MaterialIcons name="search-off" size={48} color="#c3c6d7" />
             <Text style={styles.emptyTitle}>No products found</Text>
             <Text style={styles.emptyText}>
-              {searchQuery || selectedFilter !== 'All'
+              {searchQuery || (categoryFilterState.enabled && categoryFilterState.values.length > 0)
                 ? 'Try clearing your filters or search terms.'
                 : 'Your catalog is empty. Tap "+ Add Product" to get started!'}
             </Text>
-            {searchQuery || selectedFilter !== 'All' ? (
+            {searchQuery || (categoryFilterState.enabled && categoryFilterState.values.length > 0) ? (
               <TouchableOpacity
                 style={styles.resetFilterBtn}
                 onPress={() => {
                   setSearchQuery('');
-                  setSelectedFilter('All');
+                  setCategoryFilterState({
+                    enabled: false,
+                    operator: 'is',
+                    values: [],
+                  });
                 }}
               >
                 <Text style={styles.resetFilterBtnText}>Clear Filters</Text>
@@ -574,8 +601,24 @@ const styles = StyleSheet.create({
     color: '#131b2e',
     paddingVertical: 0,
   },
-  scanBtn: {
-    padding: 4,
+  filterIconBtn: {
+    padding: 6,
+    borderRadius: 8,
+    position: 'relative',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  filterIconBtnActive: {
+    backgroundColor: '#eaedff',
+  },
+  filterIconDot: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: '#004ac6',
   },
   filterScroll: {
     gap: 8,
