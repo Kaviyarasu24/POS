@@ -9,6 +9,7 @@ import {
   Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import { store } from '@/constants/store';
 
@@ -45,13 +46,13 @@ export default function SplashScreen() {
     Animated.loop(
       Animated.sequence([
         Animated.timing(pulseAnim, {
-          toValue: 0.95,
-          duration: 750,
+          toValue: 0.96,
+          duration: 800,
           useNativeDriver: true,
         }),
         Animated.timing(pulseAnim, {
           toValue: 1,
-          duration: 750,
+          duration: 800,
           useNativeDriver: true,
         }),
       ])
@@ -63,7 +64,7 @@ export default function SplashScreen() {
         Animated.sequence([
           Animated.delay(delay),
           Animated.timing(anim, {
-            toValue: 0.3,
+            toValue: 0.25,
             duration: 400,
             useNativeDriver: true,
           }),
@@ -98,7 +99,9 @@ export default function SplashScreen() {
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
-      {/* Decorative Background Elements */}
+      <StatusBar style="dark" />
+
+      {/* Decorative Light Background Glows */}
       <View style={styles.backgroundContainer} pointerEvents="none">
         <View style={styles.glowTopRight} />
         <View style={styles.glowBottomLeft} />
@@ -123,15 +126,17 @@ export default function SplashScreen() {
           <Image
             source={require('@/assets/images/logo.png')}
             style={styles.logoImage}
-            resizeMode="cover"
+            resizeMode="contain"
           />
         </Animated.View>
 
-        {/* Brand Name */}
-        <Text style={styles.brandTitle}>SmartPOS</Text>
+        {/* Brand Name matching Login Page */}
+        <Text style={styles.brandTitle}>
+          Smart<Text style={styles.brandTitleAccent}>POS</Text>
+        </Text>
 
         {/* Tagline */}
-        <Text style={styles.tagline}>Powering your retail business</Text>
+        <Text style={styles.tagline}>Simple • Fast • Smart</Text>
       </Animated.View>
 
       {/* Loading Indicator */}
@@ -150,7 +155,7 @@ export default function SplashScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#004ac6',
+    backgroundColor: '#F8FAFC',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -161,44 +166,47 @@ const styles = StyleSheet.create({
   },
   glowTopRight: {
     position: 'absolute',
-    top: -SCREEN_HEIGHT * 0.1,
-    right: -SCREEN_WIDTH * 0.2,
-    width: SCREEN_WIDTH * 0.8,
-    height: SCREEN_WIDTH * 0.8,
-    borderRadius: SCREEN_WIDTH * 0.4,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    top: -SCREEN_HEIGHT * 0.08,
+    right: -SCREEN_WIDTH * 0.15,
+    width: SCREEN_WIDTH * 0.85,
+    height: SCREEN_WIDTH * 0.85,
+    borderRadius: SCREEN_WIDTH * 0.45,
+    backgroundColor: 'rgba(37, 99, 235, 0.08)',
   },
   glowBottomLeft: {
     position: 'absolute',
-    bottom: -SCREEN_HEIGHT * 0.1,
-    left: -SCREEN_WIDTH * 0.2,
-    width: SCREEN_WIDTH * 0.7,
-    height: SCREEN_WIDTH * 0.7,
-    borderRadius: SCREEN_WIDTH * 0.35,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
+    bottom: -SCREEN_HEIGHT * 0.08,
+    left: -SCREEN_WIDTH * 0.15,
+    width: SCREEN_WIDTH * 0.75,
+    height: SCREEN_WIDTH * 0.75,
+    borderRadius: SCREEN_WIDTH * 0.4,
+    backgroundColor: 'rgba(59, 130, 246, 0.06)',
   },
   mainContent: {
     alignItems: 'center',
+    justifyContent: 'center',
     zIndex: 10,
   },
   logoCard: {
-    width: 104,
-    height: 104,
+    width: 176,
+    height: 176,
     backgroundColor: '#ffffff',
-    borderRadius: 24,
+    borderRadius: 42,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
     overflow: 'hidden',
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 24,
+    marginBottom: 26,
     ...Platform.select({
       ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: 8 },
-        shadowOpacity: 0.2,
-        shadowRadius: 12,
+        shadowColor: '#2563EB',
+        shadowOffset: { width: 0, height: 14 },
+        shadowOpacity: 0.16,
+        shadowRadius: 24,
       },
       android: {
-        elevation: 8,
+        elevation: 10,
       },
     }),
   },
@@ -208,15 +216,21 @@ const styles = StyleSheet.create({
   },
   brandTitle: {
     fontSize: 40,
-    fontWeight: '700',
-    color: '#ffffff',
+    fontWeight: '800',
+    color: '#2563EB',
     letterSpacing: -0.5,
     marginBottom: 8,
   },
+  brandTitleAccent: {
+    color: '#0F172A',
+    fontWeight: '800',
+  },
   tagline: {
-    fontSize: 18,
-    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 16,
+    color: '#64748B',
     textAlign: 'center',
+    fontWeight: '500',
+    letterSpacing: 0.2,
     paddingHorizontal: 32,
   },
   loadingContainer: {
@@ -228,17 +242,17 @@ const styles = StyleSheet.create({
   dotsRow: {
     flexDirection: 'row',
     gap: 8,
-    marginBottom: 16,
+    marginBottom: 14,
   },
   dot: {
     width: 8,
     height: 8,
     borderRadius: 4,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#2563EB',
   },
   loadingText: {
     fontSize: 12,
-    color: 'rgba(255, 255, 255, 0.6)',
+    color: '#64748B',
     fontWeight: '600',
     textTransform: 'uppercase',
     letterSpacing: 2,
