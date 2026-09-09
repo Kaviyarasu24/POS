@@ -410,14 +410,6 @@ export default function InventoryScreen() {
           </View>
         </KeyboardAvoidingView>
       </Modal>
-
-      {/* Floating Action Button */}
-      <TouchableOpacity
-        style={styles.fab}
-        onPress={() => router.push('/add_product')}
-      >
-        <MaterialIcons name="add" size={28} color="#ffffff" />
-      </TouchableOpacity>
     </SafeAreaView>
   );
 }
@@ -666,22 +658,6 @@ const styles = StyleSheet.create({
     color: '#737686',
     marginTop: 12,
     textAlign: 'center',
-  },
-  fab: {
-    position: 'absolute',
-    bottom: 24,
-    right: 24,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#004ac6',
-    justifyContent: 'center',
-    alignItems: 'center',
-    shadowColor: '#004ac6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.22,
-    shadowRadius: 8,
-    elevation: 4,
   },
   // Floating Toast
   floatingToast: {
