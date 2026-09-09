@@ -1,14 +1,12 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState } from 'react';
 import {
   StyleSheet,
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   Modal,
   FlatList,
   ScrollView,
-  Platform,
 } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 import { Palette, Radius, Typography, Shadows } from '@/constants/theme';
@@ -55,16 +53,8 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
     onOpenModalChange?.(open);
   };
   const [operatorMenuVisible, setOperatorMenuVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
 
   const hasActiveFilter = categoryFilter.enabled && categoryFilter.values.length > 0;
-
-  // Filtered list of categories for the modal combobox search
-  const filteredCategories = useMemo(() => {
-    return PRODUCT_CATEGORIES.filter((cat) =>
-      cat.toLowerCase().includes(searchQuery.trim().toLowerCase())
-    );
-  }, [searchQuery]);
 
   const handleToggleCategory = (cat: string) => {
     const isSelected = categoryFilter.values.includes(cat);
@@ -118,7 +108,6 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
       operator: 'is',
       values: [],
     });
-    setSearchQuery('');
   };
 
   const operatorOptions: CategoryFilterOperator[] =
@@ -127,42 +116,14 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
       : ['is', 'is not'];
 
   return (
-    <View style={styles.container}>
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.scrollContent}
-      >
-        {/* Trigger Combobox Button */}
-        <TouchableOpacity
-          style={[styles.filterTriggerBtn, hasActiveFilter && styles.filterTriggerBtnActive]}
-          onPress={() => setModalVisible(true)}
-          activeOpacity={0.7}
+    <View style={hasActiveFilter ? styles.container : null}>
+      {/* Active Filter Pill Group shown only when filter is applied */}
+      {hasActiveFilter && (
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
         >
-          <MaterialIcons
-            name="filter-list"
-            size={16}
-            color={hasActiveFilter ? Palette.primary : Palette.textSecondary}
-          />
-          <Text
-            style={[
-              styles.filterTriggerText,
-              hasActiveFilter && styles.filterTriggerTextActive,
-            ]}
-          >
-            Filter Category
-          </Text>
-          {hasActiveFilter ? (
-            <View style={styles.activeCounterBadge}>
-              <Text style={styles.activeCounterText}>{categoryFilter.values.length}</Text>
-            </View>
-          ) : (
-            <MaterialIcons name="add" size={14} color={Palette.textTertiary} />
-          )}
-        </TouchableOpacity>
-
-        {/* Active Filter Pill Group */}
-        {hasActiveFilter && (
           <View style={styles.filterPillGroup}>
             {/* Type Header Tag */}
             <View style={styles.typeSegment}>
@@ -213,10 +174,8 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
               <MaterialIcons name="close" size={13} color={Palette.textTertiary} />
             </TouchableOpacity>
           </View>
-        )}
 
-        {/* Clear All action */}
-        {hasActiveFilter && (
+          {/* Clear All action */}
           <TouchableOpacity
             style={styles.clearBtn}
             onPress={handleClear}
@@ -224,8 +183,8 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
           >
             <Text style={styles.clearBtnText}>Clear</Text>
           </TouchableOpacity>
-        )}
-      </ScrollView>
+        </ScrollView>
+      )}
 
       {/* Operator Dropdown / Modal */}
       <Modal
@@ -297,24 +256,6 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
               </TouchableOpacity>
             </View>
 
-            {/* Search Input */}
-            <View style={styles.comboboxSearchWrapper}>
-              <MaterialIcons name="search" size={18} color={Palette.textTertiary} />
-              <TextInput
-                style={styles.comboboxSearchInput}
-                placeholder="Search categories..."
-                placeholderTextColor={Palette.textPlaceholder}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-                autoFocus={Platform.OS !== 'web'}
-              />
-              {searchQuery.length > 0 && (
-                <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <MaterialIcons name="cancel" size={16} color={Palette.textTertiary} />
-                </TouchableOpacity>
-              )}
-            </View>
-
             {/* Selected Categories Tags */}
             {categoryFilter.values.length > 0 && (
               <View style={styles.selectedTagsContainer}>
@@ -345,7 +286,7 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
 
             {/* Category Option List */}
             <FlatList
-              data={filteredCategories}
+              data={PRODUCT_CATEGORIES}
               keyExtractor={(item) => item}
               keyboardShouldPersistTaps="handled"
               contentContainerStyle={styles.categoryListContent}
@@ -396,11 +337,6 @@ export const CategoryFilters: React.FC<CategoryFiltersProps> = ({
                   </TouchableOpacity>
                 );
               }}
-              ListEmptyComponent={
-                <View style={styles.emptySearchContainer}>
-                  <Text style={styles.emptySearchText}>No categories found</Text>
-                </View>
-              }
             />
 
             {/* Footer Actions */}
@@ -436,43 +372,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     paddingRight: 16,
-  },
-  filterTriggerBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    height: 30,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: Palette.borderLight,
-  },
-  filterTriggerBtnActive: {
-    backgroundColor: Palette.primarySurface,
-    borderColor: Palette.primary,
-  },
-  filterTriggerText: {
-    ...Typography.caption,
-    color: Palette.textSecondary,
-    fontWeight: '600',
-  },
-  filterTriggerTextActive: {
-    color: Palette.primary,
-    fontWeight: '700',
-  },
-  activeCounterBadge: {
-    backgroundColor: Palette.primary,
-    borderRadius: Radius.pill,
-    width: 16,
-    height: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  activeCounterText: {
-    fontSize: 10,
-    color: '#ffffff',
-    fontWeight: '700',
   },
   filterPillGroup: {
     flexDirection: 'row',
@@ -621,28 +520,9 @@ const styles = StyleSheet.create({
   modalCloseBtn: {
     padding: 6,
   },
-  comboboxSearchWrapper: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginTop: 12,
-    marginBottom: 8,
-    paddingHorizontal: 10,
-    height: 38,
-    borderRadius: Radius.sm,
-    backgroundColor: Palette.surfaceSubtle,
-    borderWidth: 1,
-    borderColor: Palette.borderLight,
-    gap: 8,
-  },
-  comboboxSearchInput: {
-    flex: 1,
-    fontSize: 13,
-    color: Palette.text,
-    paddingVertical: 0,
-  },
   selectedTagsContainer: {
     paddingHorizontal: 16,
+    marginTop: 8,
     marginBottom: 6,
   },
   selectedTagsScroll: {
@@ -668,7 +548,7 @@ const styles = StyleSheet.create({
   },
   categoryListContent: {
     paddingHorizontal: 16,
-    paddingVertical: 4,
+    paddingVertical: 8,
   },
   categoryItemRow: {
     flexDirection: 'row',
@@ -722,14 +602,6 @@ const styles = StyleSheet.create({
   categoryCountText: {
     fontSize: 11,
     fontWeight: '600',
-    color: Palette.textSecondary,
-  },
-  emptySearchContainer: {
-    paddingVertical: 24,
-    alignItems: 'center',
-  },
-  emptySearchText: {
-    fontSize: 13,
     color: Palette.textSecondary,
   },
   comboboxFooter: {
