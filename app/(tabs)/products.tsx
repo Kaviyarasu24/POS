@@ -190,6 +190,15 @@ export default function ProductsScreen() {
         Alert.alert('Validation Error', 'Name, Price, Stock, and Category are required for all products.');
         return;
       }
+      const rawImage = (
+        row['Image URL'] ||
+        row['Image'] ||
+        row['Image Url'] ||
+        row['image_url'] ||
+        row['image'] ||
+        ''
+      ).trim();
+
       newProducts.push({
         name: row['Name'],
         sku: row['SKU'] || '',
@@ -200,6 +209,7 @@ export default function ProductsScreen() {
         unit: row['Unit'] || 'pcs',
         taxRate: parseFloat(row['Tax Rate']) || 8,
         lowStockAlert: parseFloat(row['Low Stock Alert']) || 5,
+        image: rawImage || undefined,
       });
     }
 

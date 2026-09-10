@@ -22,8 +22,20 @@ const TEMPLATE_ROW_COUNT = 500;
     { header: 'Unit', key: 'unit', width: 8 },
     { header: 'Tax Rate', key: 'taxRate', width: 10 },
     { header: 'Low Stock Alert', key: 'lowStockAlert', width: 16 },
+    { header: 'Image URL', key: 'imageUrl', width: 32 },
   ];
-  sheet.addRow({ name: 'Example Product', sku: 'SKU123', price: 100, costPrice: 80, stock: 50, category: 'Snacks', unit: 'pcs', taxRate: 8, lowStockAlert: 10 });
+  sheet.addRow({
+    name: 'Example Product',
+    sku: 'SKU123',
+    price: 100,
+    costPrice: 80,
+    stock: 50,
+    category: 'Snacks',
+    unit: 'pcs',
+    taxRate: 8,
+    lowStockAlert: 10,
+    imageUrl: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c',
+  });
 
   // Dropdown validation for the Category (F) and Unit (G) columns.
   for (let row = 2; row <= TEMPLATE_ROW_COUNT + 1; row++) {
