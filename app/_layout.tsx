@@ -54,6 +54,11 @@ export default function RootLayout() {
           <Stack.Screen name="transactions" />
           <Stack.Screen name="reports" />
           <Stack.Screen name="customers" />
+          <Stack.Screen name="about" />
+          <Stack.Screen name="faq" />
+          <Stack.Screen name="contact" />
+          <Stack.Screen name="privacy" />
+          <Stack.Screen name="terms" />
         </Stack>
         {/* Dark icons for the app's light backgrounds. */}
         <StatusBar style="dark" />

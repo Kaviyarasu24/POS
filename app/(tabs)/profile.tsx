@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+﻿import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -100,6 +100,8 @@ export default function ProfileScreen() {
   const [backupRestoreVisible, setBackupRestoreVisible] = useState(false);
   const [languageVisible, setLanguageVisible] = useState(false);
 
+
+
   // Temp form input states
   const [tempShopName, setTempShopName] = useState('');
   const [tempOwnerName, setTempOwnerName] = useState('');
@@ -154,7 +156,7 @@ export default function ProfileScreen() {
       navigator.clipboard.writeText(code);
     }
     setCopiedStoreId(true);
-    showToast('✓ Store ID (Join Code) copied to clipboard');
+    showToast('âœ“ Store ID (Join Code) copied to clipboard');
     setTimeout(() => setCopiedStoreId(false), 2500);
   };
 
@@ -169,7 +171,7 @@ export default function ProfileScreen() {
     setAvatarImage(selectedAvatar);
     await store.updateUserProfile({ image: selectedAvatar || '' });
     setAvatarModalVisible(false);
-    showToast('✓ Avatar updated successfully');
+    showToast('âœ“ Avatar updated successfully');
   };
 
   // Custom photo upload from device (optional alternative)
@@ -243,7 +245,7 @@ export default function ProfileScreen() {
     });
 
     setEditProfileVisible(false);
-    showToast('✓ Profile details updated');
+    showToast('âœ“ Profile details updated');
   };
 
   // Category modal handlers
@@ -261,7 +263,7 @@ export default function ProfileScreen() {
       shopCategory: tempCategory.trim(),
     });
     setCategoryModalVisible(false);
-    showToast('✓ Shop Category updated');
+    showToast('âœ“ Shop Category updated');
   };
 
   // GST modal handlers
@@ -275,7 +277,7 @@ export default function ProfileScreen() {
       gstNumber: tempGst.trim(),
     });
     setGstModalVisible(false);
-    showToast('✓ GST Number updated');
+    showToast('âœ“ GST Number updated');
   };
 
   // Business address modal handlers
@@ -289,7 +291,7 @@ export default function ProfileScreen() {
       businessAddress: tempAddress.trim(),
     });
     setAddressModalVisible(false);
-    showToast('✓ Business Address updated');
+    showToast('âœ“ Business Address updated');
   };
 
   // Backup catalog data to local JSON structure
@@ -488,7 +490,7 @@ export default function ProfileScreen() {
                         { fontWeight: '700', color: copiedStoreId ? '#16a34a' : '#004ac6' },
                       ]}
                     >
-                      {copiedStoreId ? '✓ Copied to clipboard!' : `${storeId || '—'} • Tap to copy`}
+                      {copiedStoreId ? 'âœ“ Copied to clipboard!' : `${storeId || 'â€”'} â€¢ Tap to copy`}
                     </Text>
                   </View>
                 </View>
@@ -658,7 +660,7 @@ export default function ProfileScreen() {
                   </View>
                   <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Thermal Printer</Text>
-                    <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
+                    <Text style={styles.rowSubLabel}>{printerType} â€¢ {paperSize} roll</Text>
                   </View>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
@@ -718,6 +720,79 @@ export default function ProfileScreen() {
             </View>
           </View>
 
+          {/* Section 4: Support & Legal */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>Support & Legal</Text>
+            <View style={styles.cardContainer}>
+
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/about')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+                    <MaterialIcons name="info" size={20} color="#004ac6" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>About SmartPOS</Text>
+                    <Text style={styles.rowSubLabel}>Version, developer info & credits</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/faq')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#ecfdf5' }]}>
+                    <MaterialIcons name="help-outline" size={20} color="#16a34a" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>FAQ & Help Center</Text>
+                    <Text style={styles.rowSubLabel}>Answers to common questions</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/contact')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
+                    <MaterialIcons name="headset-mic" size={20} color="#ea580c" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>Contact Support</Text>
+                    <Text style={styles.rowSubLabel}>Get help from our team</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
+                    <MaterialIcons name="privacy-tip" size={20} color="#15803d" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>Privacy Policy</Text>
+                    <Text style={styles.rowSubLabel}>How we handle your data</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+              <TouchableOpacity style={[styles.cardRow, styles.lastCardRow]} onPress={() => router.push('/terms')} activeOpacity={0.7}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#faf5ff' }]}>
+                    <MaterialIcons name="gavel" size={20} color="#7c3aed" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>Terms & Conditions</Text>
+                    <Text style={styles.rowSubLabel}>Usage rights & responsibilities</Text>
+                  </View>
+                </View>
+                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+              </TouchableOpacity>
+
+            </View>
+          </View>
+
           {/* Logout */}
           <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
             <MaterialIcons name="logout" size={18} color="#ba1a1a" />
@@ -727,6 +802,7 @@ export default function ProfileScreen() {
           <Text style={styles.footerVersionText}>SmartPOS v1.0.0</Text>
         </Animated.View>
       </ScrollView>
+
 
       {/* --- MODALS --- */}
 
@@ -750,7 +826,7 @@ export default function ProfileScreen() {
                 ) : (
                   <View style={styles.defaultAvatarContainer}>
                     <Text style={styles.defaultAvatarText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
                     </Text>
                   </View>
                 )}
@@ -773,7 +849,7 @@ export default function ProfileScreen() {
                 >
                   <View style={[styles.avatarThumbCircle, { backgroundColor: '#e0e7ff' }]}>
                     <Text style={{ fontSize: 16, fontWeight: '700', color: '#004ac6' }}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
                     </Text>
                   </View>
                   <Text style={styles.avatarGridLabel} numberOfLines={1}>Default</Text>
@@ -855,7 +931,7 @@ export default function ProfileScreen() {
                 ) : (
                   <View style={styles.formAvatarPlaceholder}>
                     <Text style={styles.formAvatarPlaceholderText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : '👤'}
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
                     </Text>
                   </View>
                 )}
@@ -1198,9 +1274,9 @@ export default function ProfileScreen() {
 
             {[
               { label: 'English (US)', val: 'English (US)' },
-              { label: 'Hindi (हिन्दी)', val: 'Hindi (हिन्दी)' },
-              { label: 'Tamil (தமிழ்)', val: 'Tamil (தமிழ்)' },
-              { label: 'Spanish (Español)', val: 'Spanish (Español)' },
+              { label: 'Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)', val: 'Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)' },
+              { label: 'Tamil (à®¤à®®à®¿à®´à¯)', val: 'Tamil (à®¤à®®à®¿à®´à¯)' },
+              { label: 'Spanish (EspaÃ±ol)', val: 'Spanish (EspaÃ±ol)' },
             ].map((lang) => (
               <TouchableOpacity
                 key={lang.val}
@@ -1234,6 +1310,7 @@ export default function ProfileScreen() {
           </View>
         </View>
       </Modal>
+
     </SafeAreaView>
   );
 }
@@ -1919,5 +1996,230 @@ const styles = StyleSheet.create({
   categoryCardTextActive: {
     color: '#004ac6',
     fontWeight: '700',
+  },
+
+  /* â”€â”€ Legal Modal Header â”€â”€ */
+  legalModalHeader: {
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  legalModalIcon: {
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  legalDate: {
+    fontSize: 11.5,
+    color: '#94a3b8',
+    marginTop: 2,
+    textAlign: 'center',
+  },
+
+  /* â”€â”€ Legal Sections (Privacy + Terms) â”€â”€ */
+  legalSection: {
+    marginBottom: 16,
+    paddingBottom: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  legalSectionTitle: {
+    fontSize: 13.5,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 6,
+  },
+  legalSectionBody: {
+    fontSize: 13,
+    lineHeight: 20,
+    color: '#475569',
+  },
+
+  /* â”€â”€ About Modal â”€â”€ */
+  aboutCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    padding: 16,
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  aboutAppName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#004ac6',
+    letterSpacing: 0.5,
+  },
+  aboutVersion: {
+    fontSize: 12.5,
+    color: '#64748b',
+    marginTop: 3,
+    marginBottom: 12,
+  },
+  aboutDivider: {
+    width: '100%',
+    height: 1,
+    backgroundColor: '#e2e8f0',
+    marginVertical: 12,
+  },
+  aboutRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    marginBottom: 8,
+    width: '100%',
+  },
+  aboutRowText: {
+    fontSize: 13,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 19,
+  },
+  aboutSectionTitle: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 8,
+    width: '100%',
+  },
+  aboutFeatureItem: {
+    fontSize: 12.5,
+    color: '#334155',
+    lineHeight: 22,
+    width: '100%',
+  },
+  aboutEmailBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    backgroundColor: '#eff6ff',
+    borderRadius: 10,
+    marginTop: 4,
+  },
+  aboutEmailText: {
+    fontSize: 12.5,
+    fontWeight: '600',
+    color: '#004ac6',
+  },
+
+  /* â”€â”€ FAQ Modal â”€â”€ */
+  faqItem: {
+    marginBottom: 12,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  faqQuestion: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    backgroundColor: '#f1f5f9',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  faqQBadge: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    backgroundColor: '#004ac6',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 1,
+  },
+  faqQBadgeText: {
+    fontSize: 10,
+    fontWeight: '800',
+    color: '#ffffff',
+  },
+  faqQuestionText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#0f172a',
+    flex: 1,
+    lineHeight: 19,
+  },
+  faqAnswer: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+  },
+  faqAnswerText: {
+    fontSize: 12.5,
+    color: '#475569',
+    lineHeight: 19,
+  },
+  faqContactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    marginTop: 4,
+    backgroundColor: '#fff7ed',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  faqContactBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#ea580c',
+  },
+
+  /* â”€â”€ Contact Support Modal â”€â”€ */
+  contactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    padding: 14,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+    marginBottom: 12,
+  },
+  contactIconCircle: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  contactTextCol: {
+    flex: 1,
+  },
+  contactRowTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#0f172a',
+  },
+  contactRowSub: {
+    fontSize: 12.5,
+    color: '#334155',
+    marginTop: 2,
+  },
+  contactRowHint: {
+    fontSize: 11,
+    color: '#94a3b8',
+    marginTop: 2,
+  },
+  contactInfoBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#f1f5f9',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 10,
+  },
+  contactInfoText: {
+    fontSize: 12,
+    color: '#475569',
+    flex: 1,
+    lineHeight: 18,
   },
 });
