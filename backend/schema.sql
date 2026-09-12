@@ -1,6 +1,6 @@
--- Recreate database
-CREATE DATABASE IF NOT EXISTS smartpossystem;
-USE smartpossystem;
+-- Target database (uncomment if creating a fresh database, or import directly into your DB like autorevive_hr)
+-- CREATE DATABASE IF NOT EXISTS autorevive_hr;
+-- USE autorevive_hr;
 
 -- Drop tables in reverse dependency order
 DROP TABLE IF EXISTS credit_entries;

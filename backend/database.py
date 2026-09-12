@@ -7,10 +7,24 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # Database Configuration
-raw_db_url = os.getenv(
-    "DATABASE_URL", 
-    "mysql+pymysql://root:root@localhost:3306/smartpossystem"
-)
+# Supports both individual DB_* environment variables and full DATABASE_URL
+import urllib.parse
+
+db_host = os.getenv("DB_HOST")
+db_user = os.getenv("DB_USER")
+db_password = os.getenv("DB_PASSWORD", "")
+db_port = os.getenv("DB_PORT", "3306")
+db_name = os.getenv("DB_NAME")
+
+if db_host and db_user and db_name:
+    encoded_user = urllib.parse.quote_plus(db_user)
+    encoded_pass = urllib.parse.quote_plus(db_password)
+    raw_db_url = f"mysql+pymysql://{encoded_user}:{encoded_pass}@{db_host}:{db_port}/{db_name}?charset=utf8mb4"
+else:
+    raw_db_url = os.getenv(
+        "DATABASE_URL", 
+        "mysql+pymysql://root:root@localhost:3306/smartpossystem?charset=utf8mb4"
+    )
 
 # Render provides postgres:// which SQLAlchemy 2.0 requires as postgresql://
 if raw_db_url.startswith("postgres://"):
