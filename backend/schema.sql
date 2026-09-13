@@ -2,6 +2,8 @@
 -- CREATE DATABASE IF NOT EXISTS autorevive_hr;
 -- USE autorevive_hr;
 
+create database Smartpos;
+use Smartpos;
 -- Drop tables in reverse dependency order
 DROP TABLE IF EXISTS credit_entries;
 DROP TABLE IF EXISTS customers;

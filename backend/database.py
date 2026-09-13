@@ -23,7 +23,7 @@ if db_host and db_user and db_name:
 else:
     raw_db_url = os.getenv(
         "DATABASE_URL", 
-        "mysql+pymysql://root:root@localhost:3306/smartpossystem?charset=utf8mb4"
+        "mysql+pymysql://root:root@localhost:3306/Smartpos?charset=utf8mb4"
     )
 
 # Render provides postgres:// which SQLAlchemy 2.0 requires as postgresql://
