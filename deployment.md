@@ -7,7 +7,7 @@ real printing/PDF, cash-tender/change, and the offline sales queue.
 > **Architecture at a glance**
 > - **Client**: Expo SDK 54 app (`kavimaheslabs/`), talks to the backend over HTTPS.
 > - **Backend**: FastAPI + SQLAlchemy (`kavimaheslabs/backend/`), deployed on Render at
->   `https://pos-x2jt.onrender.com` (see `constants/config.ts`).
+>   `https://possystem.zynocraftx.dev` (see `constants/config.ts`).
 > - **Database**: PostgreSQL on Render. (Local dev defaults to MySQL — see the note at the end.)
 > - **Repo**: GitHub `Kaviyarasu24/POS`, default branch `main`.
 

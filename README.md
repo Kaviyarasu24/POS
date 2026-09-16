@@ -191,7 +191,7 @@ kavimaheslabs/
 ### Frontend Configuration ([`constants/config.ts`](constants/config.ts))
 Configure the backend server URL for the client:
 ```typescript
-export const API_BASE_URL = 'https://pos-x2jt.onrender.com'; // or 'http://YOUR_LOCAL_IP:8000'
+export const API_BASE_URL = 'https://possystem.zynocraftx.dev';
 ```
 
 ### Backend Environment Variables

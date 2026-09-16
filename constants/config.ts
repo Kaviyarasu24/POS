@@ -1,4 +1,4 @@
-export const API_BASE_URL = 'https://pos-x2jt.onrender.com';
+export const API_BASE_URL = 'https://possystem.zynocraftx.dev';
 
 // Single source of truth for product categories. Used by the Add/Edit Product
 // form, the Products filter, and the Billing category tabs so a product saved
