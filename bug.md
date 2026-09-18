@@ -129,11 +129,12 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 11. Checkout Price & Total Verification Missing on Backend
 * **File:** `backend/main.py` (Lines 778–880)
-* **Status:** Open
+* **Status:** Resolved
 * **Description:**
-  `/api/checkout` directly trusts client-supplied values for item price, subtotal, discount, tax, and total without server-side verification that `subtotal - discount + tax == total` or that item prices match the active catalog.
-* **Impact:** Staff or external API callers can submit arbitrarily discounted or zero-dollar sales.
-* **Fix:** Recalculate or validate totals and prices against the database catalog server-side.
+  - Moved all product lookups before transaction creation.
+  - Server now computes `subtotal`, `tax`, and `total` from the active catalog (using `db_product.price` and `db_product.tax_rate`) — client-supplied prices are completely ignored.
+  - Added discount validation: rejects negative discounts and discounts that exceed the server-computed subtotal.
+  - All stored values (Transaction, TransactionItem, CreditEntry) now use server-computed figures.
 
 ---
 
@@ -169,5 +170,5 @@ This document details all bugs, critical failure points, platform compatibility 
 - [x] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
 - [x] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
 - [x] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
-- [ ] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
+- [x] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
 - [ ] **Fix 12:** Clean up 13 ESLint warnings across frontend files.

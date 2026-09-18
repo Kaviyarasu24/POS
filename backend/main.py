@@ -831,17 +831,67 @@ def checkout(
                 elif cust_phone and not db_customer.phone:
                     db_customer.phone = cust_phone
 
-            # 2. Create Transaction with Composite PK (store_id, invoice_number)
+            # 2. Server-side integrity check: verify prices and recalculate totals from catalog.
+            #    This prevents manipulated client requests from recording zero-dollar or
+            #    artificially-discounted sales.
+            server_subtotal = Decimal("0.00")
+            server_tax = Decimal("0.00")
+            verified_items: list[tuple] = []  # (db_product, quantity, catalog_price)
+
+            for item in order.items:
+                db_product = db.query(models.Product).filter(
+                    models.Product.id == item.product_id,
+                    models.Product.store_id == x_store_id,
+                    models.Product.is_active == True
+                ).first()
+                if not db_product:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=404,
+                        detail=f"Product ID {item.product_id} not found in active store catalog"
+                    )
+                if db_product.stock < item.quantity:
+                    db.rollback()
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Insufficient stock for {db_product.name}. Available: {db_product.stock}"
+                    )
+
+                # Always use catalog price — ignore client-supplied price.
+                catalog_price = Decimal(str(db_product.price))
+                tax_rate = Decimal(str(db_product.tax_rate or "0"))
+                line_subtotal = catalog_price * Decimal(str(item.quantity))
+                line_tax = (line_subtotal * tax_rate / Decimal("100")).quantize(Decimal("0.01"))
+
+                server_subtotal += line_subtotal
+                server_tax += line_tax
+                verified_items.append((db_product, item.quantity, catalog_price))
+
+            # Validate discount — must not exceed server-computed subtotal.
+            client_discount = Decimal(str(order.discount))
+            if client_discount < Decimal("0"):
+                raise HTTPException(status_code=422, detail="Discount cannot be negative.")
+            if client_discount > server_subtotal:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Discount ({client_discount}) exceeds order subtotal ({server_subtotal})."
+                )
+
+            server_total = (server_subtotal - client_discount + server_tax).quantize(Decimal("0.01"))
+            server_subtotal = server_subtotal.quantize(Decimal("0.01"))
+            server_tax = server_tax.quantize(Decimal("0.01"))
+
+            # 3. Create Transaction using server-verified totals (not client-supplied values)
             db_transaction = models.Transaction(
                 store_id=x_store_id,
                 invoice_number=invoice_number,
                 user_id=x_user_id,
                 payment_method=order.payment_method.upper().strip(),
                 payment_status=order.payment_status.upper().strip(),
-                subtotal=order.subtotal,
-                discount=order.discount,
-                tax=order.tax,
-                total=order.total,
+                subtotal=server_subtotal,
+                discount=client_discount,
+                tax=server_tax,
+                total=server_total,
                 customer_id=db_customer.id if db_customer else None,
                 customer_name=cust_name or None,
                 customer_phone=cust_phone or None,
@@ -850,54 +900,39 @@ def checkout(
             db.add(db_transaction)
             db.flush()
 
-            # 3. Add Line Items & Decrement Stock
+            # 4. Add Line Items & Decrement Stock using verified catalog prices
             bill_items = []
-            for item in order.items:
-                db_product = db.query(models.Product).filter(
-                    models.Product.id == item.product_id,
-                    models.Product.store_id == x_store_id
-                ).first()
-                if not db_product:
-                    db.rollback()
-                    raise HTTPException(status_code=404, detail=f"Product ID {item.product_id} not found in store catalog")
-                    
-                if db_product.stock < item.quantity:
-                    db.rollback()
-                    raise HTTPException(
-                        status_code=400, 
-                        detail=f"Insufficient stock for {db_product.name}. Available: {db_product.stock}"
-                    )
-                    
-                db_product.stock -= item.quantity
-                
+            for db_product, qty, catalog_price in verified_items:
+                db_product.stock -= qty
+
                 db_item = models.TransactionItem(
                     store_id=x_store_id,
                     invoice_number=invoice_number,
-                    product_id=item.product_id,
+                    product_id=db_product.id,
                     product_name=db_product.name,
-                    quantity=item.quantity,
-                    price=item.price
+                    quantity=qty,
+                    price=catalog_price
                 )
                 db.add(db_item)
                 bill_items.append(schemas.TransactionItemResponse(
-                    product_id=item.product_id,
+                    product_id=db_product.id,
                     product_name=db_product.name,
-                    quantity=item.quantity,
-                    price=item.price
+                    quantity=qty,
+                    price=catalog_price
                 ))
 
-            # 4. Record a credit-ledger DEBIT for unpaid (CREDIT) sales
+            # 5. Record a credit-ledger DEBIT for unpaid (CREDIT) sales
             if db_customer and db_transaction.payment_status == "CREDIT":
                 db.add(models.CreditEntry(
                     store_id=x_store_id,
                     customer_id=db_customer.id,
                     entry_type="DEBIT",
-                    amount=order.total,
+                    amount=server_total,
                     invoice_number=invoice_number,
                     note="Credit sale",
                     created_at=now_local.replace(tzinfo=None)
                 ))
-                db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + order.total
+                db_customer.credit_balance = (db_customer.credit_balance or Decimal("0.00")) + server_total
 
             db.commit()
 
@@ -914,10 +949,10 @@ def checkout(
                 customer_credit_balance=db_customer.credit_balance if db_customer else None,
                 payment_method=order.payment_method,
                 payment_status=order.payment_status,
-                subtotal=order.subtotal,
-                discount=order.discount,
-                tax=order.tax,
-                total=order.total,
+                subtotal=server_subtotal,
+                discount=client_discount,
+                tax=server_tax,
+                total=server_total,
                 created_at=db_transaction.created_at or now_local.replace(tzinfo=None),
                 items=bill_items
             )
