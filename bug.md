@@ -120,12 +120,10 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 10. WhatsApp Direct Share Fails on iOS & Hardcoded Tax Rate
 * **File:** `app/transactions.tsx` (Lines 195, 225, 231–242) & `app.json`
-* **Status:** Open
+* **Status:** Resolved
 * **Description:**
-  1. `transactions.tsx` uses `whatsapp://send?text=...`. On iOS, `Linking.canOpenURL('whatsapp://')` returns `false` unless `whatsapp` is registered in `LSApplicationQueriesSchemes` in `app.json`.
-  2. The universal web URL `https://wa.me/${phone}?text=${encoded}` works across web, Android, and iOS without URL scheme restrictions.
-  3. The receipt text hardcodes `Tax (GST 8%):` even though products can have other tax rates (0%, 5%, 12%, 18%, 28%).
-* **Fix:** Use `https://wa.me/` and calculate the effective tax percentage dynamically.
+  - Replaced `whatsapp://send?text=...` with universal `https://wa.me/{phone}?text=...` (or `https://wa.me/?text=...` when no phone number is on record). This works on Android without any URL scheme configuration.
+  - Replaced hardcoded `GST 8%` / `GST (8%)` with dynamically computed percentage: `(tax / subtotal * 100).toFixed(0)%` in both `handleShareReceipt` and `handleWhatsAppReceipt`.
 
 ---
 
@@ -170,6 +168,6 @@ This document details all bugs, critical failure points, platform compatibility 
 - [x] **Fix 7:** Add trash/delete item action in billing cart in `app/(tabs)/billing.tsx`.
 - [x] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
 - [x] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
-- [ ] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
+- [x] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
 - [ ] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
 - [ ] **Fix 12:** Clean up 13 ESLint warnings across frontend files.

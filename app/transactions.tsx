@@ -192,7 +192,7 @@ export default function TransactionsScreen() {
         `--------------------------------\n` +
         `Subtotal: ₹${formatCurrency(bill.subtotal)}\n` +
         (bill.discount > 0 ? `Discount: -₹${formatCurrency(bill.discount)}\n` : '') +
-        `Tax (GST 8%): ₹${formatCurrency(bill.tax)}\n` +
+        `Tax (GST ${bill.subtotal > 0 ? ((bill.tax / bill.subtotal) * 100).toFixed(0) : 0}%): ₹${formatCurrency(bill.tax)}\n` +
         `*GRAND TOTAL: ₹${formatCurrency(bill.total)}*\n` +
         `Paid Via: ${bill.payment_method} (${bill.payment_status})\n` +
         `--------------------------------\n` +
@@ -222,24 +222,20 @@ export default function TransactionsScreen() {
         `--------------------------------\n` +
         `Subtotal: ₹${formatCurrency(bill.subtotal)}\n` +
         (bill.discount > 0 ? `Discount: -₹${formatCurrency(bill.discount)}\n` : '') +
-        `GST (8%): ₹${formatCurrency(bill.tax)}\n` +
+        `GST (${bill.subtotal > 0 ? ((bill.tax / bill.subtotal) * 100).toFixed(0) : 0}%): ₹${formatCurrency(bill.tax)}\n` +
         `TOTAL: ₹${formatCurrency(bill.total)}\n` +
         `Payment: ${bill.payment_method} (${bill.payment_status})\n` +
         `Thank you for shopping with us!`;
 
       const encodedMessage = encodeURIComponent(message);
-      let url = `whatsapp://send?text=${encodedMessage}`;
-      
-      if (bill.customer_phone) {
-        url += `&phone=${bill.customer_phone.replace(/\D/g, '')}`;
-      }
+      // Use universal https://wa.me/ URL — works on Android & iOS without URL scheme registration.
+      // If customer phone is known, pre-fill the recipient; otherwise open WhatsApp chat list.
+      const phone = bill.customer_phone ? bill.customer_phone.replace(/\D/g, '') : '';
+      const url = phone
+        ? `https://wa.me/${phone}?text=${encodedMessage}`
+        : `https://wa.me/?text=${encodedMessage}`;
 
-      const canOpen = await Linking.canOpenURL(url);
-      if (canOpen) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('WhatsApp Not Installed', 'Please install WhatsApp to send digital receipts.');
-      }
+      await Linking.openURL(url);
     } catch (err: any) {
       Alert.alert('Error', err.message || 'Could not open WhatsApp');
     }
