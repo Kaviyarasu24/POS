@@ -705,11 +705,16 @@ def clear_all_store_products(
     x_store_id: str = Depends(get_store_id),
     db: Session = Depends(get_db)
 ):
-    """Clear all products from the store catalog."""
-    products = db.query(models.Product).filter(models.Product.store_id == x_store_id).all()
+    """Clear all products from the store catalog (soft-delete active products)."""
+    products = db.query(models.Product).filter(
+        models.Product.store_id == x_store_id,
+        models.Product.is_active == True
+    ).all()
     count = len(products)
+    timestamp_suffix = int(datetime.now().timestamp())
     for p in products:
-        db.delete(p)
+        p.is_active = False
+        p.sku = f"{p.sku[:80]}#DEL_{timestamp_suffix}_{p.id}"
     db.commit()
     return {"message": f"Successfully removed {count} products from catalog"}
 

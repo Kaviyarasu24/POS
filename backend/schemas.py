@@ -142,7 +142,7 @@ class CheckoutSchema(BaseModel):
 
 class TransactionItemResponse(BaseModel):
     id: Optional[int] = None
-    product_id: int
+    product_id: Optional[int] = None
     product_name: str
     quantity: Decimal
     price: Decimal

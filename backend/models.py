@@ -95,7 +95,7 @@ class TransactionItem(Base):
     id = Column(Integer, primary_key=True, index=True)
     store_id = Column(String(100), nullable=False)
     invoice_number = Column(String(100), nullable=False)
-    product_id = Column(Integer, ForeignKey("products.id", ondelete="CASCADE"), nullable=False)
+    product_id = Column(Integer, ForeignKey("products.id", ondelete="SET NULL"), nullable=True)
     product_name = Column(String(255), nullable=False)
     quantity = Column(DECIMAL(10, 3), nullable=False)
     price = Column(DECIMAL(10, 2), nullable=False)
