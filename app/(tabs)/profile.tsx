@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   StyleSheet,
   View,
@@ -367,71 +367,100 @@ export default function ProfileScreen() {
             },
           ]}
         >
-          {/* Profile Card */}
+          {/* Clean App-Themed Store Profile Card */}
           <View style={styles.profileCard}>
-            {/* Avatar with Edit Badge */}
-            <TouchableOpacity
-              style={styles.avatarWrapper}
-              onPress={openAvatarPicker}
-              activeOpacity={0.85}
-            >
-              <View style={styles.avatarCircle}>
-                {avatarImage ? (
-                  <Image
-                    style={styles.avatarImage}
-                    source={avatarImage}
-                    contentFit="cover"
-                  />
-                ) : (
-                  <View style={styles.defaultAvatarContainer}>
-                    <Text style={styles.defaultAvatarText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : ''}
-                    </Text>
-                  </View>
-                )}
+            {/* Top Bar: Live Status Badge & Store Join Code */}
+            <View style={styles.cardTopHeader}>
+              <View style={styles.merchantStatusTag}>
+                <View style={styles.merchantStatusDot} />
+                <Text style={styles.merchantStatusText}>Active Store</Text>
               </View>
-              <View style={styles.editAvatarBadge}>
-                <MaterialIcons name="photo-camera" size={12} color="#ffffff" />
-              </View>
-            </TouchableOpacity>
 
-            {/* Store & Owner Names */}
-            <Text style={styles.heroShopName} numberOfLines={1}>{shopName}</Text>
-            <Text style={styles.heroOwnerName}>{ownerName}</Text>
-
-            {/* Role & Status Badges */}
-            <View style={styles.heroBadgesRow}>
-              <View
-                style={[
-                  styles.rolePill,
-                  roleName === 'manager'
-                    ? styles.rolePillManager
-                    : roleName === 'cashier'
-                    ? styles.rolePillCashier
-                    : styles.rolePillOwner,
-                ]}
+              <TouchableOpacity
+                style={[styles.quickJoinCodeChip, copiedStoreId && styles.quickJoinCodeChipCopied]}
+                onPress={handleCopyStoreId}
+                activeOpacity={0.75}
               >
-                <Text
+                <MaterialIcons
+                  name={copiedStoreId ? 'check' : 'vpn-key'}
+                  size={13}
+                  color={copiedStoreId ? '#15803d' : '#004ac6'}
+                />
+                <Text style={[styles.quickJoinCodeText, copiedStoreId && styles.quickJoinCodeTextCopied]}>
+                  {copiedStoreId ? 'COPIED' : (storeId || 'JOIN CODE')}
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Avatar & Store Identity */}
+            <View style={styles.cardMainIdentity}>
+              <TouchableOpacity
+                style={styles.avatarGlowWrapper}
+                onPress={openAvatarPicker}
+                activeOpacity={0.85}
+              >
+                <View style={styles.avatarCircle}>
+                  {avatarImage ? (
+                    <Image
+                      style={styles.avatarImage}
+                      source={avatarImage}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View style={styles.defaultAvatarContainer}>
+                      <Text style={styles.defaultAvatarText}>
+                        {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'SP'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <View style={styles.editAvatarBadge}>
+                  <MaterialIcons name="photo-camera" size={13} color="#ffffff" />
+                </View>
+              </TouchableOpacity>
+
+              {/* Store & Owner Names */}
+              <View style={styles.shopTitleRow}>
+                <Text style={styles.heroShopName} numberOfLines={1}>{shopName}</Text>
+                <MaterialIcons name="verified" size={18} color="#004ac6" />
+              </View>
+
+              <View style={styles.ownerIdentityRow}>
+                <MaterialIcons name="person" size={15} color="#64748b" />
+                <Text style={styles.heroOwnerName}>{ownerName}</Text>
+                <Text style={styles.bulletSeparator}>•</Text>
+                <View
                   style={[
-                    styles.rolePillText,
+                    styles.rolePill,
                     roleName === 'manager'
-                      ? styles.rolePillTextManager
+                      ? styles.rolePillManager
                       : roleName === 'cashier'
-                      ? styles.rolePillTextCashier
-                      : styles.rolePillTextOwner,
+                      ? styles.rolePillCashier
+                      : styles.rolePillOwner,
                   ]}
                 >
-                  {roleName === 'manager'
-                    ? 'Store Manager'
-                    : roleName === 'cashier'
-                    ? 'Cashier'
-                    : 'Store Owner'}
-                </Text>
-              </View>
-
-              <View style={styles.liveStatusPill}>
-                <View style={styles.liveStatusPulseDot} />
-                <Text style={styles.liveStatusPillText}>Active</Text>
+                  <MaterialIcons
+                    name={roleName === 'manager' ? 'shield' : roleName === 'cashier' ? 'point-of-sale' : 'workspace-premium'}
+                    size={12}
+                    color={roleName === 'manager' ? '#0369a1' : roleName === 'cashier' ? '#15803d' : '#b45309'}
+                  />
+                  <Text
+                    style={[
+                      styles.rolePillText,
+                      roleName === 'manager'
+                        ? styles.rolePillTextManager
+                        : roleName === 'cashier'
+                        ? styles.rolePillTextCashier
+                        : styles.rolePillTextOwner,
+                    ]}
+                  >
+                    {roleName === 'manager'
+                      ? 'Store Manager'
+                      : roleName === 'cashier'
+                      ? 'Cashier'
+                      : 'Store Owner'}
+                  </Text>
+                </View>
               </View>
             </View>
 
@@ -442,7 +471,7 @@ export default function ProfileScreen() {
                 onPress={openEditProfile}
                 activeOpacity={0.8}
               >
-                <MaterialIcons name="edit" size={15} color="#ffffff" />
+                <MaterialIcons name="edit" size={16} color="#ffffff" />
                 <Text style={styles.heroPrimaryBtnText}>Edit Profile</Text>
               </TouchableOpacity>
 
@@ -452,17 +481,17 @@ export default function ProfileScreen() {
                 activeOpacity={0.8}
               >
                 <MaterialIcons
-                  name={copiedStoreId ? 'check' : 'content-copy'}
-                  size={15}
-                  color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                  name={copiedStoreId ? 'check-circle' : 'content-copy'}
+                  size={16}
+                  color={copiedStoreId ? '#15803d' : '#004ac6'}
                 />
                 <Text
                   style={[
                     styles.heroSecondaryBtnText,
-                    copiedStoreId && { color: '#16a34a' },
+                    copiedStoreId && { color: '#15803d' },
                   ]}
                 >
-                  {copiedStoreId ? 'Copied' : storeId || 'Join Code'}
+                  {copiedStoreId ? 'Copied Store ID!' : 'Copy Store ID'}
                 </Text>
               </TouchableOpacity>
             </View>
@@ -1370,39 +1399,95 @@ const styles = StyleSheet.create({
     gap: 16,
   },
 
-  /* Profile Card */
+  /* Clean App-Themed Profile Card */
   profileCard: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.3)',
-    borderRadius: 12,
-    padding: 20,
-    alignItems: 'center',
+    borderColor: 'rgba(195,198,215,0.4)',
+    borderRadius: 18,
+    padding: 18,
     ...Platform.select({
       ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 3,
+        shadowColor: '#004ac6',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.05,
+        shadowRadius: 12,
       },
       android: {
-        elevation: 1,
+        elevation: 2,
       },
     }),
   },
-  avatarWrapper: {
+  cardTopHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    width: '100%',
+    marginBottom: 14,
+  },
+  merchantStatusTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#f0fdf4',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+  },
+  merchantStatusDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 3.5,
+    backgroundColor: '#16a34a',
+  },
+  merchantStatusText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#15803d',
+    letterSpacing: 0.2,
+  },
+  quickJoinCodeChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: '#eaedff',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(195,198,215,0.5)',
+  },
+  quickJoinCodeChipCopied: {
+    backgroundColor: '#dcfce7',
+    borderColor: '#86efac',
+  },
+  quickJoinCodeText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#004ac6',
+    letterSpacing: 0.5,
+  },
+  quickJoinCodeTextCopied: {
+    color: '#15803d',
+  },
+  cardMainIdentity: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  avatarGlowWrapper: {
     position: 'relative',
     marginBottom: 12,
   },
   avatarCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 82,
+    height: 82,
+    borderRadius: 41,
     overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#eff6ff',
     borderWidth: 3,
-    borderColor: '#eff6ff',
+    borderColor: '#dbeafe',
   },
   avatarImage: {
     width: '100%',
@@ -1411,13 +1496,13 @@ const styles = StyleSheet.create({
   defaultAvatarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#eaedff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   defaultAvatarText: {
-    fontSize: 28,
-    fontWeight: '700',
+    fontSize: 26,
+    fontWeight: '800',
     color: '#004ac6',
   },
   editAvatarBadge: {
@@ -1432,72 +1517,111 @@ const styles = StyleSheet.create({
     borderColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
+    elevation: 2,
   },
-  heroShopName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#131b2e',
-    marginBottom: 2,
-    textAlign: 'center',
-  },
-  heroOwnerName: {
-    fontSize: 13,
-    fontWeight: '500',
-    color: '#737686',
-    marginBottom: 12,
-  },
-  heroBadgesRow: {
+  shopTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 4,
+    maxWidth: '92%',
+  },
+  heroShopName: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#131b2e',
+    textAlign: 'center',
+    letterSpacing: -0.2,
+  },
+  ownerIdentityRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
     marginBottom: 16,
   },
+  heroOwnerName: {
+    fontSize: 13.5,
+    fontWeight: '600',
+    color: '#434655',
+  },
+  bulletSeparator: {
+    fontSize: 11,
+    color: '#94a3b8',
+  },
   rolePill: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 2.5,
+    borderRadius: 12,
+    borderWidth: 1,
   },
   rolePillOwner: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#fef3c7',
+    borderColor: '#fde68a',
   },
   rolePillManager: {
-    backgroundColor: '#eff6ff',
+    backgroundColor: '#e0f2fe',
+    borderColor: '#bae6fd',
   },
   rolePillCashier: {
     backgroundColor: '#dcfce7',
+    borderColor: '#bbf7d0',
   },
   rolePillText: {
-    fontSize: 11,
-    fontWeight: '600',
+    fontSize: 10.5,
+    fontWeight: '700',
   },
   rolePillTextOwner: {
-    color: '#004ac6',
+    color: '#b45309',
   },
   rolePillTextManager: {
-    color: '#004ac6',
+    color: '#0369a1',
   },
   rolePillTextCashier: {
-    color: '#166534',
+    color: '#15803d',
   },
-  liveStatusPill: {
+  infoStripRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 9999,
-    backgroundColor: '#dcfce7',
+    justifyContent: 'space-between',
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderRadius: 14,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginBottom: 16,
   },
-  liveStatusPulseDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#166534',
+  infoStripCol: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 2,
   },
-  liveStatusPillText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#166534',
+  infoStripLabel: {
+    fontSize: 9.5,
+    fontWeight: '700',
+    color: '#737686',
+    letterSpacing: 0.5,
+  },
+  infoStripValRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+  },
+  infoStripVal: {
+    fontSize: 12.5,
+    fontWeight: '700',
+    color: '#131b2e',
+  },
+  infoStripDivider: {
+    width: 1,
+    height: 26,
+    backgroundColor: '#e2e8f0',
   },
   heroActionsRow: {
     flexDirection: 'row',
@@ -1507,26 +1631,31 @@ const styles = StyleSheet.create({
   },
   heroPrimaryBtn: {
     flex: 1,
-    height: 42,
-    borderRadius: 10,
+    height: 44,
+    borderRadius: 12,
     backgroundColor: '#004ac6',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    shadowColor: 'rgba(37,99,235,0.25)',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 1,
+    shadowRadius: 8,
+    elevation: 2,
   },
   heroPrimaryBtnText: {
-    fontSize: 13,
+    fontSize: 13.5,
     fontWeight: '700',
     color: '#ffffff',
   },
   heroSecondaryBtn: {
     flex: 1,
-    height: 42,
-    borderRadius: 10,
-    backgroundColor: '#f8fafc',
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: '#eaedff',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: 'rgba(195,198,215,0.6)',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1537,7 +1666,7 @@ const styles = StyleSheet.create({
     borderColor: '#86efac',
   },
   heroSecondaryBtnText: {
-    fontSize: 12,
+    fontSize: 13,
     fontWeight: '700',
     color: '#004ac6',
   },
