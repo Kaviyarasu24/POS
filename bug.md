@@ -47,64 +47,22 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 3. `Alert.alert` is a No-Op on Web (`react-native-web`) — User Cannot Log Out
 * **File:** `app/(tabs)/profile.tsx` (Lines 321–337), `app/reports.tsx`, `app/customers.tsx`, `app/transactions.tsx`, `app/(tabs)/billing.tsx`
-* **Status:** Open
-* **Description:**
-  In `react-native-web`, `Alert.alert` is implemented as an empty no-op function:
-  ```js
-  class Alert { static alert() {} }
-  ```
-  In `app/(tabs)/profile.tsx`, tapping **"Sign Out"** invokes `Alert.alert('Confirm Logout', ...)` with buttons.
-* **Impact:** On Web, **the logout confirmation dialog never appears, and the user cannot sign out of their account**. In addition, error alerts and action prompts across the app fail silently on Web.
-* **Fix:** Provide a cross-platform helper:
-  ```ts
-  if (Platform.OS === 'web') {
-    if (window.confirm('Are you sure you want to log out from this device?')) {
-      await store.logout();
-      router.replace('/login');
-    }
-  } else {
-    Alert.alert('Confirm Logout', 'Are you sure you want to log out from this device?', [
-      { text: 'Cancel', style: 'cancel' },
-      { text: 'Logout', style: 'destructive', onPress: async () => { await store.logout(); router.replace('/login'); } },
-    ]);
-  }
-  ```
+* **Status:** Won't Fix / N/A (Application is targetted strictly for Mobile APK)
+* **Note:** The app is deployed as a native Android APK where `Alert.alert` displays the native OS confirmation dialog correctly.
 
 ---
 
 ### 4. Excel/CSV Bulk Import Crashes on Web
 * **File:** `app/(tabs)/products.tsx` (Lines 233–260)
-* **Status:** Open
-* **Description:**
-  `products.tsx` uses `expo-file-system`'s `File` constructor:
-  ```ts
-  const buffer = await new File(uri).arrayBuffer();
-  const fileContent = await new File(asset.uri).text();
-  ```
-  `expo-file-system` does not implement `new File().arrayBuffer()` or `.text()` on Web (its web module logs a warning and returns an empty stub).
-* **Impact:** Selecting an `.xlsx` or `.csv` catalog file on Web throws:
-  ```text
-  TypeError: (new File(...)).arrayBuffer is not a function
-  ```
-* **Fix:** On Web, read the asset via standard browser `fetch` or `File` API:
-  ```ts
-  let buffer: ArrayBuffer;
-  if (Platform.OS === 'web') {
-    buffer = await (await fetch(asset.uri)).arrayBuffer();
-  } else {
-    buffer = await new File(asset.uri).arrayBuffer();
-  }
-  ```
+* **Status:** Won't Fix / N/A (Application is targetted strictly for Mobile APK)
+* **Note:** On native mobile (APK), `expo-file-system` `new File(uri).arrayBuffer()` is fully supported.
 
 ---
 
 ### 5. Sales Report Export (CSV & PDF) Disabled / Non-Functional on Web
 * **File:** `constants/export.ts` (Lines 34–53) & `app/reports.tsx` (Lines 214–244)
-* **Status:** Open
-* **Description:**
-  `shareTextFile` and `shareHtmlAsPdf` return `null` if `Platform.OS === 'web'`. When `!uri` is returned, `reports.tsx` triggers `Alert.alert('Not Available', 'Sharing files is not supported on this platform.')` (which also does nothing on Web).
-* **Impact:** Web users cannot export CSV or PDF sales reports.
-* **Fix:** For Web, trigger a native browser file download using Blob URLs (consistent with the template download in `products.tsx`).
+* **Status:** Won't Fix / N/A (Application is targetted strictly for Mobile APK)
+* **Note:** On native mobile (APK), `expo-sharing` and `expo-print` utilize the native Android share sheet and print service.
 
 ---
 
@@ -112,25 +70,15 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 6. Missing UI for Cash Received and Change Due in Billing Modal
 * **File:** `app/(tabs)/billing.tsx` (Lines 439–446, 867–950)
-* **Status:** Open
-* **Description:**
-  `billing.tsx` defines:
-  ```ts
-  const changeDue = (parseFloat(cashReceived) || 0) - cartTotals.total;
-  ```
-  and checks `paymentBlocked` against `cashReceived`. However, in the payment bottom sheet modal under the CASH payment mode, **no input field exists for `cashReceived`**, and `changeDue` is never rendered to the cashier.
-* **Impact:** The cashier cannot input the cash amount received from the customer to see change due prior to generating the bill.
-* **Fix:** Add a dedicated cash tender input section with quick cash chips (`Exact`, `+₹100`, `+₹500`, etc.) and a live change due indicator.
+* **Status:** Won't Fix / Not Needed (User preference: straightforward cash checkout without tender entry)
 
 ---
 
 ### 7. Unused `removeFromCart` (Missing Trash/Delete Button in Cart)
 * **File:** `app/(tabs)/billing.tsx` (Lines 260–263, 681–710)
-* **Status:** Open
+* **Status:** Resolved
 * **Description:**
-  `removeFromCart` is defined at line 260 but is never called or bound to any UI component.
-* **Impact:** Cashiers must repeatedly click the minus button until quantity drops to 0 to remove an item from the cart, rather than tapping a delete/trash icon.
-* **Fix:** Add a delete icon button next to each cart line item calling `removeFromCart(item.product.id)`.
+  Added a trash/delete button (`delete-outline`) calling `removeFromCart(item.product.id)` on each cart line item.
 
 ---
 
@@ -215,11 +163,11 @@ This document details all bugs, critical failure points, platform compatibility 
 
 - [x] **Fix 1:** Change `ForeignKey("products.id", ondelete="CASCADE")` to `ondelete="SET NULL"` in `backend/models.py`.
 - [x] **Fix 2:** N/A — Using MySQL (`pymysql` and `cryptography` already configured in `backend/requirements.txt`).
-- [ ] **Fix 3:** Add Web confirmation fallback for `Alert.alert` in `app/(tabs)/profile.tsx`.
-- [ ] **Fix 4:** Update `app/(tabs)/products.tsx` bulk import to handle Web `fetch`/`Blob`.
-- [ ] **Fix 5:** Implement browser file download in `constants/export.ts` for Web report export.
-- [ ] **Fix 6:** Add cash received input & change due calculation display in `app/(tabs)/billing.tsx`.
-- [ ] **Fix 7:** Add trash/delete item action in billing cart in `app/(tabs)/billing.tsx`.
+- [x] **Fix 3:** N/A — Mobile APK only (`Alert.alert` works natively on Android).
+- [x] **Fix 4:** N/A — Mobile APK only (`expo-file-system` works natively on Android).
+- [x] **Fix 5:** N/A — Mobile APK only (`expo-sharing` & `expo-print` work natively on Android).
+- [x] **Fix 6:** N/A — Not needed (straightforward cash checkout without tender entry).
+- [x] **Fix 7:** Add trash/delete item action in billing cart in `app/(tabs)/billing.tsx`.
 - [ ] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
 - [ ] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
 - [ ] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.

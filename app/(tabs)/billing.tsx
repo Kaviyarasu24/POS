@@ -436,7 +436,6 @@ export default function BillingScreen() {
   };
 
   // Derived payment-modal state.
-  const changeDue = (parseFloat(cashReceived) || 0) - cartTotals.total;
   const paymentBlocked =
     isProcessing ||
     (selectedPaymentMethod === 'CREDIT' && customerName.trim().length === 0) ||
@@ -706,6 +705,14 @@ export default function BillingScreen() {
                     <Text style={styles.cartItemTotal}>
                       ₹{(item.product.price * item.quantity).toFixed(2)}
                     </Text>
+                    <TouchableOpacity
+                      style={styles.cartDeleteBtn}
+                      onPress={() => removeFromCart(item.product.id)}
+                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                      accessibilityLabel="Remove item"
+                    >
+                      <MaterialIcons name="delete-outline" size={20} color="#ba1a1a" />
+                    </TouchableOpacity>
                   </View>
                 </View>
               );
@@ -1808,7 +1815,7 @@ const styles = StyleSheet.create({
   cartItemActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 10,
   },
   qtyControl: {
     flexDirection: 'row',
@@ -1832,6 +1839,12 @@ const styles = StyleSheet.create({
     color: '#131b2e',
     minWidth: 65,
     textAlign: 'right',
+  },
+  cartDeleteBtn: {
+    padding: 4,
+    marginLeft: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   emptyCart: {
     alignItems: 'center',
