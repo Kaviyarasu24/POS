@@ -732,10 +732,11 @@ def delete_product(
     if not db_product:
         raise HTTPException(status_code=404, detail="Product not found")
     
-    # Soft-delete: mark inactive and append tombstone suffix to free up the SKU code
+    # Soft-delete: mark inactive and append tombstone suffix to free up the SKU code.
+    # Truncate to 80 chars first to prevent VARCHAR(100) overflow (#DEL_<10-digit-ts> = 15 chars max).
     db_product.is_active = False
     timestamp_suffix = int(datetime.now().timestamp())
-    db_product.sku = f"{db_product.sku}#DEL_{timestamp_suffix}"
+    db_product.sku = f"{db_product.sku[:80]}#DEL_{timestamp_suffix}"
     db.commit()
     return None
 

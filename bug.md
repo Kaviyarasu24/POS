@@ -104,7 +104,7 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 9. SKU Column Length Overflow on Soft Delete
 * **File:** `backend/main.py` (Lines 730–735) & `backend/models.py` (Line 46)
-* **Status:** Open
+* **Status:** Resolved
 * **Description:**
   `Product.sku` is defined as `String(100)`. Soft deletion appends `#DEL_<unix_timestamp>`:
   ```python
@@ -169,7 +169,7 @@ This document details all bugs, critical failure points, platform compatibility 
 - [x] **Fix 6:** N/A — Not needed (straightforward cash checkout without tender entry).
 - [x] **Fix 7:** Add trash/delete item action in billing cart in `app/(tabs)/billing.tsx`.
 - [x] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
-- [ ] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
+- [x] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
 - [ ] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
 - [ ] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
 - [ ] **Fix 12:** Clean up 13 ESLint warnings across frontend files.
