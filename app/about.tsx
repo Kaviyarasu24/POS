@@ -76,11 +76,11 @@ export default function AboutScreen() {
         <Text style={styles.sectionTitle}>Get in Touch</Text>
         <TouchableOpacity
           style={styles.emailBtn}
-          onPress={() => Linking.openURL('mailto:temporarysuppor@developer.com')}
+          onPress={() => Linking.openURL('mailto:zynocraftx@gmail.com')}
           activeOpacity={0.8}
         >
           <MaterialIcons name="email" size={20} color="#004ac6" />
-          <Text style={styles.emailBtnText}>temporarysuppor@developer.com</Text>
+          <Text style={styles.emailBtnText}>zynocraftx@gmail.com</Text>
           <MaterialIcons name="open-in-new" size={16} color="#94a3b8" />
         </TouchableOpacity>
 

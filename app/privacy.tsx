@@ -10,9 +10,9 @@ const SECTIONS = [
   { title: '3. Data Storage & Security', body: 'Your data is stored on secure cloud servers (PostgreSQL on Render). Authentication tokens are stored securely on your device using the operating system keychain (iOS Keychain / Android Keystore). All API communication is encrypted over HTTPS.' },
   { title: '4. Offline Data', body: 'When you use SmartPOS offline, sales data is temporarily stored on your device in encrypted local storage. This data is automatically synced to our secure servers when your internet connection is restored.' },
   { title: '5. Multi-Tenant Isolation', body: "Each store's data is strictly isolated. Staff members of one store cannot access data belonging to another store. Access within a store is further restricted by user roles (Owner, Manager, Cashier)." },
-  { title: '6. Data Retention', body: 'Your data is retained for as long as your account is active. If you wish to delete your store data or account, please contact us at temporarysuppor@developer.com. We will process your request within 30 days.' },
+  { title: '6. Data Retention', body: 'Your data is retained for as long as your account is active. If you wish to delete your store data or account, please contact us at zynocraftx@gmail.com. We will process your request within 30 days.' },
   { title: '7. Changes to This Policy', body: 'We may update this Privacy Policy from time to time. Significant changes will be communicated through in-app notifications. Continued use of SmartPOS after any changes constitutes your acceptance of the updated policy.' },
-  { title: '8. Contact', body: 'For any privacy-related questions or concerns, contact us at temporarysuppor@developer.com.' },
+  { title: '8. Contact', body: 'For any privacy-related questions or concerns, contact us at zynocraftx@gmail.com.' },
 ];
 
 export default function PrivacyScreen() {

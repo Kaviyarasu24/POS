@@ -36,7 +36,7 @@ export default function ContactScreen() {
 
         <TouchableOpacity
           style={styles.contactCard}
-          onPress={() => Linking.openURL('mailto:temporarysuppor@developer.com?subject=SmartPOS%20Support%20Request')}
+          onPress={() => Linking.openURL('mailto:zynocraftx@gmail.com?subject=SmartPOS%20Support%20Request')}
           activeOpacity={0.8}
         >
           <View style={[styles.contactIconCircle, { backgroundColor: '#dbeafe' }]}>
@@ -44,7 +44,7 @@ export default function ContactScreen() {
           </View>
           <View style={styles.contactCardText}>
             <Text style={styles.contactCardTitle}>Email Support</Text>
-            <Text style={styles.contactCardSub}>temporarysuppor@developer.com</Text>
+            <Text style={styles.contactCardSub}>zynocraftx@gmail.com</Text>
             <Text style={styles.contactCardHint}>Tap to open mail app</Text>
           </View>
           <MaterialIcons name="open-in-new" size={18} color="#94a3b8" />

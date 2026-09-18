@@ -14,7 +14,7 @@ const FAQ_ITEMS = [
   { q: 'Can multiple staff use the same store?', a: 'Yes. Share your Store ID with staff members. They sign up with the Store ID and are assigned a cashier or manager role. Each user logs in with their own credentials.' },
   { q: 'How does GST calculation work?', a: 'Each product has a tax rate %. At checkout the tax is split into CGST & SGST (50/50) for intra-state sales, which appears on receipts and GST reports.' },
   { q: 'How do I restock a product?', a: 'Go to the Inventory tab, find the product, tap the + restock button, then select a preset quantity (+5, +10, +25, +50, +100). Stock is updated immediately.' },
-  { q: 'What should I do if the app shows wrong data?', a: 'Try logging out and back in. If the issue persists, contact our support team at temporarysuppor@developer.com with a description of the problem.' },
+  { q: 'What should I do if the app shows wrong data?', a: 'Try logging out and back in. If the issue persists, contact our support team at zynocraftx@gmail.com with a description of the problem.' },
 ];
 
 export default function FaqScreen() {

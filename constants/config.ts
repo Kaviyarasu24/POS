@@ -1,4 +1,5 @@
 export const API_BASE_URL = 'https://possystem.zynocraftx.dev';
+export const SUPPORT_EMAIL = 'zynocraftx@gmail.com';
 
 // Single source of truth for product categories. Used by the Add/Edit Product
 // form, the Products filter, and the Billing category tabs so a product saved

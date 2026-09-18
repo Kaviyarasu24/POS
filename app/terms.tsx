@@ -15,7 +15,7 @@ const SECTIONS = [
   { title: '8. Limitation of Liability', body: 'kavimaheslabs shall not be liable for any indirect, incidental, or consequential damages arising from your use of SmartPOS, including but not limited to loss of revenue, data loss, or business interruption.' },
   { title: '9. Termination', body: 'We reserve the right to terminate or suspend your account at any time for violations of these Terms. You may also terminate your account by contacting support.' },
   { title: '10. Governing Law', body: 'These Terms are governed by the laws of India. Any disputes arising from these Terms shall be subject to the exclusive jurisdiction of courts in India.' },
-  { title: '11. Contact', body: 'For questions regarding these Terms, please contact us at temporarysuppor@developer.com.' },
+  { title: '11. Contact', body: 'For questions regarding these Terms, please contact us at zynocraftx@gmail.com.' },
 ];
 
 export default function TermsScreen() {
