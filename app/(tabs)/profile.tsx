@@ -156,7 +156,7 @@ export default function ProfileScreen() {
       navigator.clipboard.writeText(code);
     }
     setCopiedStoreId(true);
-    showToast('âœ“ Store ID (Join Code) copied to clipboard');
+    showToast('Store ID (Join Code) copied to clipboard');
     setTimeout(() => setCopiedStoreId(false), 2500);
   };
 
@@ -171,7 +171,7 @@ export default function ProfileScreen() {
     setAvatarImage(selectedAvatar);
     await store.updateUserProfile({ image: selectedAvatar || '' });
     setAvatarModalVisible(false);
-    showToast('âœ“ Avatar updated successfully');
+    showToast('Avatar updated successfully');
   };
 
   // Custom photo upload from device (optional alternative)
@@ -245,7 +245,7 @@ export default function ProfileScreen() {
     });
 
     setEditProfileVisible(false);
-    showToast('âœ“ Profile details updated');
+    showToast('Profile details updated');
   };
 
   // Category modal handlers
@@ -263,7 +263,7 @@ export default function ProfileScreen() {
       shopCategory: tempCategory.trim(),
     });
     setCategoryModalVisible(false);
-    showToast('âœ“ Shop Category updated');
+    showToast('Shop Category updated');
   };
 
   // GST modal handlers
@@ -277,7 +277,7 @@ export default function ProfileScreen() {
       gstNumber: tempGst.trim(),
     });
     setGstModalVisible(false);
-    showToast('âœ“ GST Number updated');
+    showToast('GST Number updated');
   };
 
   // Business address modal handlers
@@ -291,7 +291,7 @@ export default function ProfileScreen() {
       businessAddress: tempAddress.trim(),
     });
     setAddressModalVisible(false);
-    showToast('âœ“ Business Address updated');
+    showToast('Business Address updated');
   };
 
   // Backup catalog data to local JSON structure
@@ -428,7 +428,7 @@ export default function ProfileScreen() {
               <View style={styles.ownerIdentityRow}>
                 <MaterialIcons name="person" size={15} color="#64748b" />
                 <Text style={styles.heroOwnerName}>{ownerName}</Text>
-                <Text style={styles.bulletSeparator}>•</Text>
+                <View style={styles.bulletDot} />
                 <View
                   style={[
                     styles.rolePill,
@@ -519,7 +519,7 @@ export default function ProfileScreen() {
                         { fontWeight: '700', color: copiedStoreId ? '#16a34a' : '#004ac6' },
                       ]}
                     >
-                      {copiedStoreId ? 'âœ“ Copied to clipboard!' : `${storeId || 'â€”'} â€¢ Tap to copy`}
+                      {copiedStoreId ? 'Copied to clipboard!' : `${storeId || '-'} • Tap to copy`}
                     </Text>
                   </View>
                 </View>
@@ -1303,9 +1303,9 @@ export default function ProfileScreen() {
 
             {[
               { label: 'English (US)', val: 'English (US)' },
-              { label: 'Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)', val: 'Hindi (à¤¹à¤¿à¤¨à¥à¤¦à¥€)' },
-              { label: 'Tamil (à®¤à®®à®¿à®´à¯)', val: 'Tamil (à®¤à®®à®¿à®´à¯)' },
-              { label: 'Spanish (EspaÃ±ol)', val: 'Spanish (EspaÃ±ol)' },
+              { label: 'Hindi (हिंदी)', val: 'Hindi (हिंदी)' },
+              { label: 'Tamil (தமிழ்)', val: 'Tamil (தமிழ்)' },
+              { label: 'Spanish (Español)', val: 'Spanish (Español)' },
             ].map((lang) => (
               <TouchableOpacity
                 key={lang.val}
@@ -1546,9 +1546,12 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#434655',
   },
-  bulletSeparator: {
-    fontSize: 11,
-    color: '#94a3b8',
+  bulletDot: {
+    width: 3.5,
+    height: 3.5,
+    borderRadius: 2,
+    backgroundColor: '#94a3b8',
+    marginHorizontal: 3,
   },
   rolePill: {
     flexDirection: 'row',
