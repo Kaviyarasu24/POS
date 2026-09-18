@@ -766,7 +766,10 @@ def _generate_next_invoice_number(db: Session, store_id: str, today_str: str) ->
     latest_inv = db.query(models.Transaction.invoice_number).filter(
         models.Transaction.store_id == store_id,
         models.Transaction.invoice_number.like(f"{prefix}%")
-    ).order_by(models.Transaction.invoice_number.desc()).first()
+    ).order_by(
+        func.length(models.Transaction.invoice_number).desc(),
+        models.Transaction.invoice_number.desc()
+    ).first()
 
     if latest_inv and latest_inv[0]:
         try:

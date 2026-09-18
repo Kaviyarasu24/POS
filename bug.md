@@ -84,7 +84,7 @@ This document details all bugs, critical failure points, platform compatibility 
 
 ### 8. Lexicographical Sorting Bug in Daily Invoice Number Generator
 * **File:** `backend/main.py` (Lines 758–775)
-* **Status:** Open
+* **Status:** Resolved
 * **Description:**
   ```python
   latest_inv = db.query(models.Transaction.invoice_number).filter(
@@ -168,7 +168,7 @@ This document details all bugs, critical failure points, platform compatibility 
 - [x] **Fix 5:** N/A — Mobile APK only (`expo-sharing` & `expo-print` work natively on Android).
 - [x] **Fix 6:** N/A — Not needed (straightforward cash checkout without tender entry).
 - [x] **Fix 7:** Add trash/delete item action in billing cart in `app/(tabs)/billing.tsx`.
-- [ ] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
+- [x] **Fix 8:** Fix invoice number sequence sorting in `backend/main.py`.
 - [ ] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
 - [ ] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
 - [ ] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
