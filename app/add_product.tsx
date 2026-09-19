@@ -251,7 +251,7 @@ export default function AddProductScreen() {
         await store.deleteProduct(id);
         alert('Product deleted successfully.');
         router.replace('/(tabs)/products');
-      } catch (err) {
+      } catch {
         alert('Failed to delete product.');
       }
     };

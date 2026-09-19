@@ -10,7 +10,6 @@ import {
   Modal,
   Pressable,
   Platform,
-  Dimensions,
   Animated,
   Easing,
   KeyboardAvoidingView,
@@ -20,10 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Defs, LinearGradient, Stop } from 'react-native-svg';
-import { Colors } from '@/constants/theme';
 import { API_BASE_URL, SHOP_CATEGORIES } from '@/constants/config';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const categories = SHOP_CATEGORIES;
 
@@ -104,7 +100,6 @@ const StepProgress = ({ currentStep }: { currentStep: number }) => {
 
 export default function SignupScreen() {
   const router = useRouter();
-  const theme = Colors.light;
   const scrollViewRef = useRef<ScrollView>(null);
   useEffect(() => {
     const keyboardDidHideListener = Keyboard.addListener(
@@ -179,7 +174,7 @@ export default function SignupScreen() {
         setVerifiedStore(null);
         setStoreVerifyError('No store found with this Join Code');
       }
-    } catch (e) {
+    } catch {
       setVerifiedStore(null);
       setStoreVerifyError('Unable to verify store code. Check your connection.');
     } finally {

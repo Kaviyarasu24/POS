@@ -141,20 +141,14 @@ This document details all bugs, critical failure points, platform compatibility 
 ## 🧹 Low Severity (P3) — Code Quality & Linter Warnings
 
 ### 12. ESLint Warnings & Unused Imports
-* **`app/(tabs)/billing.tsx`:**
-  - Line 260: `'removeFromCart' is assigned a value but never used`
-  - Line 439: `'changeDue' is assigned a value but never used`
-* **`app/(tabs)/products.tsx`:**
-  - Lines 9, 12: `'ScrollView'` and `'RefreshControl'` defined but never used
-* **`app/add_product.tsx`:**
-  - Line 254: `'err'` defined but never used
-* **`app/login.tsx`:**
-  - Lines 26, 43: `'SCREEN_WIDTH'`, `'AnimatedMaterialIcon'` unused
-  - Line 143: React Hook `useEffect` missing dependencies: `fadeContent`, `fadeHeader`, `translateContentY`, `translateHeaderY`
-* **`app/signup.tsx`:**
-  - Lines 26, 107, 182: `'SCREEN_WIDTH'`, `'theme'`, and error param `'e'` unused
-* **`app/transactions.tsx`:**
-  - Lines 24, 52: `'SCREEN_WIDTH'`, and error param `'e'` unused
+* **Status:** Resolved
+* **Cleaned Files:**
+  - `app/(tabs)/products.tsx`: Removed unused `ScrollView` and `RefreshControl`.
+  - `app/add_product.tsx`: Removed unused `err` in catch block.
+  - `app/login.tsx`: Removed unused `SCREEN_WIDTH` and `AnimatedMaterialIcon`; added missing `useEffect` dependencies.
+  - `app/signup.tsx`: Removed unused `Dimensions`, `Colors`, `SCREEN_WIDTH`, `theme`, and unused `e` parameter.
+  - `app/transactions.tsx`: Removed unused `Dimensions`, `SCREEN_WIDTH`, `SCREEN_HEIGHT`, and unused `e` parameter.
+* **Verification:** `npm run lint` (expo lint) passes with 0 errors and 0 warnings.
 
 ---
 
@@ -171,4 +165,4 @@ This document details all bugs, critical failure points, platform compatibility 
 - [x] **Fix 9:** Truncate SKU to 80 chars before soft-delete suffix in `backend/main.py`.
 - [x] **Fix 10:** Update WhatsApp receipt sharing to `https://wa.me/` and dynamic tax string.
 - [x] **Fix 11:** Verify price and checkout totals integrity in `backend/main.py`.
-- [ ] **Fix 12:** Clean up 13 ESLint warnings across frontend files.
+- [x] **Fix 12:** Clean up 13 ESLint warnings across frontend files.

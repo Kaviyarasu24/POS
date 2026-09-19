@@ -13,7 +13,6 @@ import {
   Platform,
   Animated,
   Easing,
-  Dimensions,
   Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -22,8 +21,6 @@ import { MaterialIcons } from '@expo/vector-icons';
 import Svg, { Path, Circle, Ellipse, Defs, LinearGradient, Stop } from 'react-native-svg';
 import { API_BASE_URL } from '@/constants/config';
 import { store } from '@/constants/store';
-
-const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const THEME = {
   primary: '#2563EB',
@@ -39,8 +36,6 @@ const THEME = {
   errorText: '#DC2626',
   success: '#16A34A',
 };
-
-const AnimatedMaterialIcon = Animated.createAnimatedComponent(MaterialIcons);
 
 const TerminalIllustration = () => (
   <Svg width={110} height={100} viewBox="0 0 110 100">
@@ -140,7 +135,7 @@ export default function LoginScreen() {
         useNativeDriver: true,
       }),
     ]).start();
-  }, []);
+  }, [fadeContent, fadeHeader, translateContentY, translateHeaderY]);
 
   const triggerErrorShake = () => {
     errorShakeAnim.setValue(0);

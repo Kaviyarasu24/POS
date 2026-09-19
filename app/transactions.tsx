@@ -12,7 +12,6 @@ import {
   Platform,
   Alert,
   ScrollView,
-  Dimensions,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -20,8 +19,6 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
 import { formatBillDate } from '@/constants/receipt';
-
-const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PAYMENT_FILTERS = [
   { id: 'ALL', label: 'All', icon: 'filter-list' },
@@ -49,7 +46,7 @@ const formatDate = (isoStr: string) => {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
     return formatBillDate(d);
-  } catch (e) {
+  } catch {
     return isoStr;
   }
 };
