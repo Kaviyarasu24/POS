@@ -19,7 +19,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
-import { formatBillDate } from '@/constants/receipt';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
@@ -43,12 +42,18 @@ const formatCurrency = (val: any) => {
   return isNaN(n) ? '0.00' : n.toFixed(2);
 };
 
-// Always show the full date (never "Today"/"Yesterday") with 12-hour AM/PM time.
+const SHORT_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+// Show formatted compact date with 12-hour AM/PM time on list cards.
 const formatDate = (isoStr: string) => {
   try {
     const d = new Date(isoStr);
     if (isNaN(d.getTime())) return isoStr;
-    return formatBillDate(d);
+    let hours = d.getHours();
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    hours = hours % 12 || 12;
+    return `${pad2(d.getDate())} ${SHORT_MONTHS[d.getMonth()]} ${d.getFullYear()}, ${pad2(hours)}:${pad2(d.getMinutes())} ${ampm}`;
   } catch {
     return isoStr;
   }
@@ -472,19 +477,21 @@ export default function TransactionsScreen() {
                   <View style={[styles.paymentBadge, { backgroundColor: pStyle.bg }]}>
                     <MaterialIcons
                       name={getPaymentIcon(item.payment_method) as any}
-                      size={14}
+                      size={13}
                       color={pStyle.icon}
                     />
                     <Text style={[styles.paymentBadgeText, { color: pStyle.text }]}>
                       {item.payment_method}
                     </Text>
                   </View>
-                  <Text style={styles.txDate}>{formatDate(item.created_at)}</Text>
+                  <Text style={styles.txDate} numberOfLines={1} ellipsizeMode="tail">
+                    {formatDate(item.created_at)}
+                  </Text>
                 </View>
 
                 <View style={styles.amountWrapper}>
                   <Text style={styles.txAmount}>₹{formatCurrency(item.total)}</Text>
-                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                  <MaterialIcons name="chevron-right" size={18} color="#94a3b8" />
                 </View>
               </View>
             </TouchableOpacity>
@@ -866,6 +873,7 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    overflow: 'hidden',
     ...Platform.select({
       ios: {
         shadowColor: '#000',
@@ -888,6 +896,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
+    flex: 1,
+    marginRight: 8,
   },
   invoiceNumber: {
     fontSize: 14,
@@ -899,6 +909,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 6,
+    flexShrink: 0,
   },
   statusBadgeText: {
     fontSize: 11,
@@ -919,35 +930,42 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     borderTopWidth: 1,
     borderTopColor: '#f1f5f9',
+    gap: 8,
   },
   metaLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
+    flex: 1,
+    minWidth: 0,
+    overflow: 'hidden',
   },
   paymentBadge: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 2.5,
     borderRadius: 6,
+    flexShrink: 0,
   },
   paymentBadgeText: {
     fontSize: 11,
     fontWeight: '700',
   },
   txDate: {
-    fontSize: 12,
+    fontSize: 11.5,
     color: '#94a3b8',
+    flexShrink: 1,
   },
   amountWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
+    gap: 2,
+    flexShrink: 0,
   },
   txAmount: {
-    fontSize: 16,
+    fontSize: 15.5,
     fontWeight: '700',
     color: '#0f172a',
   },
