@@ -12,6 +12,7 @@ import {
   Platform,
   Alert,
   ScrollView,
+  Dimensions,
   Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -19,6 +20,8 @@ import { useRouter, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import { MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
 import { store, GeneratedBill } from '@/constants/store';
 import { formatBillDate } from '@/constants/receipt';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 const PAYMENT_FILTERS = [
   { id: 'ALL', label: 'All', icon: 'filter-list' },
