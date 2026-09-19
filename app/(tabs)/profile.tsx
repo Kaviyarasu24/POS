@@ -689,7 +689,7 @@ export default function ProfileScreen() {
                   </View>
                   <View style={styles.rowTextCol}>
                     <Text style={styles.rowLabel}>Thermal Printer</Text>
-                    <Text style={styles.rowSubLabel}>{printerType} â€¢ {paperSize} roll</Text>
+                    <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
                   </View>
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
@@ -2130,7 +2130,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
 
-  /* â”€â”€ Legal Modal Header â”€â”€ */
+  /* ── Legal Modal Header ── */
   legalModalHeader: {
     alignItems: 'center',
     marginBottom: 16,
@@ -2150,7 +2150,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
 
-  /* â”€â”€ Legal Sections (Privacy + Terms) â”€â”€ */
+  /* ── Legal Sections (Privacy + Terms) ── */
   legalSection: {
     marginBottom: 16,
     paddingBottom: 16,
@@ -2169,7 +2169,7 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
 
-  /* â”€â”€ About Modal â”€â”€ */
+  /* ── About Modal ── */
   aboutCard: {
     backgroundColor: '#f8fafc',
     borderRadius: 14,
@@ -2237,7 +2237,7 @@ const styles = StyleSheet.create({
     color: '#004ac6',
   },
 
-  /* â”€â”€ FAQ Modal â”€â”€ */
+  /* ── FAQ Modal ── */
   faqItem: {
     marginBottom: 12,
     backgroundColor: '#f8fafc',
@@ -2302,7 +2302,7 @@ const styles = StyleSheet.create({
     color: '#ea580c',
   },
 
-  /* â”€â”€ Contact Support Modal â”€â”€ */
+  /* ── Contact Support Modal ── */
   contactRow: {
     flexDirection: 'row',
     alignItems: 'center',
