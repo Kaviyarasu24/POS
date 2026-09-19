@@ -13,12 +13,18 @@
     },
     "android": {
       "package": "com.smartpos.app",
+      "versionCode": 1,
       "adaptiveIcon": {
         "backgroundColor": "#F8FAFC",
         "foregroundImage": "./assets/images/android-icon-foreground.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE"
+      ]
     },
     "web": {
       "output": "static"
@@ -36,6 +42,18 @@
           "dark": {
             "backgroundColor": "#F8FAFC"
           }
+        }
+      ],
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow SmartPOS to access your camera to scan product barcodes."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow SmartPOS to access your photos to set product images and store avatar."
         }
       ],
       "expo-secure-store",
