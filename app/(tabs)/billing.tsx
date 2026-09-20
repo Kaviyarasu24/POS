@@ -12,6 +12,7 @@ import {
   Dimensions,
   Platform,
   KeyboardAvoidingView,
+  Keyboard,
   Alert,
   Share,
 } from 'react-native';
@@ -55,7 +56,6 @@ export default function BillingScreen() {
   const [selectedCategory, setSelectedCategory] = useState('All Items');
   const [searchQuery, setSearchQuery] = useState('');
   const [discountPercent, setDiscountPercent] = useState(0);
-  const [discountModalVisible, setDiscountModalVisible] = useState(false);
   const [discountInput, setDiscountInput] = useState('');
   const [cartOpen, setCartOpen] = useState(false);
 
@@ -286,14 +286,20 @@ export default function BillingScreen() {
     });
   };
 
-  const handleApplyDiscount = () => {
-    const val = parseFloat(discountInput);
-    if (!isNaN(val) && val >= 0 && val <= 100) {
-      setDiscountPercent(val);
-    } else {
+  const handleCustomDiscountChange = (text: string) => {
+    const cleaned = text.replace(/[^0-9.]/g, '');
+    setDiscountInput(cleaned);
+    const parsed = parseFloat(cleaned);
+    if (!isNaN(parsed) && parsed >= 0 && parsed <= 100) {
+      setDiscountPercent(parsed);
+    } else if (cleaned.trim() === '') {
       setDiscountPercent(0);
     }
-    setDiscountModalVisible(false);
+  };
+
+  const handleClearDiscount = () => {
+    setDiscountPercent(0);
+    setDiscountInput('');
   };
 
   // Load existing customers so credit sales can be attached by quick-pick
@@ -633,201 +639,180 @@ export default function BillingScreen() {
             { transform: [{ translateY: slideAnim }] },
           ]}
         >
-          {/* Sheet Handle / Header */}
-          <View style={styles.cartHeader}>
-            <View style={styles.cartHeaderTop}>
-              <View style={styles.sheetHandle} />
-            </View>
-            <View style={styles.cartHeaderContent}>
-              <View>
-                <Text style={styles.cartTitle}>Current Order</Text>
-                <Text style={styles.cartSubtitle}>
-                  {cartTotals.totalItems} {cartTotals.totalItems === 1 ? 'item' : 'items'}
-                </Text>
-              </View>
-              <View style={styles.cartHeaderActions}>
-                <TouchableOpacity
-                  style={styles.clearCartBtn}
-                  onPress={() => setCart([])}
-                >
-                  <Text style={styles.clearCartText}>Clear</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.closeCartBtn}
-                  onPress={() => setCartOpen(false)}
-                >
-                  <MaterialIcons name="close" size={20} color="#434655" />
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-
-          {/* Cart Item List */}
-          <ScrollView style={styles.cartList} showsVerticalScrollIndicator={false}>
-            {cart.map((item) => {
-              const isWeight = isWeightItem(item.product.unit);
-              return (
-                <View key={item.product.id} style={styles.cartItemRow}>
-                  <View style={styles.cartItemInfo}>
-                    <Text style={styles.cartItemName} numberOfLines={1}>
-                      {item.product.name}
-                    </Text>
-                    <Text style={styles.cartItemPrice}>
-                      ₹{item.product.price.toFixed(2)} / {item.product.unit || 'pc'}
-                    </Text>
-                  </View>
-
-                  <View style={styles.cartItemActions}>
-                    <View style={styles.qtyControl}>
-                      <TouchableOpacity
-                        style={styles.cartQtyBtn}
-                        onPress={() => updateQuantity(item.product.id, -1)}
-                      >
-                        <MaterialIcons name="remove" size={16} color="#004ac6" />
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        onPress={() => isWeight && handleProductPress(item.product)}
-                        disabled={!isWeight}
-                      >
-                        <Text style={[styles.cartQtyTextVal, isWeight && { color: '#004ac6', textDecorationLine: 'underline' }]}>
-                          {item.quantity} {item.product.unit || 'pcs'}
-                        </Text>
-                      </TouchableOpacity>
-
-                      <TouchableOpacity
-                        style={styles.cartQtyBtn}
-                        onPress={() => updateQuantity(item.product.id, 1)}
-                      >
-                        <MaterialIcons name="add" size={16} color="#004ac6" />
-                      </TouchableOpacity>
-                    </View>
-                    <Text style={styles.cartItemTotal}>
-                      ₹{(item.product.price * item.quantity).toFixed(2)}
-                    </Text>
-                    <TouchableOpacity
-                      style={styles.cartDeleteBtn}
-                      onPress={() => removeFromCart(item.product.id)}
-                      hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                      accessibilityLabel="Remove item"
-                    >
-                      <MaterialIcons name="delete-outline" size={20} color="#ba1a1a" />
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              );
-            })}
-            {cart.length === 0 && (
-              <View style={styles.emptyCart}>
-                <MaterialIcons name="remove-shopping-cart" size={40} color="#c3c6d7" />
-                <Text style={styles.emptyCartText}>Your cart is empty</Text>
-              </View>
-            )}
-          </ScrollView>
-
-          {/* Cart Calculations & Charge Bar */}
-          <View style={styles.cartFooter}>
-            {/* Discount Trigger */}
-            <TouchableOpacity
-              style={styles.discountButton}
-              onPress={() => setDiscountModalVisible(true)}
-            >
-              <View style={styles.discountLeft}>
-                <MaterialIcons name="local-offer" size={16} color="#004ac6" />
-                <Text style={styles.discountText}>
-                  {discountPercent > 0
-                    ? `Discount applied: ${discountPercent}%`
-                    : 'Apply Discount'}
-                </Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={18} color="#737686" />
-            </TouchableOpacity>
-
-            {/* Breakdown */}
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Subtotal</Text>
-              <Text style={styles.summaryValue}>₹{cartTotals.subtotal.toFixed(2)}</Text>
-            </View>
-
-            {discountPercent > 0 && (
-              <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Discount ({discountPercent}%)</Text>
-                <Text style={[styles.summaryValue, styles.discountAppliedText]}>
-                  -₹{cartTotals.discountAmount.toFixed(2)}
-                </Text>
-              </View>
-            )}
-
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Tax</Text>
-              <Text style={styles.summaryValue}>₹{cartTotals.tax.toFixed(2)}</Text>
-            </View>
-
-            <View style={[styles.summaryRow, styles.totalRow]}>
-              <Text style={styles.totalLabel}>Grand Total</Text>
-              <Text style={styles.totalValue}>₹{cartTotals.total.toFixed(2)}</Text>
-            </View>
-
-            {/* Charge Button */}
-            <TouchableOpacity
-              style={[
-                styles.chargeButton,
-                cart.length === 0 && styles.chargeButtonDisabled,
-              ]}
-              disabled={cart.length === 0}
-              onPress={handleOpenPayment}
-            >
-              <MaterialIcons name="point-of-sale" size={20} color="#ffffff" />
-              <Text style={styles.chargeButtonText}>Proceed to Payment</Text>
-              <Text style={styles.chargeButtonAmount}>
-                ₹{cartTotals.total.toFixed(2)}
-              </Text>
-            </TouchableOpacity>
-          </View>
-        </Animated.View>
-      )}
-
-      {/* Discount Modal */}
-      <Modal
-        visible={discountModalVisible}
-        transparent
-        animationType="fade"
-        onRequestClose={() => setDiscountModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
           <KeyboardAvoidingView
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-            style={styles.modalContainer}
+            style={{ flex: 1 }}
           >
-            <Text style={styles.modalTitle}>Apply Discount</Text>
-            <Text style={styles.modalDescription}>
-              Enter a percentage discount (0-100) to apply to the subtotal.
-            </Text>
-            <TextInput
-              style={styles.modalInput}
-              keyboardType="numeric"
-              placeholder="Enter discount percentage (0 - 100)"
-              value={discountInput}
-              onChangeText={setDiscountInput}
-              autoFocus
-            />
-            <View style={styles.modalButtons}>
+            {/* Sheet Handle / Header */}
+            <View style={styles.cartHeader}>
+              <View style={styles.cartHeaderTop}>
+                <View style={styles.sheetHandle} />
+              </View>
+              <View style={styles.cartHeaderContent}>
+                <View>
+                  <Text style={styles.cartTitle}>Current Order</Text>
+                  <Text style={styles.cartSubtitle}>
+                    {cartTotals.totalItems} {cartTotals.totalItems === 1 ? 'item' : 'items'}
+                  </Text>
+                </View>
+                <View style={styles.cartHeaderActions}>
+                  <TouchableOpacity
+                    style={styles.clearCartBtn}
+                    onPress={() => setCart([])}
+                  >
+                    <Text style={styles.clearCartText}>Clear</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.closeCartBtn}
+                    onPress={() => setCartOpen(false)}
+                  >
+                    <MaterialIcons name="close" size={20} color="#434655" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+
+            {/* Cart Item List */}
+            <ScrollView
+              style={styles.cartList}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {cart.map((item) => {
+                const isWeight = isWeightItem(item.product.unit);
+                return (
+                  <View key={item.product.id} style={styles.cartItemRow}>
+                    <View style={styles.cartItemInfo}>
+                      <Text style={styles.cartItemName} numberOfLines={1}>
+                        {item.product.name}
+                      </Text>
+                      <Text style={styles.cartItemPrice}>
+                        ₹{item.product.price.toFixed(2)} / {item.product.unit || 'pc'}
+                      </Text>
+                    </View>
+
+                    <View style={styles.cartItemActions}>
+                      <View style={styles.qtyControl}>
+                        <TouchableOpacity
+                          style={styles.cartQtyBtn}
+                          onPress={() => updateQuantity(item.product.id, -1)}
+                        >
+                          <MaterialIcons name="remove" size={16} color="#004ac6" />
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          onPress={() => isWeight && handleProductPress(item.product)}
+                          disabled={!isWeight}
+                        >
+                          <Text style={[styles.cartQtyTextVal, isWeight && { color: '#004ac6', textDecorationLine: 'underline' }]}>
+                            {item.quantity} {item.product.unit || 'pcs'}
+                          </Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                          style={styles.cartQtyBtn}
+                          onPress={() => updateQuantity(item.product.id, 1)}
+                        >
+                          <MaterialIcons name="add" size={16} color="#004ac6" />
+                        </TouchableOpacity>
+                      </View>
+                      <Text style={styles.cartItemTotal}>
+                        ₹{(item.product.price * item.quantity).toFixed(2)}
+                      </Text>
+                      <TouchableOpacity
+                        style={styles.cartDeleteBtn}
+                        onPress={() => removeFromCart(item.product.id)}
+                        hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                        accessibilityLabel="Remove item"
+                      >
+                        <MaterialIcons name="delete-outline" size={20} color="#ba1a1a" />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                );
+              })}
+              {cart.length === 0 && (
+                <View style={styles.emptyCart}>
+                  <MaterialIcons name="remove-shopping-cart" size={40} color="#c3c6d7" />
+                  <Text style={styles.emptyCartText}>Your cart is empty</Text>
+                </View>
+              )}
+            </ScrollView>
+
+            {/* Cart Calculations & Charge Bar */}
+            <View style={styles.cartFooter}>
+              {/* Breakdown */}
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Subtotal</Text>
+                <Text style={styles.summaryValue}>₹{cartTotals.subtotal.toFixed(2)}</Text>
+              </View>
+
+              {/* Seamless In-Theme Discount Row */}
+              <View style={styles.summaryDiscountRow}>
+                <View style={styles.summaryDiscountLeft}>
+                  <Text style={styles.summaryLabel}>Discount</Text>
+                  <View style={styles.summaryDiscountInputWrap}>
+                    <TextInput
+                      style={styles.summaryDiscountInput}
+                      keyboardType="numeric"
+                      placeholder="0"
+                      placeholderTextColor="#737686"
+                      maxLength={5}
+                      value={discountInput}
+                      onChangeText={handleCustomDiscountChange}
+                      returnKeyType="done"
+                      onSubmitEditing={Keyboard.dismiss}
+                    />
+                    <Text style={styles.summaryDiscountPercentSign}>%</Text>
+                    {discountPercent > 0 && (
+                      <TouchableOpacity
+                        style={styles.summaryDiscountClearBtn}
+                        onPress={handleClearDiscount}
+                        hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+                        accessibilityLabel="Clear discount"
+                      >
+                        <MaterialIcons name="close" size={13} color="#ba1a1a" />
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                </View>
+
+                <Text style={[styles.summaryValue, discountPercent > 0 && styles.discountAppliedText]}>
+                  {discountPercent > 0 ? `-₹${cartTotals.discountAmount.toFixed(2)}` : '₹0.00'}
+                </Text>
+              </View>
+
+              <View style={styles.summaryRow}>
+                <Text style={styles.summaryLabel}>Tax</Text>
+                <Text style={styles.summaryValue}>₹{cartTotals.tax.toFixed(2)}</Text>
+              </View>
+
+              <View style={[styles.summaryRow, styles.totalRow]}>
+                <Text style={styles.totalLabel}>Grand Total</Text>
+                <Text style={styles.totalValue}>₹{cartTotals.total.toFixed(2)}</Text>
+              </View>
+
+              {/* Charge Button */}
               <TouchableOpacity
-                style={styles.modalCancelBtn}
-                onPress={() => setDiscountModalVisible(false)}
+                style={[
+                  styles.chargeButton,
+                  cart.length === 0 && styles.chargeButtonDisabled,
+                ]}
+                disabled={cart.length === 0}
+                onPress={handleOpenPayment}
               >
-                <Text style={styles.modalCancelText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalConfirmBtn}
-                onPress={handleApplyDiscount}
-              >
-                <Text style={styles.modalConfirmText}>Apply</Text>
+                <MaterialIcons name="point-of-sale" size={20} color="#ffffff" />
+                <Text style={styles.chargeButtonText}>Proceed to Payment</Text>
+                <Text style={styles.chargeButtonAmount}>
+                  ₹{cartTotals.total.toFixed(2)}
+                </Text>
               </TouchableOpacity>
             </View>
           </KeyboardAvoidingView>
-        </View>
-      </Modal>
+        </Animated.View>
+      )}
+
+
 
       {/* Payment & Customer Details Bottom Sheet Modal */}
       <Modal
@@ -1864,27 +1849,49 @@ const styles = StyleSheet.create({
     borderTopColor: 'rgba(195,198,215,0.2)',
     backgroundColor: '#ffffff',
   },
-  discountButton: {
+  summaryDiscountRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 10,
-    backgroundColor: '#faf8ff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderStyle: 'dashed',
-    borderColor: '#c3c6d7',
-    marginBottom: 10,
+    minHeight: 36,
+    marginVertical: 3,
   },
-  discountLeft: {
+  summaryDiscountLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 10,
   },
-  discountText: {
+  summaryDiscountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f3f3fa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#c3c6d7',
+    paddingHorizontal: 8,
+    height: 32,
+    minWidth: 70,
+  },
+  summaryDiscountInput: {
     fontSize: 13,
-    fontWeight: '500',
+    fontWeight: '600',
     color: '#131b2e',
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+    minWidth: 28,
+    textAlign: 'center',
+  },
+  summaryDiscountPercentSign: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#737686',
+    marginLeft: 3,
+  },
+  summaryDiscountClearBtn: {
+    marginLeft: 6,
+    padding: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   summaryRow: {
     flexDirection: 'row',
