@@ -34,6 +34,7 @@ Built with **React Native (Expo SDK 54)** for cross-platform mobile and web, bac
 ### 📥 Bulk Excel / CSV Import & Export
 - **Excel & CSV Import**: Bulk add products with SheetJS (`xlsx`) and `papaparse`.
 - **Download Template / Catalog**: Pre-built Excel template download with data validations and support for **`Image URL`**.
+- **Wireless Barcode Scanning Guide**: Complete guide on preparing Excel sheets using your smartphone or handheld scanner: [BULK_IMPORT_GUIDE.md](file:///d:/zynocraft/POS/BULK_IMPORT_GUIDE.md).
 
 ### 📒 Customer Khata Book (Udhaar / Credit Ledger)
 - **Credit Customer Accounts**: Maintain customer profiles with cumulative outstanding balances.
