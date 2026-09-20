@@ -21,8 +21,13 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
 import { getShopCategoryLabel } from '@/constants/config';
 
+type ProfileTab = 'shop_info' | 'business' | 'support';
+
 export default function ProfileScreen() {
   const router = useRouter();
+
+  // Tab State: 'shop_info' (Services), 'business' (Products), 'support' (Reviews)
+  const [activeTab, setActiveTab] = useState<ProfileTab>('shop_info');
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -52,7 +57,6 @@ export default function ProfileScreen() {
   const [phone, setPhone] = useState(userSession?.phone || '');
   const [email, setEmail] = useState(userSession?.email || '');
   const [avatarImage, setAvatarImage] = useState<string | null>(userSession?.image || null);
-  const [selectedAvatar, setSelectedAvatar] = useState<string | null>(userSession?.image || null);
 
   // Shop Info Details
   const [shopCategory, setShopCategory] = useState(userSession?.shopCategory || 'Retail');
@@ -76,6 +80,7 @@ export default function ProfileScreen() {
   const [taxRate, setTaxRate] = useState<number>(userSession?.taxRate ?? 8);
 
   // Modal Visibility States
+  const [appHardwareVisible, setAppHardwareVisible] = useState(false);
   const [taxModalVisible, setTaxModalVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
   const [backupRestoreVisible, setBackupRestoreVisible] = useState(false);
@@ -107,7 +112,6 @@ export default function ProfileScreen() {
         setPhone(store.currentUser.phone);
         setEmail(store.currentUser.email);
         setAvatarImage(store.currentUser.image || null);
-        setSelectedAvatar(store.currentUser.image || null);
         setShopCategory(store.currentUser.shopCategory);
         setGstNumber(store.currentUser.gstNumber || '');
         setBusinessAddress(store.currentUser.businessAddress || '');
@@ -174,7 +178,6 @@ export default function ProfileScreen() {
         products: store.getProducts(),
         shopName,
       };
-      console.log('Database backup content:', JSON.stringify(backupData, null, 2));
       const timeStr = new Date().toLocaleString();
       setLastBackup(timeStr);
       Alert.alert(
@@ -200,6 +203,7 @@ export default function ProfileScreen() {
           text: 'Logout',
           style: 'destructive',
           onPress: async () => {
+            setAppHardwareVisible(false);
             await store.logout();
             router.replace('/login');
           },
@@ -207,8 +211,6 @@ export default function ProfileScreen() {
       ]
     );
   };
-
-  const roleName = userSession?.role?.toLowerCase();
 
   return (
     <SafeAreaView style={styles.outerContainer} edges={['top']}>
@@ -220,9 +222,16 @@ export default function ProfileScreen() {
         </View>
       )}
 
-      {/* Top Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerTitle}>My Profile</Text>
+      {/* Top Header: Title on Left, Settings Gear on Right */}
+      <View style={styles.topHeader}>
+        <Text style={styles.topHeaderTitle}>Profile</Text>
+        <TouchableOpacity
+          style={styles.settingsIconBtn}
+          onPress={() => setAppHardwareVisible(true)}
+          activeOpacity={0.7}
+        >
+          <MaterialIcons name="settings" size={24} color="#0f172a" />
+        </TouchableOpacity>
       </View>
 
       {/* Main Content Scroll List */}
@@ -239,535 +248,542 @@ export default function ProfileScreen() {
             },
           ]}
         >
-          {/* Clean App-Themed Store Profile Card */}
-          <View style={styles.profileCard}>
-            {/* Top Bar: Live Status Badge & Store Join Code */}
-            <View style={styles.cardTopHeader}>
-              <View style={styles.merchantStatusTag}>
-                <View style={styles.merchantStatusDot} />
-                <Text style={styles.merchantStatusText}>Active Store</Text>
+          {/* Centered Hero Section (Matches Mock Design) */}
+          <View style={styles.heroSection}>
+            <TouchableOpacity
+              style={styles.heroAvatarWrapper}
+              onPress={() => router.push('/store_info')}
+              activeOpacity={0.85}
+            >
+              <View style={styles.heroAvatarCircle}>
+                {avatarImage ? (
+                  <Image style={styles.heroAvatarImage} source={avatarImage} contentFit="cover" />
+                ) : (
+                  <View style={styles.defaultAvatarContainer}>
+                    <Text style={styles.defaultAvatarText}>
+                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'SP'}
+                    </Text>
+                  </View>
+                )}
               </View>
+            </TouchableOpacity>
 
-              <TouchableOpacity
-                style={[styles.quickJoinCodeChip, copiedStoreId && styles.quickJoinCodeChipCopied]}
-                onPress={handleCopyStoreId}
-                activeOpacity={0.75}
-              >
-                <MaterialIcons
-                  name={copiedStoreId ? 'check' : 'vpn-key'}
-                  size={13}
-                  color={copiedStoreId ? '#15803d' : '#004ac6'}
-                />
-                <Text style={[styles.quickJoinCodeText, copiedStoreId && styles.quickJoinCodeTextCopied]}>
-                  {copiedStoreId ? 'COPIED' : (storeId || 'JOIN CODE')}
-                </Text>
-              </TouchableOpacity>
+            {/* Name */}
+            <Text style={styles.heroNameText} numberOfLines={1}>
+              {ownerName || shopName}
+            </Text>
+
+            {/* Email / ID + Verified Green Checkmark */}
+            <View style={styles.heroEmailRow}>
+              <Text style={styles.heroEmailText} numberOfLines={1}>
+                {email || phone || shopName}
+              </Text>
+              <MaterialIcons name="check-circle" size={16} color="#16a34a" />
             </View>
 
-            {/* Avatar & Store Identity */}
-            <View style={styles.cardMainIdentity}>
-              <TouchableOpacity
-                style={styles.avatarGlowWrapper}
-                onPress={() => router.push('/store_info')}
-                activeOpacity={0.85}
+            {/* Edit Profile Outline Button */}
+            <TouchableOpacity
+              style={styles.editProfileOutlineBtn}
+              onPress={() => router.push('/store_info')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.editProfileOutlineBtnText}>Edit Profile</Text>
+              <MaterialIcons name="keyboard-arrow-down" size={18} color="#475569" />
+            </TouchableOpacity>
+          </View>
+
+          {/* Segmented Tab Selector (Services -> Shop Info, Products -> Business, Reviews -> Support) */}
+          <View style={styles.segmentedTabContainer}>
+            <TouchableOpacity
+              style={[
+                styles.segmentedTabBtn,
+                activeTab === 'shop_info' && styles.segmentedTabBtnActive,
+              ]}
+              onPress={() => setActiveTab('shop_info')}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  activeTab === 'shop_info' && styles.segmentedTabTextActive,
+                ]}
+                numberOfLines={1}
               >
-                <View style={styles.avatarCircle}>
-                  {avatarImage ? (
-                    <Image
-                      style={styles.avatarImage}
-                      source={avatarImage}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View style={styles.defaultAvatarContainer}>
-                      <Text style={styles.defaultAvatarText}>
-                        {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'SP'}
+                Shop Information
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.segmentedTabBtn,
+                activeTab === 'business' && styles.segmentedTabBtnActive,
+              ]}
+              onPress={() => setActiveTab('business')}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  activeTab === 'business' && styles.segmentedTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Business & Tax
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[
+                styles.segmentedTabBtn,
+                activeTab === 'support' && styles.segmentedTabBtnActive,
+              ]}
+              onPress={() => setActiveTab('support')}
+              activeOpacity={0.75}
+            >
+              <Text
+                style={[
+                  styles.segmentedTabText,
+                  activeTab === 'support' && styles.segmentedTabTextActive,
+                ]}
+                numberOfLines={1}
+              >
+                Support & Legal
+              </Text>
+            </TouchableOpacity>
+          </View>
+
+          {/* TAB 1: Shop Information (Services) */}
+          {activeTab === 'shop_info' && (
+            <View style={styles.tabSection}>
+              <View style={styles.cardContainer}>
+                {/* Store ID / Join Code */}
+                <TouchableOpacity style={styles.cardRow} onPress={handleCopyStoreId} activeOpacity={0.7}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+                      <MaterialIcons
+                        name={copiedStoreId ? 'check' : 'vpn-key'}
+                        size={20}
+                        color={copiedStoreId ? '#16a34a' : '#004ac6'}
+                      />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
+                      <Text
+                        style={[
+                          styles.rowSubLabel,
+                          { fontWeight: '700', color: copiedStoreId ? '#16a34a' : '#004ac6' },
+                        ]}
+                      >
+                        {copiedStoreId ? 'Copied to clipboard!' : `${storeId || '-'} • Tap to copy`}
                       </Text>
                     </View>
-                  )}
-                </View>
-                <View style={styles.editAvatarBadge}>
-                  <MaterialIcons name="photo-camera" size={13} color="#ffffff" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Store & Owner Names */}
-              <View style={styles.shopTitleRow}>
-                <Text style={styles.heroShopName} numberOfLines={1}>{shopName}</Text>
-                <MaterialIcons name="verified" size={18} color="#004ac6" />
-              </View>
-
-              <View style={styles.ownerIdentityRow}>
-                <MaterialIcons name="person" size={15} color="#64748b" />
-                <Text style={styles.heroOwnerName}>{ownerName}</Text>
-                <View style={styles.bulletDot} />
-                <View
-                  style={[
-                    styles.rolePill,
-                    roleName === 'manager'
-                      ? styles.rolePillManager
-                      : roleName === 'cashier'
-                      ? styles.rolePillCashier
-                      : styles.rolePillOwner,
-                  ]}
-                >
-                  <MaterialIcons
-                    name={roleName === 'manager' ? 'shield' : roleName === 'cashier' ? 'point-of-sale' : 'workspace-premium'}
-                    size={12}
-                    color={roleName === 'manager' ? '#0369a1' : roleName === 'cashier' ? '#15803d' : '#b45309'}
-                  />
-                  <Text
-                    style={[
-                      styles.rolePillText,
-                      roleName === 'manager'
-                        ? styles.rolePillTextManager
-                        : roleName === 'cashier'
-                        ? styles.rolePillTextCashier
-                        : styles.rolePillTextOwner,
-                    ]}
-                  >
-                    {roleName === 'manager'
-                      ? 'Store Manager'
-                      : roleName === 'cashier'
-                      ? 'Cashier'
-                      : 'Store Owner'}
-                  </Text>
-                </View>
-              </View>
-            </View>
-
-            {/* Action Buttons */}
-            <View style={styles.heroActionsRow}>
-              <TouchableOpacity
-                style={styles.heroPrimaryBtn}
-                onPress={() => router.push('/store_info')}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons name="store" size={16} color="#ffffff" />
-                <Text style={styles.heroPrimaryBtnText}>Edit Shop Details</Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[styles.heroSecondaryBtn, copiedStoreId && styles.heroSecondaryBtnCopied]}
-                onPress={handleCopyStoreId}
-                activeOpacity={0.8}
-              >
-                <MaterialIcons
-                  name={copiedStoreId ? 'check-circle' : 'content-copy'}
-                  size={16}
-                  color={copiedStoreId ? '#15803d' : '#004ac6'}
-                />
-                <Text
-                  style={[
-                    styles.heroSecondaryBtnText,
-                    copiedStoreId && { color: '#15803d' },
-                  ]}
-                >
-                  {copiedStoreId ? 'Copied Store ID!' : 'Copy Store ID'}
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Section 1: Shop Information */}
-          <View style={styles.sectionContainer}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
-              <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Shop Information</Text>
-              <TouchableOpacity
-                onPress={() => router.push('/store_info')}
-                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
-                activeOpacity={0.7}
-              >
-                <Text style={{ fontSize: 13, fontWeight: '700', color: '#004ac6' }}>Edit Page</Text>
-                <MaterialIcons name="chevron-right" size={16} color="#004ac6" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.cardContainer}>
-              {/* Store ID / Join Code */}
-              <TouchableOpacity style={styles.cardRow} onPress={handleCopyStoreId} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+                  </View>
+                  <View style={styles.rowBadgeChip}>
                     <MaterialIcons
-                      name={copiedStoreId ? 'check' : 'vpn-key'}
-                      size={20}
+                      name={copiedStoreId ? 'check-circle' : 'content-copy'}
+                      size={15}
                       color={copiedStoreId ? '#16a34a' : '#004ac6'}
                     />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Store ID (Join Code)</Text>
-                    <Text
-                      style={[
-                        styles.rowSubLabel,
-                        { fontWeight: '700', color: copiedStoreId ? '#16a34a' : '#004ac6' },
-                      ]}
-                    >
-                      {copiedStoreId ? 'Copied to clipboard!' : `${storeId || '-'} • Tap to copy`}
+                    <Text style={[styles.rowBadgeChipText, copiedStoreId && { color: '#16a34a' }]}>
+                      {copiedStoreId ? 'Copied' : 'Copy'}
                     </Text>
                   </View>
-                </View>
-                <View style={styles.rowBadgeChip}>
-                  <MaterialIcons
-                    name={copiedStoreId ? 'check-circle' : 'content-copy'}
-                    size={16}
-                    color={copiedStoreId ? '#16a34a' : '#004ac6'}
-                  />
-                  <Text style={[styles.rowBadgeChipText, copiedStoreId && { color: '#16a34a' }]}>
-                    {copiedStoreId ? 'Copied' : 'Copy'}
-                  </Text>
-                </View>
-              </TouchableOpacity>
+                </TouchableOpacity>
 
-              {/* Category */}
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_category')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#f3e8ff' }]}>
-                    <MaterialIcons name="category" size={20} color="#7c3aed" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Shop Category</Text>
-                    <Text style={styles.rowSubLabel}>{getShopCategoryLabel(shopCategory)}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* GST Number */}
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_gst')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#e0e7ff' }]}>
-                    <MaterialIcons name="receipt-long" size={20} color="#4f46e5" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>GST Number (GSTIN)</Text>
-                    <Text style={styles.rowSubLabel}>{gstNumber || 'Not Provided (Tap to add)'}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Phone */}
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_phone')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#ccfbf1' }]}>
-                    <MaterialIcons name="phone" size={20} color="#0d9488" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Registered Phone</Text>
-                    <Text style={styles.rowSubLabel}>{phone || 'Not Provided'}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Email */}
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_email')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
-                    <MaterialIcons name="email" size={20} color="#0284c7" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Contact Email</Text>
-                    <Text style={styles.rowSubLabel}>{email || 'Not Provided'}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Address */}
-              <TouchableOpacity
-                style={[styles.cardRow, styles.lastCardRow]}
-                onPress={() => router.push('/shop_address')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#ffe4e6' }]}>
-                    <MaterialIcons name="location-on" size={20} color="#e11d48" />
-                  </View>
-                  <View style={[styles.rowTextCol, { flex: 1 }]}>
-                    <Text style={styles.rowLabel}>Business Address</Text>
-                    <Text style={styles.rowSubLabel} numberOfLines={1}>
-                      {businessAddress || 'Not Provided (Tap to set)'}
-                    </Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Section 2: Business & Khata Ledger */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>Business Management</Text>
-            <View style={styles.cardContainer}>
-              {/* Customers & Credit Ledger */}
-              <TouchableOpacity
-                style={styles.cardRow}
-                onPress={() => router.push('/customers')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
-                    <MaterialIcons name="people-alt" size={20} color="#16a34a" />
-                  </View>
-                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
-                    <Text style={styles.rowLabel}>Customer Khata (Credit Book)</Text>
-                    <Text style={styles.rowSubLabel}>Manage balances, credit debts & record repayments</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Reports & Analytics */}
-              <TouchableOpacity
-                style={styles.cardRow}
-                onPress={() => router.push('/reports')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#dbeafe' }]}>
-                    <MaterialIcons name="analytics" size={20} color="#2563eb" />
-                  </View>
-                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
-                    <Text style={styles.rowLabel}>Reports & GST Breakdown</Text>
-                    <Text style={styles.rowSubLabel}>Daily sales summary, tax reports & PDF exports</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Transactions History */}
-              <TouchableOpacity
-                style={[styles.cardRow, styles.lastCardRow]}
-                onPress={() => router.push('/transactions')}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
-                    <MaterialIcons name="receipt" size={20} color="#d97706" />
-                  </View>
-                  <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
-                    <Text style={styles.rowLabel}>Transaction Invoices</Text>
-                    <Text style={styles.rowSubLabel}>Search historical bills & reprint thermal receipts</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Section: Tax & Billing Rules */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>Tax & Billing Rules</Text>
-            <View style={styles.cardContainer}>
-              {/* Enable/Disable Tax Switch */}
-              <View style={[styles.cardRow, !taxEnabled && styles.lastCardRow]}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
-                    <MaterialIcons name="request-quote" size={20} color="#d97706" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Tax / GST in Billing</Text>
-                    <Text style={styles.rowSubLabel}>
-                      {taxEnabled ? `Active • ${taxRate}% default rate` : 'Disabled • 0% tax on all bills'}
-                    </Text>
-                  </View>
-                </View>
-                <Switch
-                  value={taxEnabled}
-                  onValueChange={handleToggleTax}
-                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                  thumbColor={taxEnabled ? '#004ac6' : '#94a3b8'}
-                />
-              </View>
-
-              {/* Configure Tax Rate Percentage */}
-              {taxEnabled && (
+                {/* Category */}
                 <TouchableOpacity
-                  style={[styles.cardRow, styles.lastCardRow]}
-                  onPress={openTaxModal}
+                  style={styles.cardRow}
+                  onPress={() => router.push('/shop_category')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#f3e8ff' }]}>
+                      <MaterialIcons name="category" size={20} color="#7c3aed" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Shop Category</Text>
+                      <Text style={styles.rowSubLabel}>{getShopCategoryLabel(shopCategory)}</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* GST Number */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/shop_gst')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#e0e7ff' }]}>
+                      <MaterialIcons name="receipt-long" size={20} color="#4f46e5" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>GST Number (GSTIN)</Text>
+                      <Text style={styles.rowSubLabel}>{gstNumber || 'Not Provided (Tap to add)'}</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Phone */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/shop_phone')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#ccfbf1' }]}>
+                      <MaterialIcons name="phone" size={20} color="#0d9488" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Registered Phone</Text>
+                      <Text style={styles.rowSubLabel}>{phone || 'Not Provided'}</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Email */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/shop_email')}
                   activeOpacity={0.7}
                 >
                   <View style={styles.rowLeft}>
                     <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
-                      <MaterialIcons name="percent" size={20} color="#0284c7" />
+                      <MaterialIcons name="email" size={20} color="#0284c7" />
                     </View>
                     <View style={styles.rowTextCol}>
-                      <Text style={styles.rowLabel}>Default Tax Rate (%)</Text>
-                      <Text style={styles.rowSubLabel}>Currently set to {taxRate}% in billing</Text>
+                      <Text style={styles.rowLabel}>Contact Email</Text>
+                      <Text style={styles.rowSubLabel}>{email || 'Not Provided'}</Text>
                     </View>
                   </View>
-                  <View style={styles.taxBadgeWrapper}>
-                    <View style={styles.taxRateBadge}>
-                      <Text style={styles.taxRateBadgeText}>{taxRate}%</Text>
-                    </View>
-                    <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
                 </TouchableOpacity>
-              )}
-            </View>
-          </View>
 
-          {/* Section 3: App & Hardware Settings */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>App & Hardware</Text>
-            <View style={styles.cardContainer}>
-              {/* Printer Settings */}
-              <TouchableOpacity
-                style={styles.cardRow}
-                onPress={() => setPrinterSettingsVisible(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#ede9fe' }]}>
-                    <MaterialIcons name="print" size={20} color="#6366f1" />
+                {/* Address */}
+                <TouchableOpacity
+                  style={[styles.cardRow, styles.lastCardRow]}
+                  onPress={() => router.push('/shop_address')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#ffe4e6' }]}>
+                      <MaterialIcons name="location-on" size={20} color="#e11d48" />
+                    </View>
+                    <View style={[styles.rowTextCol, { flex: 1 }]}>
+                      <Text style={styles.rowLabel}>Business Address</Text>
+                      <Text style={styles.rowSubLabel} numberOfLines={1}>
+                        {businessAddress || 'Not Provided (Tap to set)'}
+                      </Text>
+                    </View>
                   </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Thermal Printer</Text>
-                    <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Push Notifications */}
-              <View style={styles.cardRow}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
-                    <MaterialIcons name="notifications-active" size={20} color="#ef4444" />
-                  </View>
-                  <Text style={styles.rowLabel}>Low Stock Alerts</Text>
-                </View>
-                <Switch
-                  value={pushNotifications}
-                  onValueChange={setPushNotifications}
-                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                  thumbColor={pushNotifications ? '#004ac6' : '#94a3b8'}
-                />
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
               </View>
-
-              {/* Backup & Restore */}
-              <TouchableOpacity
-                style={styles.cardRow}
-                onPress={() => setBackupRestoreVisible(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#cffafe' }]}>
-                    <MaterialIcons name="cloud-sync" size={20} color="#0891b2" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Backup & Restore</Text>
-                    <Text style={styles.rowSubLabel}>Last archive: {lastBackup}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              {/* Language */}
-              <TouchableOpacity
-                style={[styles.cardRow, styles.lastCardRow]}
-                onPress={() => setLanguageVisible(true)}
-                activeOpacity={0.7}
-              >
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#f8fafc' }]}>
-                    <MaterialIcons name="language" size={20} color="#475569" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>System Language</Text>
-                    <Text style={styles.rowSubLabel}>{language}</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
             </View>
-          </View>
+          )}
 
-          {/* Section 4: Support & Legal */}
-          <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>Support & Legal</Text>
-            <View style={styles.cardContainer}>
+          {/* TAB 2: Business Management & Tax (Products) */}
+          {activeTab === 'business' && (
+            <View style={styles.tabSection}>
+              <View style={styles.cardContainer}>
+                {/* Customers & Credit Ledger */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/customers')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#dcfce7' }]}>
+                      <MaterialIcons name="people-alt" size={20} color="#16a34a" />
+                    </View>
+                    <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
+                      <Text style={styles.rowLabel}>Customer Khata (Credit Book)</Text>
+                      <Text style={styles.rowSubLabel}>Manage balances, credit debts & record repayments</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
 
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/about')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
-                    <MaterialIcons name="info" size={20} color="#004ac6" />
+                {/* Reports & Analytics */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/reports')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#dbeafe' }]}>
+                      <MaterialIcons name="analytics" size={20} color="#2563eb" />
+                    </View>
+                    <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
+                      <Text style={styles.rowLabel}>Reports & GST Breakdown</Text>
+                      <Text style={styles.rowSubLabel}>Daily sales summary, tax reports & PDF exports</Text>
+                    </View>
                   </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>About SmartPOS</Text>
-                    <Text style={styles.rowSubLabel}>Version, developer info & credits</Text>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Transactions History */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => router.push('/transactions')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
+                      <MaterialIcons name="receipt" size={20} color="#d97706" />
+                    </View>
+                    <View style={[styles.rowTextCol, { flex: 1, paddingRight: 8 }]}>
+                      <Text style={styles.rowLabel}>Transaction Invoices</Text>
+                      <Text style={styles.rowSubLabel}>Search historical bills & reprint receipts</Text>
+                    </View>
                   </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Enable/Disable Tax Switch */}
+                <View style={[styles.cardRow, !taxEnabled && styles.lastCardRow]}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
+                      <MaterialIcons name="request-quote" size={20} color="#d97706" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Tax / GST in Billing</Text>
+                      <Text style={styles.rowSubLabel}>
+                        {taxEnabled ? `Active • ${taxRate}% default rate` : 'Disabled • 0% tax in billing'}
+                      </Text>
+                    </View>
+                  </View>
+                  <Switch
+                    value={taxEnabled}
+                    onValueChange={handleToggleTax}
+                    trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                    thumbColor={taxEnabled ? '#004ac6' : '#94a3b8'}
+                  />
                 </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
 
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/faq')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#ecfdf5' }]}>
-                    <MaterialIcons name="help-outline" size={20} color="#16a34a" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>FAQ & Help Center</Text>
-                    <Text style={styles.rowSubLabel}>Answers to common questions</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/contact')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
-                    <MaterialIcons name="headset-mic" size={20} color="#ea580c" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Contact Support</Text>
-                    <Text style={styles.rowSubLabel}>Get help from our team</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/privacy')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
-                    <MaterialIcons name="privacy-tip" size={20} color="#15803d" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Privacy Policy</Text>
-                    <Text style={styles.rowSubLabel}>How we handle your data</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
-              <TouchableOpacity style={[styles.cardRow, styles.lastCardRow]} onPress={() => router.push('/terms')} activeOpacity={0.7}>
-                <View style={styles.rowLeft}>
-                  <View style={[styles.iconBox, { backgroundColor: '#faf5ff' }]}>
-                    <MaterialIcons name="gavel" size={20} color="#7c3aed" />
-                  </View>
-                  <View style={styles.rowTextCol}>
-                    <Text style={styles.rowLabel}>Terms & Conditions</Text>
-                    <Text style={styles.rowSubLabel}>Usage rights & responsibilities</Text>
-                  </View>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-              </TouchableOpacity>
-
+                {/* Configure Tax Rate Percentage */}
+                {taxEnabled && (
+                  <TouchableOpacity
+                    style={[styles.cardRow, styles.lastCardRow]}
+                    onPress={openTaxModal}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.rowLeft}>
+                      <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
+                        <MaterialIcons name="percent" size={20} color="#0284c7" />
+                      </View>
+                      <View style={styles.rowTextCol}>
+                        <Text style={styles.rowLabel}>Default Tax Rate (%)</Text>
+                        <Text style={styles.rowSubLabel}>Currently set to {taxRate}% in billing</Text>
+                      </View>
+                    </View>
+                    <View style={styles.taxBadgeWrapper}>
+                      <View style={styles.taxRateBadge}>
+                        <Text style={styles.taxRateBadgeText}>{taxRate}%</Text>
+                      </View>
+                      <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
             </View>
-          </View>
+          )}
 
-          {/* Logout */}
-          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-            <MaterialIcons name="logout" size={18} color="#ba1a1a" />
-            <Text style={styles.logoutBtnText}>Sign Out</Text>
-          </TouchableOpacity>
+          {/* TAB 3: Support & Legal (Reviews) */}
+          {activeTab === 'support' && (
+            <View style={styles.tabSection}>
+              <View style={styles.cardContainer}>
+                <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/about')} activeOpacity={0.7}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
+                      <MaterialIcons name="info" size={20} color="#004ac6" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>About SmartPOS</Text>
+                      <Text style={styles.rowSubLabel}>Version, developer info & credits</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/faq')} activeOpacity={0.7}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#ecfdf5' }]}>
+                      <MaterialIcons name="help-outline" size={20} color="#16a34a" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>FAQ & Help Center</Text>
+                      <Text style={styles.rowSubLabel}>Answers to common questions</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/contact')} activeOpacity={0.7}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#fff7ed' }]}>
+                      <MaterialIcons name="headset-mic" size={20} color="#ea580c" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Contact Support</Text>
+                      <Text style={styles.rowSubLabel}>Get help from our team</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/privacy')} activeOpacity={0.7}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
+                      <MaterialIcons name="privacy-tip" size={20} color="#15803d" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Privacy Policy</Text>
+                      <Text style={styles.rowSubLabel}>How we handle your data</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={[styles.cardRow, styles.lastCardRow]}
+                  onPress={() => router.push('/terms')}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#faf5ff' }]}>
+                      <MaterialIcons name="gavel" size={20} color="#7c3aed" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Terms & Conditions</Text>
+                      <Text style={styles.rowSubLabel}>Usage rights & responsibilities</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
 
           <Text style={styles.footerVersionText}>SmartPOS v1.0.0</Text>
         </Animated.View>
       </ScrollView>
 
-
       {/* --- MODALS --- */}
+
+      {/* Settings Modal (App & Hardware Settings) triggered by top-right gear icon */}
+      <Modal
+        visible={appHardwareVisible}
+        animationType="slide"
+        transparent
+        onRequestClose={() => setAppHardwareVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
+            <View style={styles.sheetHeader}>
+              <Text style={styles.modalTitle}>App & Hardware Settings</Text>
+              <TouchableOpacity
+                onPress={() => setAppHardwareVisible(false)}
+                style={styles.sheetCloseBtn}
+              >
+                <MaterialIcons name="close" size={22} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+              <View style={[styles.cardContainer, { marginBottom: 16 }]}>
+                {/* Printer */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => {
+                    setAppHardwareVisible(false);
+                    setTimeout(() => setPrinterSettingsVisible(true), 300);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#ede9fe' }]}>
+                      <MaterialIcons name="print" size={20} color="#6366f1" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Thermal Printer</Text>
+                      <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Notifications */}
+                <View style={styles.cardRow}>
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
+                      <MaterialIcons name="notifications-active" size={20} color="#ef4444" />
+                    </View>
+                    <Text style={styles.rowLabel}>Low Stock Alerts</Text>
+                  </View>
+                  <Switch
+                    value={pushNotifications}
+                    onValueChange={setPushNotifications}
+                    trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                    thumbColor={pushNotifications ? '#004ac6' : '#94a3b8'}
+                  />
+                </View>
+
+                {/* Backup & Restore */}
+                <TouchableOpacity
+                  style={styles.cardRow}
+                  onPress={() => {
+                    setAppHardwareVisible(false);
+                    setTimeout(() => setBackupRestoreVisible(true), 300);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#cffafe' }]}>
+                      <MaterialIcons name="cloud-sync" size={20} color="#0891b2" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Backup & Restore</Text>
+                      <Text style={styles.rowSubLabel}>Last archive: {lastBackup}</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+
+                {/* Language */}
+                <TouchableOpacity
+                  style={[styles.cardRow, styles.lastCardRow]}
+                  onPress={() => {
+                    setAppHardwareVisible(false);
+                    setTimeout(() => setLanguageVisible(true), 300);
+                  }}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#f8fafc' }]}>
+                      <MaterialIcons name="language" size={20} color="#475569" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>System Language</Text>
+                      <Text style={styles.rowSubLabel}>{language}</Text>
+                    </View>
+                  </View>
+                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                </TouchableOpacity>
+              </View>
+
+              {/* Logout */}
+              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+                <MaterialIcons name="logout" size={18} color="#ba1a1a" />
+                <Text style={styles.logoutBtnText}>Sign Out</Text>
+              </TouchableOpacity>
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Tax Rate Modal */}
       <Modal visible={taxModalVisible} animationType="fade" transparent onRequestClose={() => setTaxModalVisible(false)}>
@@ -831,7 +847,7 @@ export default function ProfileScreen() {
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* 3. Printer Settings Modal */}
+      {/* Printer Settings Modal */}
       <Modal visible={printerSettingsVisible} animationType="fade" transparent onRequestClose={() => setPrinterSettingsVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
@@ -842,42 +858,33 @@ export default function ProfileScreen() {
               {['Bluetooth', 'Wi-Fi', 'USB'].map((type) => (
                 <TouchableOpacity
                   key={type}
-                  style={[
-                    styles.optionButton,
-                    printerType === type && styles.optionButtonActive,
-                  ]}
+                  style={[styles.choicePill, printerType === type && styles.choicePillActive]}
                   onPress={() => setPrinterType(type)}
                 >
-                  <Text style={[styles.optionBtnText, printerType === type && styles.optionBtnTextActive]}>
+                  <Text style={[styles.choicePillText, printerType === type && styles.choicePillTextActive]}>
                     {type}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <Text style={styles.fieldLabel}>Receipt Paper Width</Text>
+            <Text style={styles.fieldLabel}>Paper Roll Size</Text>
             <View style={styles.optionRow}>
-              {['58mm', '80mm'].map((size) => (
+              {['58mm (2-inch)', '80mm (3-inch)'].map((size) => (
                 <TouchableOpacity
                   key={size}
-                  style={[
-                    styles.optionButton,
-                    paperSize === size && styles.optionButtonActive,
-                  ]}
-                  onPress={() => setPaperSize(size)}
+                  style={[styles.choicePill, paperSize === size.split(' ')[0] && styles.choicePillActive]}
+                  onPress={() => setPaperSize(size.split(' ')[0])}
                 >
-                  <Text style={[styles.optionBtnText, paperSize === size && styles.optionBtnTextActive]}>
+                  <Text style={[styles.choicePillText, paperSize === size.split(' ')[0] && styles.choicePillTextActive]}>
                     {size}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
 
-            <View style={[styles.cardRow, { borderBottomWidth: 0, paddingHorizontal: 0, marginTop: 12 }]}>
-              <View>
-                <Text style={styles.rowLabel}>Auto-Print on Checkout</Text>
-                <Text style={styles.rowSubLabel}>Immediately print thermal slip</Text>
-              </View>
+            <View style={[styles.cardRow, { paddingHorizontal: 0, marginTop: 12, borderBottomWidth: 0 }]}>
+              <Text style={styles.rowLabel}>Auto-print Receipt after Sale</Text>
               <Switch
                 value={autoPrint}
                 onValueChange={setAutoPrint}
@@ -887,10 +894,7 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.saveBtn, { width: '100%' }]}
-                onPress={() => setPrinterSettingsVisible(false)}
-              >
+              <TouchableOpacity style={styles.saveBtn} onPress={() => setPrinterSettingsVisible(false)}>
                 <Text style={styles.saveBtnText}>Save Preferences</Text>
               </TouchableOpacity>
             </View>
@@ -898,92 +902,66 @@ export default function ProfileScreen() {
         </View>
       </Modal>
 
-      {/* 4. Backup & Restore Modal */}
+      {/* Backup & Restore Modal */}
       <Modal visible={backupRestoreVisible} animationType="fade" transparent onRequestClose={() => setBackupRestoreVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Backup & Cloud Sync</Text>
-            <Text style={styles.modalSubtitle}>
-              Export or synchronize product catalog data and register archives
-            </Text>
+            <Text style={styles.modalTitle}>Database Cloud Backup</Text>
+            <Text style={styles.modalSubtitle}>Export your catalog, customers and settings to a local safety JSON archive.</Text>
 
-            <TouchableOpacity style={styles.backupActionBtn} onPress={executeBackup} activeOpacity={0.8}>
-              <View style={[styles.iconBox, { backgroundColor: '#eff6ff' }]}>
-                <MaterialIcons name="cloud-upload" size={22} color="#004ac6" />
-              </View>
+            <TouchableOpacity style={styles.backupActionCard} onPress={executeBackup}>
+              <MaterialIcons name="cloud-upload" size={24} color="#004ac6" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.backupBtnTitle}>Export Local Archive</Text>
-                <Text style={styles.backupBtnSub}>Compile inventory catalog into JSON</Text>
+                <Text style={styles.backupCardTitle}>Create New Backup</Text>
+                <Text style={styles.backupCardSub}>Export products, inventory quantities and shop profile</Text>
               </View>
             </TouchableOpacity>
 
-            <TouchableOpacity style={styles.backupActionBtn} onPress={executeRestore} activeOpacity={0.8}>
-              <View style={[styles.iconBox, { backgroundColor: '#f0fdf4' }]}>
-                <MaterialIcons name="cloud-download" size={22} color="#16a34a" />
-              </View>
+            <TouchableOpacity style={styles.backupActionCard} onPress={executeRestore}>
+              <MaterialIcons name="cloud-download" size={24} color="#16a34a" />
               <View style={{ flex: 1 }}>
-                <Text style={styles.backupBtnTitle}>Sync Cloud Catalog</Text>
-                <Text style={styles.backupBtnSub}>Fetch latest catalog from database</Text>
+                <Text style={styles.backupCardTitle}>Sync & Restore</Text>
+                <Text style={styles.backupCardSub}>Fetch latest catalog from centralized FastAPI cloud database</Text>
               </View>
             </TouchableOpacity>
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { width: '100%' }]}
-                onPress={() => setBackupRestoreVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>Close</Text>
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setBackupRestoreVisible(false)}>
+                <Text style={styles.cancelBtnText}>Done</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
 
-      {/* 5. Language Selection Modal */}
+      {/* Language Modal */}
       <Modal visible={languageVisible} animationType="fade" transparent onRequestClose={() => setLanguageVisible(false)}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select Language</Text>
+            <Text style={styles.modalTitle}>Select System Language</Text>
 
-            {[
-              { label: 'English (US)', val: 'English (US)' },
-              { label: 'Hindi (हिंदी)', val: 'Hindi (हिंदी)' },
-              { label: 'Tamil (தமிழ்)', val: 'Tamil (தமிழ்)' },
-              { label: 'Spanish (Español)', val: 'Spanish (Español)' },
-            ].map((lang) => (
+            {['English (US)', 'Tamil (தமிழ்)', 'Hindi (हिंदी)', 'Spanish (Español)'].map((lang) => (
               <TouchableOpacity
-                key={lang.val}
-                style={[
-                  styles.languageSelectRow,
-                  language === lang.val && styles.languageSelectRowActive,
-                ]}
+                key={lang}
+                style={[styles.langRow, language === lang && styles.langRowActive]}
                 onPress={() => {
-                  setLanguage(lang.val);
+                  setLanguage(lang);
                   setLanguageVisible(false);
-                  showToast(`Language set to ${lang.label}`);
                 }}
               >
-                <Text style={[styles.languageText, language === lang.val && styles.languageTextActive]}>
-                  {lang.label}
-                </Text>
-                {language === lang.val && (
-                  <MaterialIcons name="check-circle" size={18} color="#004ac6" />
-                )}
+                <Text style={[styles.langText, language === lang && styles.langTextActive]}>{lang}</Text>
+                {language === lang && <MaterialIcons name="check" size={18} color="#004ac6" />}
               </TouchableOpacity>
             ))}
 
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={[styles.cancelBtn, { width: '100%', marginTop: 8 }]}
-                onPress={() => setLanguageVisible(false)}
-              >
+              <TouchableOpacity style={styles.cancelBtn} onPress={() => setLanguageVisible(false)}>
                 <Text style={styles.cancelBtnText}>Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
         </View>
       </Modal>
-
     </SafeAreaView>
   );
 }
@@ -991,367 +969,162 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   outerContainer: {
     flex: 1,
-    backgroundColor: '#faf8ff',
-  },
-  floatingToast: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 56 : 24,
-    alignSelf: 'center',
-    zIndex: 99999,
-    backgroundColor: '#131b2e',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    borderRadius: 9999,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  floatingToastText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  header: {
-    height: 56,
     backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderBottomColor: 'rgba(195,198,215,0.2)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-  },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#004ac6',
   },
   scrollContainer: {
-    flexGrow: 1,
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    paddingBottom: 48,
+    paddingBottom: 40,
   },
   mainContainer: {
-    width: '100%',
-    maxWidth: 600,
-    alignSelf: 'center',
-    gap: 16,
+    paddingHorizontal: 16,
   },
-
-  /* Clean App-Themed Profile Card */
-  profileCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.4)',
-    borderRadius: 18,
-    padding: 18,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#004ac6',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.05,
-        shadowRadius: 12,
-      },
-      android: {
-        elevation: 2,
-      },
-    }),
-  },
-  cardTopHeader: {
+  // Top Header (Title on left, Settings gear on right)
+  topHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    width: '100%',
-    marginBottom: 14,
+    paddingHorizontal: 20,
+    paddingTop: 12,
+    paddingBottom: 10,
+    backgroundColor: '#ffffff',
   },
-  merchantStatusTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#f0fdf4',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
+  topHeaderTitle: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: '#0f172a',
+    letterSpacing: -0.5,
+  },
+  settingsIconBtn: {
+    width: 40,
+    height: 40,
     borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#bbf7d0',
-  },
-  merchantStatusDot: {
-    width: 7,
-    height: 7,
-    borderRadius: 3.5,
-    backgroundColor: '#16a34a',
-  },
-  merchantStatusText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#15803d',
-    letterSpacing: 0.2,
-  },
-  quickJoinCodeChip: {
-    flexDirection: 'row',
+    backgroundColor: '#f8fafc',
     alignItems: 'center',
-    gap: 6,
-    backgroundColor: '#eaedff',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.5)',
+    justifyContent: 'center',
   },
-  quickJoinCodeChipCopied: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#86efac',
-  },
-  quickJoinCodeText: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#004ac6',
-    letterSpacing: 0.5,
-  },
-  quickJoinCodeTextCopied: {
-    color: '#15803d',
-  },
-  cardMainIdentity: {
+  // Centered Hero Section
+  heroSection: {
     alignItems: 'center',
-    width: '100%',
+    paddingTop: 12,
+    paddingBottom: 20,
   },
-  avatarGlowWrapper: {
-    position: 'relative',
+  heroAvatarWrapper: {
     marginBottom: 12,
   },
-  avatarCircle: {
-    width: 82,
-    height: 82,
-    borderRadius: 41,
+  heroAvatarCircle: {
+    width: 90,
+    height: 90,
+    borderRadius: 45,
+    backgroundColor: '#eff4fe',
+    alignItems: 'center',
+    justifyContent: 'center',
     overflow: 'hidden',
-    backgroundColor: '#eff6ff',
-    borderWidth: 3,
-    borderColor: '#dbeafe',
   },
-  avatarImage: {
+  heroAvatarImage: {
     width: '100%',
     height: '100%',
   },
   defaultAvatarContainer: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#eaedff',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#eff4fe',
   },
   defaultAvatarText: {
-    fontSize: 26,
+    fontSize: 28,
     fontWeight: '800',
     color: '#004ac6',
   },
-  editAvatarBadge: {
-    position: 'absolute',
-    bottom: 0,
-    right: 0,
-    backgroundColor: '#004ac6',
-    width: 26,
-    height: 26,
-    borderRadius: 13,
-    borderWidth: 2,
-    borderColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 2,
-  },
-  shopTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 4,
-    maxWidth: '92%',
-  },
-  heroShopName: {
-    fontSize: 20,
-    fontWeight: '800',
-    color: '#131b2e',
-    textAlign: 'center',
-    letterSpacing: -0.2,
-  },
-  ownerIdentityRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 16,
-  },
-  heroOwnerName: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#434655',
-  },
-  bulletDot: {
-    width: 3.5,
-    height: 3.5,
-    borderRadius: 2,
-    backgroundColor: '#94a3b8',
-    marginHorizontal: 3,
-  },
-  rolePill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2.5,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  rolePillOwner: {
-    backgroundColor: '#fef3c7',
-    borderColor: '#fde68a',
-  },
-  rolePillManager: {
-    backgroundColor: '#e0f2fe',
-    borderColor: '#bae6fd',
-  },
-  rolePillCashier: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#bbf7d0',
-  },
-  rolePillText: {
-    fontSize: 10.5,
+  heroNameText: {
+    fontSize: 18,
     fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 4,
+    textAlign: 'center',
   },
-  rolePillTextOwner: {
-    color: '#b45309',
-  },
-  rolePillTextManager: {
-    color: '#0369a1',
-  },
-  rolePillTextCashier: {
-    color: '#15803d',
-  },
-  infoStripRow: {
+  heroEmailRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    width: '100%',
-    backgroundColor: '#f8fafc',
-    borderRadius: 14,
-    paddingVertical: 11,
-    paddingHorizontal: 12,
+    gap: 6,
+    marginBottom: 14,
+  },
+  heroEmailText: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  editProfileOutlineBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#e2e8f0',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
+    width: '100%',
+    backgroundColor: '#ffffff',
+    gap: 4,
+  },
+  editProfileOutlineBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  // Segmented Tabs
+  segmentedTabContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    padding: 4,
     marginBottom: 16,
   },
-  infoStripCol: {
+  segmentedTabBtn: {
     flex: 1,
-    alignItems: 'center',
-    gap: 2,
-  },
-  infoStripLabel: {
-    fontSize: 9.5,
-    fontWeight: '700',
-    color: '#737686',
-    letterSpacing: 0.5,
-  },
-  infoStripValRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 3,
-  },
-  infoStripVal: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#131b2e',
-  },
-  infoStripDivider: {
-    width: 1,
-    height: 26,
-    backgroundColor: '#e2e8f0',
-  },
-  heroActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    width: '100%',
-  },
-  heroPrimaryBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#004ac6',
-    flexDirection: 'row',
+    paddingVertical: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    shadowColor: 'rgba(37,99,235,0.25)',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 1,
-    shadowRadius: 8,
+    borderRadius: 9,
+  },
+  segmentedTabBtnActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 3,
     elevation: 2,
   },
-  heroPrimaryBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#ffffff',
+  segmentedTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#64748b',
   },
-  heroSecondaryBtn: {
-    flex: 1,
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#eaedff',
-    borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.6)',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-  },
-  heroSecondaryBtnCopied: {
-    backgroundColor: '#dcfce7',
-    borderColor: '#86efac',
-  },
-  heroSecondaryBtnText: {
-    fontSize: 13,
-    fontWeight: '700',
+  segmentedTabTextActive: {
     color: '#004ac6',
+    fontWeight: '700',
   },
-
-  /* Sections */
-  sectionContainer: {
-    gap: 8,
-  },
-  sectionLabel: {
-    fontSize: 14,
-    color: '#434655',
-    fontWeight: '500',
-    paddingLeft: 4,
+  // Tab Section
+  tabSection: {
+    marginBottom: 16,
   },
   cardContainer: {
     backgroundColor: '#ffffff',
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: 'rgba(195,198,215,0.3)',
-    borderRadius: 12,
+    borderColor: '#e2e8f0',
     overflow: 'hidden',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.03,
-        shadowRadius: 3,
-      },
-      android: {
-        elevation: 1,
-      },
-    }),
+    shadowColor: '#0f172a',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.03,
+    shadowRadius: 6,
+    elevation: 1,
   },
   cardRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    height: 60,
+    paddingHorizontal: 14,
+    paddingVertical: 13,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
@@ -1372,631 +1145,31 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   rowTextCol: {
-    justifyContent: 'center',
     flex: 1,
   },
   rowLabel: {
     fontSize: 14,
     fontWeight: '600',
-    color: '#131b2e',
+    color: '#0f172a',
   },
   rowSubLabel: {
     fontSize: 12,
-    color: '#737686',
+    color: '#64748b',
     marginTop: 2,
   },
   rowBadgeChip: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 8,
     backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    gap: 4,
   },
   rowBadgeChipText: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#004ac6',
-  },
-
-  /* Logout */
-  logoutBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    backgroundColor: '#ffdad6',
-    borderRadius: 12,
-    height: 48,
-    marginTop: 4,
-  },
-  logoutBtnText: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#ba1a1a',
-  },
-  footerVersionText: {
-    textAlign: 'center',
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 4,
-  },
-
-  /* Modal Styles */
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(15, 23, 42, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 18,
-  },
-  modalCard: {
-    width: '100%',
-    maxWidth: 440,
-    backgroundColor: '#ffffff',
-    borderRadius: 24,
-    padding: 22,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.2,
-    shadowRadius: 28,
-    elevation: 8,
-  },
-  modalTitle: {
-    fontSize: 19,
-    fontWeight: '800',
-    color: '#0f172a',
-    marginBottom: 4,
-    textAlign: 'center',
-    letterSpacing: -0.3,
-  },
-  modalSubtitle: {
-    fontSize: 12.5,
-    color: '#64748b',
-    textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 18,
-  },
-  fieldLabel: {
     fontSize: 12,
     fontWeight: '700',
     color: '#004ac6',
-    marginBottom: 6,
-    marginTop: 10,
-    textTransform: 'uppercase',
-    letterSpacing: 0.5,
-  },
-  inputField: {
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 12,
-    height: 46,
-    paddingHorizontal: 14,
-    fontSize: 14,
-    color: '#0f172a',
-    backgroundColor: '#f8fafc',
-  },
-  modalActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 10,
-    marginTop: 20,
-  },
-  cancelBtn: {
-    height: 44,
-    borderRadius: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 18,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    backgroundColor: '#ffffff',
-  },
-  cancelBtnText: {
-    fontSize: 13.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  saveBtn: {
-    height: 44,
-    borderRadius: 12,
-    backgroundColor: '#004ac6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 22,
-  },
-  saveBtnText: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#ffffff',
-  },
-
-  /* Avatar Modal specifics */
-  avatarPreviewSection: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-    paddingVertical: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  avatarPreviewCircle: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
-    borderWidth: 3,
-    borderColor: '#004ac6',
-    overflow: 'hidden',
-    marginBottom: 6,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#eff6ff',
-  },
-  avatarPreviewImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarPreviewLabel: {
-    fontSize: 11.5,
-    fontWeight: '700',
-    color: '#004ac6',
-  },
-  avatarGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    justifyContent: 'space-between',
-  },
-  avatarGridItem: {
-    width: '31%',
-    alignItems: 'center',
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    borderRadius: 14,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#ffffff',
-    position: 'relative',
-  },
-  avatarGridItemActive: {
-    borderColor: '#004ac6',
-    backgroundColor: '#eff6ff',
-  },
-  avatarThumbCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    overflow: 'hidden',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  avatarThumbImage: {
-    width: '100%',
-    height: '100%',
-  },
-  avatarGridLabel: {
-    fontSize: 10.5,
-    fontWeight: '600',
-    color: '#0f172a',
-    marginTop: 4,
-  },
-  checkBadge: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    width: 16,
-    height: 16,
-    borderRadius: 8,
-    backgroundColor: '#004ac6',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  customUploadBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1.5,
-    borderColor: '#93c5fd',
-    borderStyle: 'dashed',
-    marginTop: 12,
-    backgroundColor: '#eff6ff',
-  },
-  customUploadText: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: '#004ac6',
-  },
-  formAvatarRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#dbeafe',
-    backgroundColor: '#f8fafc',
-    marginBottom: 12,
-  },
-  formAvatarThumb: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-  },
-  formAvatarPlaceholder: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#eff6ff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  formAvatarPlaceholderText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#004ac6',
-  },
-  formAvatarLabel: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  formAvatarAction: {
-    fontSize: 11,
-    color: '#004ac6',
-    marginTop: 2,
-    fontWeight: '600',
-  },
-
-  /* Options row */
-  optionRow: {
-    flexDirection: 'row',
-    gap: 8,
-    marginBottom: 8,
-  },
-  optionButton: {
-    flex: 1,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#cbd5e1',
-    borderRadius: 10,
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#f8fafc',
-  },
-  optionButtonActive: {
-    borderColor: '#004ac6',
-    backgroundColor: '#eff6ff',
-  },
-  optionBtnText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  optionBtnTextActive: {
-    color: '#004ac6',
-    fontWeight: '700',
-  },
-  backupActionBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    marginBottom: 10,
-  },
-  backupBtnTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  backupBtnSub: {
-    fontSize: 11.5,
-    color: '#64748b',
-    marginTop: 2,
-  },
-  languageSelectRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    backgroundColor: '#f8fafc',
-    marginBottom: 8,
-  },
-  languageSelectRowActive: {
-    borderColor: '#004ac6',
-    backgroundColor: '#eff6ff',
-  },
-  languageText: {
-    fontSize: 13.5,
-    color: '#334155',
-    fontWeight: '500',
-  },
-  languageTextActive: {
-    color: '#004ac6',
-    fontWeight: '700',
-  },
-  categoryGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    rowGap: 8,
-    marginTop: 4,
-    marginBottom: 4,
-  },
-  categoryCard: {
-    width: '48.5%',
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 9,
-    paddingHorizontal: 8,
-    borderRadius: 10,
-    borderWidth: 1.5,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    gap: 6,
-  },
-  categoryCardActive: {
-    borderColor: '#004ac6',
-    backgroundColor: '#eff6ff',
-  },
-  categoryIconCircle: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#f1f5f9',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  categoryIconCircleActive: {
-    backgroundColor: '#dbeafe',
-  },
-  categoryCardText: {
-    flex: 1,
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#475569',
-  },
-  categoryCardTextActive: {
-    color: '#004ac6',
-    fontWeight: '700',
-  },
-
-  /* ── Legal Modal Header ── */
-  legalModalHeader: {
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  legalModalIcon: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 10,
-  },
-  legalDate: {
-    fontSize: 11.5,
-    color: '#94a3b8',
-    marginTop: 2,
-    textAlign: 'center',
-  },
-
-  /* ── Legal Sections (Privacy + Terms) ── */
-  legalSection: {
-    marginBottom: 16,
-    paddingBottom: 16,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f1f5f9',
-  },
-  legalSectionTitle: {
-    fontSize: 13.5,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 6,
-  },
-  legalSectionBody: {
-    fontSize: 13,
-    lineHeight: 20,
-    color: '#475569',
-  },
-
-  /* ── About Modal ── */
-  aboutCard: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 14,
-    padding: 16,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  aboutAppName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: '#004ac6',
-    letterSpacing: 0.5,
-  },
-  aboutVersion: {
-    fontSize: 12.5,
-    color: '#64748b',
-    marginTop: 3,
-    marginBottom: 12,
-  },
-  aboutDivider: {
-    width: '100%',
-    height: 1,
-    backgroundColor: '#e2e8f0',
-    marginVertical: 12,
-  },
-  aboutRow: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    marginBottom: 8,
-    width: '100%',
-  },
-  aboutRowText: {
-    fontSize: 13,
-    color: '#475569',
-    flex: 1,
-    lineHeight: 19,
-  },
-  aboutSectionTitle: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0f172a',
-    marginBottom: 8,
-    width: '100%',
-  },
-  aboutFeatureItem: {
-    fontSize: 12.5,
-    color: '#334155',
-    lineHeight: 22,
-    width: '100%',
-  },
-  aboutEmailBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    backgroundColor: '#eff6ff',
-    borderRadius: 10,
-    marginTop: 4,
-  },
-  aboutEmailText: {
-    fontSize: 12.5,
-    fontWeight: '600',
-    color: '#004ac6',
-  },
-
-  /* ── FAQ Modal ── */
-  faqItem: {
-    marginBottom: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 12,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-  },
-  faqQuestion: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 10,
-    backgroundColor: '#f1f5f9',
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  faqQBadge: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
-    backgroundColor: '#004ac6',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: 1,
-  },
-  faqQBadgeText: {
-    fontSize: 10,
-    fontWeight: '800',
-    color: '#ffffff',
-  },
-  faqQuestionText: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#0f172a',
-    flex: 1,
-    lineHeight: 19,
-  },
-  faqAnswer: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-  },
-  faqAnswerText: {
-    fontSize: 12.5,
-    color: '#475569',
-    lineHeight: 19,
-  },
-  faqContactBtn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    paddingVertical: 12,
-    marginTop: 4,
-    backgroundColor: '#fff7ed',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
-  },
-  faqContactBtnText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#ea580c',
-  },
-
-  /* ── Contact Support Modal ── */
-  contactRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 14,
-    padding: 14,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    backgroundColor: '#f8fafc',
-    marginBottom: 12,
-  },
-  contactIconCircle: {
-    width: 46,
-    height: 46,
-    borderRadius: 23,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  contactTextCol: {
-    flex: 1,
-  },
-  contactRowTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: '#0f172a',
-  },
-  contactRowSub: {
-    fontSize: 12.5,
-    color: '#334155',
-    marginTop: 2,
-  },
-  contactRowHint: {
-    fontSize: 11,
-    color: '#94a3b8',
-    marginTop: 2,
-  },
-  contactInfoBox: {
-    flexDirection: 'row',
-    alignItems: 'flex-start',
-    gap: 8,
-    backgroundColor: '#f1f5f9',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 10,
-  },
-  contactInfoText: {
-    fontSize: 12,
-    color: '#475569',
-    flex: 1,
-    lineHeight: 18,
   },
   taxBadgeWrapper: {
     flexDirection: 'row',
@@ -2004,7 +1177,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   taxRateBadge: {
-    backgroundColor: '#eaedff',
+    backgroundColor: '#eff6ff',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: 6,
@@ -2014,31 +1187,237 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#004ac6',
   },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#fff1f2',
+    borderWidth: 1,
+    borderColor: '#fecdd3',
+    paddingVertical: 13,
+    borderRadius: 12,
+    gap: 8,
+    marginTop: 12,
+  },
+  logoutBtnText: {
+    color: '#ba1a1a',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  footerVersionText: {
+    textAlign: 'center',
+    fontSize: 12,
+    color: '#94a3b8',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  // Floating Toast
+  floatingToast: {
+    position: 'absolute',
+    top: 64,
+    left: 20,
+    right: 20,
+    zIndex: 999,
+    backgroundColor: '#1e293b',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    elevation: 8,
+    gap: 10,
+  },
+  floatingToastText: {
+    color: '#ffffff',
+    fontSize: 14,
+    fontWeight: '600',
+    flex: 1,
+  },
+  // Modals & Bottom Sheet
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(15, 23, 42, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalCard: {
+    width: '100%',
+    maxWidth: 420,
+    backgroundColor: '#ffffff',
+    borderRadius: 20,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.15,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  sheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  sheetCloseBtn: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0f172a',
+    marginBottom: 4,
+  },
+  modalSubtitle: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 16,
+    lineHeight: 18,
+  },
+  fieldLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  inputField: {
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: '#0f172a',
+  },
   taxPresetsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    marginBottom: 14,
-    marginTop: 4,
+    gap: 6,
+    marginBottom: 12,
   },
   taxPresetChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    flex: 1,
+    alignItems: 'center',
+    paddingVertical: 8,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#e2e8f0',
     backgroundColor: '#f8fafc',
   },
   taxPresetChipActive: {
-    backgroundColor: '#004ac6',
     borderColor: '#004ac6',
+    backgroundColor: '#eff6ff',
   },
   taxPresetChipText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#334155',
+    color: '#475569',
   },
   taxPresetChipTextActive: {
+    color: '#004ac6',
+    fontWeight: '700',
+  },
+  optionRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 8,
+  },
+  choicePill: {
+    flex: 1,
+    paddingVertical: 9,
+    alignItems: 'center',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  choicePillActive: {
+    borderColor: '#004ac6',
+    backgroundColor: '#eff6ff',
+  },
+  choicePillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  choicePillTextActive: {
+    color: '#004ac6',
+    fontWeight: '700',
+  },
+  backupActionCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    borderRadius: 12,
+    padding: 14,
+    gap: 12,
+    marginBottom: 10,
+  },
+  backupCardTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#0f172a',
+  },
+  backupCardSub: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 2,
+  },
+  langRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  langRowActive: {
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 8,
+    borderRadius: 8,
+  },
+  langText: {
+    fontSize: 14,
+    color: '#334155',
+  },
+  langTextActive: {
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+  modalActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    gap: 10,
+    marginTop: 16,
+  },
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f1f5f9',
+  },
+  cancelBtnText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#475569',
+  },
+  saveBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#004ac6',
+  },
+  saveBtnText: {
+    fontSize: 13,
+    fontWeight: '700',
     color: '#ffffff',
   },
 });

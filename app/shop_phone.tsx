@@ -118,7 +118,6 @@ export default function ShopPhoneScreen() {
                   value={phone}
                   onChangeText={setPhone}
                   keyboardType="phone-pad"
-                  autoFocus
                 />
               </View>
               <Text style={styles.fieldHint}>

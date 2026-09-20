@@ -126,7 +126,6 @@ export default function ShopEmailScreen() {
                   keyboardType="email-address"
                   autoCapitalize="none"
                   autoCorrect={false}
-                  autoFocus
                 />
               </View>
               <Text style={styles.fieldHint}>

@@ -122,7 +122,6 @@ export default function ShopAddressScreen() {
                 multiline
                 numberOfLines={3}
                 textAlignVertical="top"
-                autoFocus
               />
             </View>
 

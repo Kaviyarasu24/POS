@@ -119,7 +119,6 @@ export default function ShopGstScreen() {
                   onChangeText={setGstNumber}
                   autoCapitalize="characters"
                   maxLength={15}
-                  autoFocus
                 />
               </View>
 
