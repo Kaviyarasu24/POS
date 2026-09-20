@@ -90,8 +90,35 @@ def _ensure_product_active_column() -> None:
             print(f"Startup migration: could not add products.is_active: {e}")
 
 
+def _ensure_store_tax_columns() -> None:
+    """Non-destructive migration: add `tax_enabled` and `tax_rate` to `stores` if missing."""
+    try:
+        inspector = inspect(engine)
+        existing = {c["name"] for c in inspector.get_columns("stores")}
+    except Exception as e:
+        print(f"Startup migration: could not inspect stores table: {e}")
+        return
+
+    if "tax_enabled" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE stores ADD COLUMN tax_enabled BOOLEAN DEFAULT TRUE"))
+            print("Startup migration: added stores.tax_enabled")
+        except Exception as e:
+            print(f"Startup migration: could not add stores.tax_enabled: {e}")
+
+    if "tax_rate" not in existing:
+        try:
+            with engine.begin() as conn:
+                conn.execute(text("ALTER TABLE stores ADD COLUMN tax_rate DECIMAL(5, 2) DEFAULT 8.00"))
+            print("Startup migration: added stores.tax_rate")
+        except Exception as e:
+            print(f"Startup migration: could not add stores.tax_rate: {e}")
+
+
 _ensure_transaction_customer_columns()
 _ensure_product_active_column()
+_ensure_store_tax_columns()
 
 app = FastAPI(title="SmartPOS API Backend", version="2.0.0")
 
@@ -385,6 +412,8 @@ def login(credentials: schemas.UserLogin, db: Session = Depends(get_db)):
         gst_number=db_store.gst_number,
         business_address=db_store.address,
         store_phone=db_store.phone,
+        tax_enabled=getattr(db_store, "tax_enabled", True),
+        tax_rate=getattr(db_store, "tax_rate", Decimal("8.00")),
         token=token
     )
 
@@ -513,7 +542,9 @@ def get_user(
         shop_category=db_store.category if db_store else None,
         gst_number=db_store.gst_number if db_store else None,
         business_address=db_store.address if db_store else None,
-        store_phone=db_store.phone if db_store else None
+        store_phone=db_store.phone if db_store else None,
+        tax_enabled=getattr(db_store, "tax_enabled", True) if db_store else True,
+        tax_rate=getattr(db_store, "tax_rate", Decimal("8.00")) if db_store else Decimal("8.00")
     )
 
 @app.put("/api/users/{user_id}", response_model=schemas.UserResponse)
@@ -859,7 +890,13 @@ def checkout(
 
                 # Always use catalog price — ignore client-supplied price.
                 catalog_price = Decimal(str(db_product.price))
-                tax_rate = Decimal(str(db_product.tax_rate or "0"))
+                is_store_tax_enabled = getattr(db_store, "tax_enabled", True)
+                if not is_store_tax_enabled:
+                    tax_rate = Decimal("0.00")
+                else:
+                    store_tax_val = getattr(db_store, "tax_rate", None)
+                    tax_rate = Decimal(str(store_tax_val if store_tax_val is not None else (db_product.tax_rate or "0")))
+
                 line_subtotal = catalog_price * Decimal(str(item.quantity))
                 line_tax = (line_subtotal * tax_rate / Decimal("100")).quantize(Decimal("0.01"))
 

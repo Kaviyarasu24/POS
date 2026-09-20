@@ -84,7 +84,9 @@ export function buildReceiptHtml(bill: GeneratedBill, opts: ReceiptOptions = {})
         )}${bill.customer_phone ? ` · ${escapeHtml(bill.customer_phone)}` : ''}</span></div>`
       : '';
 
-  const taxBlock = `<div class="row"><span>Tax</span><span>${money(bill.tax)}</span></div>`;
+  const taxBlock = (bill.tax && bill.tax > 0)
+    ? `<div class="row"><span>Tax</span><span>${money(bill.tax)}</span></div>`
+    : '';
 
   const tenderedBlock =
     bill.amount_paid !== undefined

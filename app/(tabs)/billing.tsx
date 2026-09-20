@@ -142,16 +142,23 @@ export default function BillingScreen() {
 
   // Calculations
   const cartTotals = useMemo(() => {
+    const isTaxEnabled = store.currentUser?.taxEnabled !== false;
+    const storeTaxRate = store.currentUser?.taxRate;
+
     const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
     const discountAmount = subtotal * (discountPercent / 100);
     const taxableSubtotal = Math.max(0, subtotal - discountAmount);
-    // Per-product tax: apply each line's own taxRate, spreading the cart discount
+    // Per-product tax: apply store/line tax rate, spreading the cart discount
     // proportionally across lines so the taxable base matches the discounted subtotal.
     const discountFactor = subtotal > 0 ? taxableSubtotal / subtotal : 0;
-    const tax = cart.reduce((acc, item) => {
-      const taxableLine = item.product.price * item.quantity * discountFactor;
-      return acc + taxableLine * ((item.product.taxRate ?? 0) / 100);
-    }, 0);
+    let tax = 0;
+    if (isTaxEnabled) {
+      tax = cart.reduce((acc, item) => {
+        const taxableLine = item.product.price * item.quantity * discountFactor;
+        const rate = storeTaxRate !== undefined && storeTaxRate !== null ? storeTaxRate : (item.product.taxRate ?? 0);
+        return acc + taxableLine * (rate / 100);
+      }, 0);
+    }
     const total = taxableSubtotal + tax;
     const totalItems = cart.reduce((acc, item) => acc + (isWeightItem(item.product.unit) ? 1 : item.quantity), 0);
 
@@ -161,8 +168,9 @@ export default function BillingScreen() {
       tax,
       total,
       totalItems,
+      isTaxEnabled,
     };
-  }, [cart, discountPercent]);
+  }, [cart, discountPercent, store.currentUser?.taxEnabled, store.currentUser?.taxRate]);
 
   // Filtered Products
   const filteredProducts = useMemo(() => {
@@ -783,7 +791,11 @@ export default function BillingScreen() {
               </View>
 
               <View style={styles.summaryRow}>
-                <Text style={styles.summaryLabel}>Tax</Text>
+                <Text style={styles.summaryLabel}>
+                  {cartTotals.isTaxEnabled
+                    ? `Tax ${store.currentUser?.taxRate !== undefined ? `(${store.currentUser.taxRate}%)` : ''}`
+                    : 'Tax (Disabled / 0%)'}
+                </Text>
                 <Text style={styles.summaryValue}>₹{cartTotals.tax.toFixed(2)}</Text>
               </View>
 

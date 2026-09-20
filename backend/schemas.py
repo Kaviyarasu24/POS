@@ -11,6 +11,8 @@ class StoreBase(BaseModel):
     email: Optional[str] = None
     gst_number: Optional[str] = None
     address: Optional[str] = None
+    tax_enabled: Optional[bool] = True
+    tax_rate: Optional[Decimal] = Decimal("8.00")
 
 class StoreCreate(StoreBase):
     pass
@@ -22,6 +24,8 @@ class StoreUpdate(BaseModel):
     email: Optional[str] = None
     gst_number: Optional[str] = None
     address: Optional[str] = None
+    tax_enabled: Optional[bool] = None
+    tax_rate: Optional[Decimal] = None
 
 class StoreResponse(StoreBase):
     id: str
@@ -77,6 +81,8 @@ class UserResponse(BaseModel):
     gst_number: Optional[str] = None
     business_address: Optional[str] = None
     store_phone: Optional[str] = None
+    tax_enabled: Optional[bool] = True
+    tax_rate: Optional[Decimal] = None
     # JWT bearer token issued on login (None for signup/staff responses)
     token: Optional[str] = None
 

@@ -89,6 +89,8 @@ export default function ProfileScreen() {
 
   // Toggle Settings States
   const [pushNotifications, setPushNotifications] = useState(true);
+  const [taxEnabled, setTaxEnabled] = useState(userSession?.taxEnabled !== false);
+  const [taxRate, setTaxRate] = useState<number>(userSession?.taxRate ?? 8);
 
   // Modal Visibility States
   const [avatarModalVisible, setAvatarModalVisible] = useState(false);
@@ -96,6 +98,7 @@ export default function ProfileScreen() {
   const [categoryModalVisible, setCategoryModalVisible] = useState(false);
   const [gstModalVisible, setGstModalVisible] = useState(false);
   const [addressModalVisible, setAddressModalVisible] = useState(false);
+  const [taxModalVisible, setTaxModalVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
   const [backupRestoreVisible, setBackupRestoreVisible] = useState(false);
   const [languageVisible, setLanguageVisible] = useState(false);
@@ -111,6 +114,7 @@ export default function ProfileScreen() {
   const [tempCategory, setTempCategory] = useState('');
   const [tempGst, setTempGst] = useState('');
   const [tempAddress, setTempAddress] = useState('');
+  const [tempTaxRate, setTempTaxRate] = useState((userSession?.taxRate ?? 8).toString());
 
   // Floating Toast Notification State
   const [toastMsg, setToastMsg] = useState<string | null>(null);
@@ -139,6 +143,8 @@ export default function ProfileScreen() {
         setShopCategory(store.currentUser.shopCategory);
         setGstNumber(store.currentUser.gstNumber || '');
         setBusinessAddress(store.currentUser.businessAddress || '');
+        setTaxEnabled(store.currentUser.taxEnabled !== false);
+        setTaxRate(store.currentUser.taxRate ?? 8);
       }
     };
 
@@ -292,6 +298,38 @@ export default function ProfileScreen() {
     });
     setAddressModalVisible(false);
     showToast('Business Address updated');
+  };
+
+  // Tax settings handlers
+  const handleToggleTax = async (value: boolean) => {
+    setTaxEnabled(value);
+    try {
+      await store.updateUserProfile({ taxEnabled: value });
+      showToast(value ? `Tax enabled (${taxRate}% default in billing)` : 'Tax disabled in billing (0%)');
+    } catch (e) {
+      showToast('Failed to update tax setting');
+    }
+  };
+
+  const openTaxModal = () => {
+    setTempTaxRate(taxRate.toString());
+    setTaxModalVisible(true);
+  };
+
+  const saveTaxRate = async () => {
+    const val = parseFloat(tempTaxRate);
+    if (isNaN(val) || val < 0 || val > 100) {
+      Alert.alert('Invalid Tax Rate', 'Please enter a percentage between 0 and 100.');
+      return;
+    }
+    setTaxRate(val);
+    setTaxModalVisible(false);
+    try {
+      await store.updateUserProfile({ taxRate: val, taxEnabled: true });
+      showToast(`Default tax set to ${val}%`);
+    } catch (e) {
+      showToast('Failed to save tax rate');
+    }
   };
 
   // Backup catalog data to local JSON structure
@@ -670,6 +708,58 @@ export default function ProfileScreen() {
                 </View>
                 <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
               </TouchableOpacity>
+            </View>
+          </View>
+
+          {/* Section: Tax & Billing Rules */}
+          <View style={styles.sectionContainer}>
+            <Text style={styles.sectionLabel}>Tax & Billing Rules</Text>
+            <View style={styles.cardContainer}>
+              {/* Enable/Disable Tax Switch */}
+              <View style={[styles.cardRow, !taxEnabled && styles.lastCardRow]}>
+                <View style={styles.rowLeft}>
+                  <View style={[styles.iconBox, { backgroundColor: '#fef3c7' }]}>
+                    <MaterialIcons name="request-quote" size={20} color="#d97706" />
+                  </View>
+                  <View style={styles.rowTextCol}>
+                    <Text style={styles.rowLabel}>Tax / GST in Billing</Text>
+                    <Text style={styles.rowSubLabel}>
+                      {taxEnabled ? `Active • ${taxRate}% default rate` : 'Disabled • 0% tax on all bills'}
+                    </Text>
+                  </View>
+                </View>
+                <Switch
+                  value={taxEnabled}
+                  onValueChange={handleToggleTax}
+                  trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
+                  thumbColor={taxEnabled ? '#004ac6' : '#94a3b8'}
+                />
+              </View>
+
+              {/* Configure Tax Rate Percentage */}
+              {taxEnabled && (
+                <TouchableOpacity
+                  style={[styles.cardRow, styles.lastCardRow]}
+                  onPress={openTaxModal}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.rowLeft}>
+                    <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
+                      <MaterialIcons name="percent" size={20} color="#0284c7" />
+                    </View>
+                    <View style={styles.rowTextCol}>
+                      <Text style={styles.rowLabel}>Default Tax Rate (%)</Text>
+                      <Text style={styles.rowSubLabel}>Currently set to {taxRate}% in billing</Text>
+                    </View>
+                  </View>
+                  <View style={styles.taxBadgeWrapper}>
+                    <View style={styles.taxRateBadge}>
+                      <Text style={styles.taxRateBadgeText}>{taxRate}%</Text>
+                    </View>
+                    <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
+                  </View>
+                </TouchableOpacity>
+              )}
             </View>
           </View>
 
@@ -1158,13 +1248,13 @@ export default function ProfileScreen() {
             <View style={styles.modalCard}>
               <Text style={styles.modalTitle}>Business Address</Text>
               <Text style={styles.modalSubtitle}>
-                Physical store address printed on bill headers and tax invoices
+                Enter shop location to appear on all printed and generated receipts
               </Text>
 
-              <Text style={styles.fieldLabel}>Address Details</Text>
+              <Text style={styles.fieldLabel}>Physical Store Address</Text>
               <TextInput
-                style={[styles.inputField, { height: 85, textAlignVertical: 'top', paddingTop: 10 }]}
-                placeholder="Shop No., Street, Area, City, Pincode"
+                style={[styles.inputField, { height: 72, textAlignVertical: 'top', paddingTop: 8 }]}
+                placeholder="e.g. 123 Main Bazaar Road, Anna Nagar, Chennai"
                 placeholderTextColor="#94a3b8"
                 value={tempAddress}
                 onChangeText={setTempAddress}
@@ -1180,6 +1270,68 @@ export default function ProfileScreen() {
                 </TouchableOpacity>
                 <TouchableOpacity style={styles.saveBtn} onPress={saveAddress}>
                   <Text style={styles.saveBtnText}>Save</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
+
+      {/* 2d. Edit Tax Rate Modal */}
+      <Modal visible={taxModalVisible} animationType="fade" transparent onRequestClose={() => setTaxModalVisible(false)}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={{ flex: 1 }}
+        >
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalCard}>
+              <Text style={styles.modalTitle}>Default Tax Rate (%)</Text>
+              <Text style={styles.modalSubtitle}>
+                Set the default tax percentage applied to billing items and invoices
+              </Text>
+
+              <Text style={styles.fieldLabel}>Quick Presets</Text>
+              <View style={styles.taxPresetsRow}>
+                {[0, 5, 8, 12, 18, 28].map((pct) => (
+                  <TouchableOpacity
+                    key={pct}
+                    style={[
+                      styles.taxPresetChip,
+                      tempTaxRate === pct.toString() && styles.taxPresetChipActive,
+                    ]}
+                    onPress={() => setTempTaxRate(pct.toString())}
+                  >
+                    <Text
+                      style={[
+                        styles.taxPresetChipText,
+                        tempTaxRate === pct.toString() && styles.taxPresetChipTextActive,
+                      ]}
+                    >
+                      {pct}%
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.fieldLabel}>Tax Percentage (0 - 100%)</Text>
+              <TextInput
+                style={styles.inputField}
+                placeholder="e.g. 18 or 5"
+                placeholderTextColor="#94a3b8"
+                keyboardType="numeric"
+                value={tempTaxRate}
+                onChangeText={setTempTaxRate}
+              />
+
+              <View style={styles.modalActions}>
+                <TouchableOpacity
+                  style={styles.cancelBtn}
+                  onPress={() => setTaxModalVisible(false)}
+                >
+                  <Text style={styles.cancelBtnText}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={styles.saveBtn} onPress={saveTaxRate}>
+                  <Text style={styles.saveBtnText}>Save Tax Rate</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -2353,5 +2505,48 @@ const styles = StyleSheet.create({
     color: '#475569',
     flex: 1,
     lineHeight: 18,
+  },
+  taxBadgeWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  taxRateBadge: {
+    backgroundColor: '#eaedff',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  taxRateBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#004ac6',
+  },
+  taxPresetsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 14,
+    marginTop: 4,
+  },
+  taxPresetChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    backgroundColor: '#f8fafc',
+  },
+  taxPresetChipActive: {
+    backgroundColor: '#004ac6',
+    borderColor: '#004ac6',
+  },
+  taxPresetChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#334155',
+  },
+  taxPresetChipTextActive: {
+    color: '#ffffff',
   },
 });

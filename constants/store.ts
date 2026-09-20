@@ -40,6 +40,8 @@ export interface UserSession {
   gstNumber?: string;
   businessAddress?: string;
   storePhone?: string;
+  taxEnabled?: boolean;
+  taxRate?: number;
   token?: string; // JWT bearer token issued by the backend on login
 }
 
@@ -298,6 +300,8 @@ class ProductStore {
         gstNumber: data.gst_number !== undefined ? data.gst_number : this._currentUser?.gstNumber,
         businessAddress: data.business_address !== undefined ? data.business_address : this._currentUser?.businessAddress,
         storePhone: data.store_phone !== undefined ? data.store_phone : this._currentUser?.storePhone,
+        taxEnabled: data.tax_enabled !== undefined ? Boolean(data.tax_enabled) : (this._currentUser?.taxEnabled ?? true),
+        taxRate: data.tax_rate !== undefined && data.tax_rate !== null ? parseFloat(data.tax_rate) : (this._currentUser?.taxRate ?? 8),
         token: this._currentUser.token,
       };
       this._currentUser = updatedUser;
@@ -520,6 +524,8 @@ class ProductStore {
       }
       if (updatedFields.gstNumber !== undefined) storePayload.gst_number = updatedFields.gstNumber;
       if (updatedFields.businessAddress !== undefined) storePayload.address = updatedFields.businessAddress;
+      if (updatedFields.taxEnabled !== undefined) storePayload.tax_enabled = updatedFields.taxEnabled;
+      if (updatedFields.taxRate !== undefined) storePayload.tax_rate = updatedFields.taxRate;
 
       await fetch(`${API_BASE_URL}/api/stores/${this._currentUser.storeId}`, {
         method: 'PUT',
@@ -556,6 +562,8 @@ class ProductStore {
           gstNumber: data.gst_number !== undefined ? data.gst_number : (updatedFields.gstNumber !== undefined ? updatedFields.gstNumber : this._currentUser.gstNumber),
           businessAddress: data.business_address !== undefined ? data.business_address : (updatedFields.businessAddress !== undefined ? updatedFields.businessAddress : this._currentUser.businessAddress),
           storePhone: data.store_phone !== undefined ? data.store_phone : (updatedFields.storePhone !== undefined ? updatedFields.storePhone : this._currentUser.storePhone),
+          taxEnabled: updatedFields.taxEnabled !== undefined ? updatedFields.taxEnabled : (data.tax_enabled !== undefined ? Boolean(data.tax_enabled) : this._currentUser.taxEnabled),
+          taxRate: updatedFields.taxRate !== undefined ? updatedFields.taxRate : (data.tax_rate !== undefined && data.tax_rate !== null ? parseFloat(data.tax_rate) : this._currentUser.taxRate),
           token: this._currentUser.token,
         };
         this.currentUser = updatedUser;
