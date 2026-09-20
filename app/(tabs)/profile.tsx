@@ -227,7 +227,7 @@ export default function ProfileScreen() {
         <Text style={styles.topHeaderTitle}>Profile</Text>
         <TouchableOpacity
           style={styles.settingsIconBtn}
-          onPress={() => setAppHardwareVisible(true)}
+          onPress={() => router.push('/settings')}
           activeOpacity={0.7}
         >
           <MaterialIcons name="settings" size={24} color="#0f172a" />
@@ -668,122 +668,17 @@ export default function ProfileScreen() {
             </View>
           )}
 
+          {/* Direct Sign Out Button on Profile */}
+          <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
+            <MaterialIcons name="logout" size={18} color="#ba1a1a" />
+            <Text style={styles.logoutBtnText}>Sign Out</Text>
+          </TouchableOpacity>
+
           <Text style={styles.footerVersionText}>SmartPOS v1.0.0</Text>
         </Animated.View>
       </ScrollView>
 
       {/* --- MODALS --- */}
-
-      {/* Settings Modal (App & Hardware Settings) triggered by top-right gear icon */}
-      <Modal
-        visible={appHardwareVisible}
-        animationType="slide"
-        transparent
-        onRequestClose={() => setAppHardwareVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { maxHeight: '85%' }]}>
-            <View style={styles.sheetHeader}>
-              <Text style={styles.modalTitle}>App & Hardware Settings</Text>
-              <TouchableOpacity
-                onPress={() => setAppHardwareVisible(false)}
-                style={styles.sheetCloseBtn}
-              >
-                <MaterialIcons name="close" size={22} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-
-            <ScrollView showsVerticalScrollIndicator={false}>
-              <View style={[styles.cardContainer, { marginBottom: 16 }]}>
-                {/* Printer */}
-                <TouchableOpacity
-                  style={styles.cardRow}
-                  onPress={() => {
-                    setAppHardwareVisible(false);
-                    setTimeout(() => setPrinterSettingsVisible(true), 300);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: '#ede9fe' }]}>
-                      <MaterialIcons name="print" size={20} color="#6366f1" />
-                    </View>
-                    <View style={styles.rowTextCol}>
-                      <Text style={styles.rowLabel}>Thermal Printer</Text>
-                      <Text style={styles.rowSubLabel}>{printerType} • {paperSize} roll</Text>
-                    </View>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Notifications */}
-                <View style={styles.cardRow}>
-                  <View style={styles.rowLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: '#fef2f2' }]}>
-                      <MaterialIcons name="notifications-active" size={20} color="#ef4444" />
-                    </View>
-                    <Text style={styles.rowLabel}>Low Stock Alerts</Text>
-                  </View>
-                  <Switch
-                    value={pushNotifications}
-                    onValueChange={setPushNotifications}
-                    trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                    thumbColor={pushNotifications ? '#004ac6' : '#94a3b8'}
-                  />
-                </View>
-
-                {/* Backup & Restore */}
-                <TouchableOpacity
-                  style={styles.cardRow}
-                  onPress={() => {
-                    setAppHardwareVisible(false);
-                    setTimeout(() => setBackupRestoreVisible(true), 300);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: '#cffafe' }]}>
-                      <MaterialIcons name="cloud-sync" size={20} color="#0891b2" />
-                    </View>
-                    <View style={styles.rowTextCol}>
-                      <Text style={styles.rowLabel}>Backup & Restore</Text>
-                      <Text style={styles.rowSubLabel}>Last archive: {lastBackup}</Text>
-                    </View>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-                </TouchableOpacity>
-
-                {/* Language */}
-                <TouchableOpacity
-                  style={[styles.cardRow, styles.lastCardRow]}
-                  onPress={() => {
-                    setAppHardwareVisible(false);
-                    setTimeout(() => setLanguageVisible(true), 300);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.rowLeft}>
-                    <View style={[styles.iconBox, { backgroundColor: '#f8fafc' }]}>
-                      <MaterialIcons name="language" size={20} color="#475569" />
-                    </View>
-                    <View style={styles.rowTextCol}>
-                      <Text style={styles.rowLabel}>System Language</Text>
-                      <Text style={styles.rowSubLabel}>{language}</Text>
-                    </View>
-                  </View>
-                  <MaterialIcons name="chevron-right" size={20} color="#94a3b8" />
-                </TouchableOpacity>
-              </View>
-
-              {/* Logout */}
-              <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.85}>
-                <MaterialIcons name="logout" size={18} color="#ba1a1a" />
-                <Text style={styles.logoutBtnText}>Sign Out</Text>
-              </TouchableOpacity>
-            </ScrollView>
-          </View>
-        </View>
-      </Modal>
 
       {/* Tax Rate Modal */}
       <Modal visible={taxModalVisible} animationType="fade" transparent onRequestClose={() => setTaxModalVisible(false)}>
@@ -845,122 +740,6 @@ export default function ProfileScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
-      </Modal>
-
-      {/* Printer Settings Modal */}
-      <Modal visible={printerSettingsVisible} animationType="fade" transparent onRequestClose={() => setPrinterSettingsVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Thermal Printer Setup</Text>
-
-            <Text style={styles.fieldLabel}>Connection Interface</Text>
-            <View style={styles.optionRow}>
-              {['Bluetooth', 'Wi-Fi', 'USB'].map((type) => (
-                <TouchableOpacity
-                  key={type}
-                  style={[styles.choicePill, printerType === type && styles.choicePillActive]}
-                  onPress={() => setPrinterType(type)}
-                >
-                  <Text style={[styles.choicePillText, printerType === type && styles.choicePillTextActive]}>
-                    {type}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <Text style={styles.fieldLabel}>Paper Roll Size</Text>
-            <View style={styles.optionRow}>
-              {['58mm (2-inch)', '80mm (3-inch)'].map((size) => (
-                <TouchableOpacity
-                  key={size}
-                  style={[styles.choicePill, paperSize === size.split(' ')[0] && styles.choicePillActive]}
-                  onPress={() => setPaperSize(size.split(' ')[0])}
-                >
-                  <Text style={[styles.choicePillText, paperSize === size.split(' ')[0] && styles.choicePillTextActive]}>
-                    {size}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
-
-            <View style={[styles.cardRow, { paddingHorizontal: 0, marginTop: 12, borderBottomWidth: 0 }]}>
-              <Text style={styles.rowLabel}>Auto-print Receipt after Sale</Text>
-              <Switch
-                value={autoPrint}
-                onValueChange={setAutoPrint}
-                trackColor={{ false: '#e2e8f0', true: '#bfdbfe' }}
-                thumbColor={autoPrint ? '#004ac6' : '#94a3b8'}
-              />
-            </View>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.saveBtn} onPress={() => setPrinterSettingsVisible(false)}>
-                <Text style={styles.saveBtnText}>Save Preferences</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Backup & Restore Modal */}
-      <Modal visible={backupRestoreVisible} animationType="fade" transparent onRequestClose={() => setBackupRestoreVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Database Cloud Backup</Text>
-            <Text style={styles.modalSubtitle}>Export your catalog, customers and settings to a local safety JSON archive.</Text>
-
-            <TouchableOpacity style={styles.backupActionCard} onPress={executeBackup}>
-              <MaterialIcons name="cloud-upload" size={24} color="#004ac6" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.backupCardTitle}>Create New Backup</Text>
-                <Text style={styles.backupCardSub}>Export products, inventory quantities and shop profile</Text>
-              </View>
-            </TouchableOpacity>
-
-            <TouchableOpacity style={styles.backupActionCard} onPress={executeRestore}>
-              <MaterialIcons name="cloud-download" size={24} color="#16a34a" />
-              <View style={{ flex: 1 }}>
-                <Text style={styles.backupCardTitle}>Sync & Restore</Text>
-                <Text style={styles.backupCardSub}>Fetch latest catalog from centralized FastAPI cloud database</Text>
-              </View>
-            </TouchableOpacity>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setBackupRestoreVisible(false)}>
-                <Text style={styles.cancelBtnText}>Done</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* Language Modal */}
-      <Modal visible={languageVisible} animationType="fade" transparent onRequestClose={() => setLanguageVisible(false)}>
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalCard}>
-            <Text style={styles.modalTitle}>Select System Language</Text>
-
-            {['English (US)', 'Tamil (தமிழ்)', 'Hindi (हिंदी)', 'Spanish (Español)'].map((lang) => (
-              <TouchableOpacity
-                key={lang}
-                style={[styles.langRow, language === lang && styles.langRowActive]}
-                onPress={() => {
-                  setLanguage(lang);
-                  setLanguageVisible(false);
-                }}
-              >
-                <Text style={[styles.langText, language === lang && styles.langTextActive]}>{lang}</Text>
-                {language === lang && <MaterialIcons name="check" size={18} color="#004ac6" />}
-              </TouchableOpacity>
-            ))}
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity style={styles.cancelBtn} onPress={() => setLanguageVisible(false)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
       </Modal>
     </SafeAreaView>
   );

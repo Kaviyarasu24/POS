@@ -12,7 +12,7 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
@@ -20,6 +20,7 @@ import { SHOP_CATEGORIES, getShopCategoryLabel } from '@/constants/config';
 
 export default function ShopCategoryScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const userSession = store.currentUser;
 
   const [selectedCategory, setSelectedCategory] = useState(userSession?.shopCategory || 'Retail / Apparel');
@@ -225,7 +226,7 @@ export default function ShopCategoryScreen() {
           </View>
 
           {/* Bottom Fixed Save Button */}
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity
               style={[styles.saveButton, saving && { opacity: 0.75 }]}
               onPress={handleSave}

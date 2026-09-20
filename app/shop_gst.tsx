@@ -12,13 +12,14 @@ import {
   Keyboard,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
 import { store } from '@/constants/store';
 
 export default function ShopGstScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const userSession = store.currentUser;
 
   const [gstNumber, setGstNumber] = useState(userSession?.gstNumber || '');
@@ -144,7 +145,7 @@ export default function ShopGstScreen() {
           </View>
 
           {/* Bottom Fixed Save Button */}
-          <View style={styles.bottomBar}>
+          <View style={[styles.bottomBar, { paddingBottom: Math.max(insets.bottom, 16) }]}>
             <TouchableOpacity
               style={[styles.saveButton, saving && { opacity: 0.75 }]}
               onPress={handleSave}

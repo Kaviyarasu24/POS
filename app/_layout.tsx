@@ -65,6 +65,7 @@ export default function RootLayout() {
           <Stack.Screen name="shop_address" />
           <Stack.Screen name="shop_phone" />
           <Stack.Screen name="shop_email" />
+          <Stack.Screen name="settings" />
         </Stack>
         {/* Dark icons for the app's light backgrounds. */}
         <StatusBar style="dark" />

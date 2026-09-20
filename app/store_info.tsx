@@ -11,7 +11,7 @@ import {
   KeyboardAvoidingView,
   ActivityIndicator,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { Image } from 'expo-image';
 import { MaterialIcons } from '@expo/vector-icons';
@@ -37,6 +37,7 @@ const PRESET_AVATARS = [
 
 export default function StoreInfoScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const userSession = store.currentUser;
 
   // Form State
@@ -165,7 +166,7 @@ export default function StoreInfoScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       {/* Toast Notification */}
       {toastMsg && (
         <View style={styles.floatingToast}>
@@ -199,7 +200,7 @@ export default function StoreInfoScreen() {
         style={{ flex: 1 }}
       >
         <ScrollView
-          contentContainerStyle={styles.scroll}
+          contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(insets.bottom, 24) + 24 }]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
