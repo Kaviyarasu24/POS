@@ -18,25 +18,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Image } from 'expo-image';
 import { useRouter } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import * as ImagePicker from 'expo-image-picker';
 import { store } from '@/constants/store';
-import { SHOP_CATEGORIES, getShopCategoryLabel } from '@/constants/config';
-
-// Curated preset avatars for store profiles
-const PRESET_AVATARS = [
-  { id: 'av-1', name: 'Alex (Owner)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Alex&backgroundColor=b6e3f4' },
-  { id: 'av-2', name: 'Sophia (Manager)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Sophia&backgroundColor=ffd5dc' },
-  { id: 'av-3', name: 'Oliver (Retail)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Oliver&backgroundColor=d1d4f9' },
-  { id: 'av-4', name: 'Aneka (Cashier)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Aneka&backgroundColor=c0aede' },
-  { id: 'av-5', name: 'Leo (Merchant)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Leo&backgroundColor=ffdfbf' },
-  { id: 'av-6', name: 'Emma (Lead)', url: 'https://api.dicebear.com/7.x/personas/png?seed=Emma&backgroundColor=b6e3f4' },
-  { id: 'av-7', name: 'Felix (Tech)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Felix&backgroundColor=d1d4f9' },
-  { id: 'av-8', name: 'Zack (Hero)', url: 'https://api.dicebear.com/7.x/adventurer/png?seed=Zack&backgroundColor=c0aede' },
-  { id: 'av-9', name: 'POS Bot', url: 'https://api.dicebear.com/7.x/bottts/png?seed=POSBot&backgroundColor=b6e3f4' },
-  { id: 'av-10', name: 'Happy Boss', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=HappyBoss' },
-  { id: 'av-11', name: 'Cool Merchant', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=CoolMerchant' },
-  { id: 'av-12', name: 'Super Star', url: 'https://api.dicebear.com/7.x/fun-emoji/png?seed=SuperStar' },
-];
+import { getShopCategoryLabel } from '@/constants/config';
 
 export default function ProfileScreen() {
   const router = useRouter();
@@ -93,27 +76,12 @@ export default function ProfileScreen() {
   const [taxRate, setTaxRate] = useState<number>(userSession?.taxRate ?? 8);
 
   // Modal Visibility States
-  const [avatarModalVisible, setAvatarModalVisible] = useState(false);
-  const [editProfileVisible, setEditProfileVisible] = useState(false);
-  const [categoryModalVisible, setCategoryModalVisible] = useState(false);
-  const [gstModalVisible, setGstModalVisible] = useState(false);
-  const [addressModalVisible, setAddressModalVisible] = useState(false);
   const [taxModalVisible, setTaxModalVisible] = useState(false);
   const [printerSettingsVisible, setPrinterSettingsVisible] = useState(false);
   const [backupRestoreVisible, setBackupRestoreVisible] = useState(false);
   const [languageVisible, setLanguageVisible] = useState(false);
 
-
-
-  // Temp form input states
-  const [tempShopName, setTempShopName] = useState('');
-  const [tempOwnerName, setTempOwnerName] = useState('');
-  const [tempPhone, setTempPhone] = useState('');
-  const [tempEmail, setTempEmail] = useState('');
-
-  const [tempCategory, setTempCategory] = useState('');
-  const [tempGst, setTempGst] = useState('');
-  const [tempAddress, setTempAddress] = useState('');
+  // Tax percentage input state
   const [tempTaxRate, setTempTaxRate] = useState((userSession?.taxRate ?? 8).toString());
 
   // Floating Toast Notification State
@@ -164,140 +132,6 @@ export default function ProfileScreen() {
     setCopiedStoreId(true);
     showToast('Store ID (Join Code) copied to clipboard');
     setTimeout(() => setCopiedStoreId(false), 2500);
-  };
-
-  // Open Avatar Selection Modal
-  const openAvatarPicker = () => {
-    setSelectedAvatar(avatarImage);
-    setAvatarModalVisible(true);
-  };
-
-  // Save selected avatar
-  const handleSaveAvatar = async () => {
-    setAvatarImage(selectedAvatar);
-    await store.updateUserProfile({ image: selectedAvatar || '' });
-    setAvatarModalVisible(false);
-    showToast('Avatar updated successfully');
-  };
-
-  // Custom photo upload from device (optional alternative)
-  const handlePickCustomImage = async () => {
-    try {
-      if (Platform.OS !== 'web') {
-        const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (status !== 'granted') {
-          Alert.alert('Permission Denied', 'Permission to access gallery is required.');
-          return;
-        }
-      }
-
-      const result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsEditing: true,
-        aspect: [1, 1],
-        quality: 0.7,
-        base64: true,
-      });
-
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const base64Data = asset.base64
-          ? `data:image/jpeg;base64,${asset.base64}`
-          : asset.uri;
-
-        setSelectedAvatar(base64Data);
-      }
-    } catch (err: any) {
-      console.warn('Image picker error:', err);
-      if (Platform.OS === 'web' && typeof document !== 'undefined') {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'image/*';
-        input.onchange = (e: any) => {
-          const file = e.target?.files?.[0];
-          if (file) {
-            const reader = new FileReader();
-            reader.onloadend = () => {
-              setSelectedAvatar(reader.result as string);
-            };
-            reader.readAsDataURL(file);
-          }
-        };
-        input.click();
-      }
-    }
-  };
-
-  // Open Edit Profile form
-  const openEditProfile = () => {
-    setTempShopName(shopName);
-    setTempOwnerName(ownerName);
-    setTempPhone(phone);
-    setTempEmail(email);
-    setEditProfileVisible(true);
-  };
-
-  const saveProfile = async () => {
-    if (!tempShopName.trim() || !tempOwnerName.trim() || !tempPhone.trim() || !tempEmail.trim()) {
-      Alert.alert('Required Fields', 'Please fill in all fields.');
-      return;
-    }
-
-    await store.updateUserProfile({
-      shopName: tempShopName.trim(),
-      userName: tempOwnerName.trim(),
-      phone: tempPhone.trim(),
-      email: tempEmail.trim().toLowerCase(),
-    });
-
-    setEditProfileVisible(false);
-    showToast('Profile details updated');
-  };
-
-  // Category modal handlers
-  const openCategoryModal = () => {
-    setTempCategory(shopCategory);
-    setCategoryModalVisible(true);
-  };
-
-  const saveCategory = async () => {
-    if (!tempCategory.trim()) {
-      Alert.alert('Required Field', 'Please select or enter a shop category.');
-      return;
-    }
-    await store.updateUserProfile({
-      shopCategory: tempCategory.trim(),
-    });
-    setCategoryModalVisible(false);
-    showToast('Shop Category updated');
-  };
-
-  // GST modal handlers
-  const openGstModal = () => {
-    setTempGst(gstNumber);
-    setGstModalVisible(true);
-  };
-
-  const saveGst = async () => {
-    await store.updateUserProfile({
-      gstNumber: tempGst.trim(),
-    });
-    setGstModalVisible(false);
-    showToast('GST Number updated');
-  };
-
-  // Business address modal handlers
-  const openAddressModal = () => {
-    setTempAddress(businessAddress);
-    setAddressModalVisible(true);
-  };
-
-  const saveAddress = async () => {
-    await store.updateUserProfile({
-      businessAddress: tempAddress.trim(),
-    });
-    setAddressModalVisible(false);
-    showToast('Business Address updated');
   };
 
   // Tax settings handlers
@@ -434,7 +268,7 @@ export default function ProfileScreen() {
             <View style={styles.cardMainIdentity}>
               <TouchableOpacity
                 style={styles.avatarGlowWrapper}
-                onPress={openAvatarPicker}
+                onPress={() => router.push('/store_info')}
                 activeOpacity={0.85}
               >
                 <View style={styles.avatarCircle}>
@@ -506,11 +340,11 @@ export default function ProfileScreen() {
             <View style={styles.heroActionsRow}>
               <TouchableOpacity
                 style={styles.heroPrimaryBtn}
-                onPress={openEditProfile}
+                onPress={() => router.push('/store_info')}
                 activeOpacity={0.8}
               >
-                <MaterialIcons name="edit" size={16} color="#ffffff" />
-                <Text style={styles.heroPrimaryBtnText}>Edit Profile</Text>
+                <MaterialIcons name="store" size={16} color="#ffffff" />
+                <Text style={styles.heroPrimaryBtnText}>Edit Shop Details</Text>
               </TouchableOpacity>
 
               <TouchableOpacity
@@ -537,7 +371,17 @@ export default function ProfileScreen() {
 
           {/* Section 1: Shop Information */}
           <View style={styles.sectionContainer}>
-            <Text style={styles.sectionLabel}>Shop Information</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 8, paddingHorizontal: 4 }}>
+              <Text style={[styles.sectionLabel, { marginBottom: 0 }]}>Shop Information</Text>
+              <TouchableOpacity
+                onPress={() => router.push('/store_info')}
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 2 }}
+                activeOpacity={0.7}
+              >
+                <Text style={{ fontSize: 13, fontWeight: '700', color: '#004ac6' }}>Edit Page</Text>
+                <MaterialIcons name="chevron-right" size={16} color="#004ac6" />
+              </TouchableOpacity>
+            </View>
             <View style={styles.cardContainer}>
               {/* Store ID / Join Code */}
               <TouchableOpacity style={styles.cardRow} onPress={handleCopyStoreId} activeOpacity={0.7}>
@@ -574,7 +418,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* Category */}
-              <TouchableOpacity style={styles.cardRow} onPress={openCategoryModal} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_category')} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
                   <View style={[styles.iconBox, { backgroundColor: '#f3e8ff' }]}>
                     <MaterialIcons name="category" size={20} color="#7c3aed" />
@@ -588,7 +432,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* GST Number */}
-              <TouchableOpacity style={styles.cardRow} onPress={openGstModal} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_gst')} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
                   <View style={[styles.iconBox, { backgroundColor: '#e0e7ff' }]}>
                     <MaterialIcons name="receipt-long" size={20} color="#4f46e5" />
@@ -602,7 +446,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* Phone */}
-              <TouchableOpacity style={styles.cardRow} onPress={openEditProfile} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_phone')} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
                   <View style={[styles.iconBox, { backgroundColor: '#ccfbf1' }]}>
                     <MaterialIcons name="phone" size={20} color="#0d9488" />
@@ -616,7 +460,7 @@ export default function ProfileScreen() {
               </TouchableOpacity>
 
               {/* Email */}
-              <TouchableOpacity style={styles.cardRow} onPress={openEditProfile} activeOpacity={0.7}>
+              <TouchableOpacity style={styles.cardRow} onPress={() => router.push('/shop_email')} activeOpacity={0.7}>
                 <View style={styles.rowLeft}>
                   <View style={[styles.iconBox, { backgroundColor: '#e0f2fe' }]}>
                     <MaterialIcons name="email" size={20} color="#0284c7" />
@@ -632,7 +476,7 @@ export default function ProfileScreen() {
               {/* Address */}
               <TouchableOpacity
                 style={[styles.cardRow, styles.lastCardRow]}
-                onPress={openAddressModal}
+                onPress={() => router.push('/shop_address')}
                 activeOpacity={0.7}
               >
                 <View style={styles.rowLeft}>
@@ -925,359 +769,7 @@ export default function ProfileScreen() {
 
       {/* --- MODALS --- */}
 
-      {/* 0. Avatar Selection Modal */}
-      <Modal
-        visible={avatarModalVisible}
-        animationType="fade"
-        transparent
-        onRequestClose={() => setAvatarModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={[styles.modalCard, { maxWidth: 440, maxHeight: '90%' }]}>
-            <Text style={styles.modalTitle}>Choose Profile Avatar</Text>
-            <Text style={styles.modalSubtitle}>Pick an avatar to represent your store persona</Text>
-
-            {/* Live Preview Box */}
-            <View style={styles.avatarPreviewSection}>
-              <View style={styles.avatarPreviewCircle}>
-                {selectedAvatar ? (
-                  <Image style={styles.avatarPreviewImage} source={selectedAvatar} contentFit="cover" />
-                ) : (
-                  <View style={styles.defaultAvatarContainer}>
-                    <Text style={styles.defaultAvatarText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
-                    </Text>
-                  </View>
-                )}
-              </View>
-              <Text style={styles.avatarPreviewLabel}>
-                {selectedAvatar ? 'Selected Avatar' : 'Default Initials'}
-              </Text>
-            </View>
-
-            {/* Scrollable Grid of Avatars */}
-            <ScrollView style={{ maxHeight: 270, marginVertical: 6 }} showsVerticalScrollIndicator={false}>
-              <View style={styles.avatarGrid}>
-                {/* Default Initials Option */}
-                <TouchableOpacity
-                  style={[
-                    styles.avatarGridItem,
-                    selectedAvatar === null && styles.avatarGridItemActive,
-                  ]}
-                  onPress={() => setSelectedAvatar(null)}
-                >
-                  <View style={[styles.avatarThumbCircle, { backgroundColor: '#e0e7ff' }]}>
-                    <Text style={{ fontSize: 16, fontWeight: '700', color: '#004ac6' }}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
-                    </Text>
-                  </View>
-                  <Text style={styles.avatarGridLabel} numberOfLines={1}>Default</Text>
-                  {selectedAvatar === null && (
-                    <View style={styles.checkBadge}>
-                      <MaterialIcons name="check" size={11} color="#ffffff" />
-                    </View>
-                  )}
-                </TouchableOpacity>
-
-                {/* Preset Avatars */}
-                {PRESET_AVATARS.map((av) => {
-                  const isSelected = selectedAvatar === av.url;
-                  return (
-                    <TouchableOpacity
-                      key={av.id}
-                      style={[
-                        styles.avatarGridItem,
-                        isSelected && styles.avatarGridItemActive,
-                      ]}
-                      onPress={() => setSelectedAvatar(av.url)}
-                    >
-                      <View style={styles.avatarThumbCircle}>
-                        <Image style={styles.avatarThumbImage} source={av.url} contentFit="cover" />
-                      </View>
-                      <Text style={styles.avatarGridLabel} numberOfLines={1}>{av.name.split(' ')[0]}</Text>
-                      {isSelected && (
-                        <View style={styles.checkBadge}>
-                          <MaterialIcons name="check" size={11} color="#ffffff" />
-                        </View>
-                      )}
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Custom Image Upload Option */}
-              <TouchableOpacity style={styles.customUploadBtn} onPress={handlePickCustomImage}>
-                <MaterialIcons name="add-photo-alternate" size={18} color="#004ac6" />
-                <Text style={styles.customUploadText}>Or Upload Photo from Device</Text>
-              </TouchableOpacity>
-            </ScrollView>
-
-            <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.cancelBtn}
-                onPress={() => setAvatarModalVisible(false)}
-              >
-                <Text style={styles.cancelBtnText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.saveBtn} onPress={handleSaveAvatar}>
-                <Text style={styles.saveBtnText}>Save Avatar</Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-        </View>
-      </Modal>
-
-      {/* 1. Edit Profile Modal */}
-      <Modal visible={editProfileVisible} animationType="fade" transparent onRequestClose={() => setEditProfileVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Edit Profile</Text>
-
-              {/* Quick Avatar selection row in Edit Form */}
-              <TouchableOpacity
-                style={styles.formAvatarRow}
-                onPress={() => {
-                  setEditProfileVisible(false);
-                  setTimeout(() => openAvatarPicker(), 300);
-                }}
-              >
-                {avatarImage ? (
-                  <Image style={styles.formAvatarThumb} source={avatarImage} contentFit="cover" />
-                ) : (
-                  <View style={styles.formAvatarPlaceholder}>
-                    <Text style={styles.formAvatarPlaceholderText}>
-                      {ownerName ? ownerName.trim().substring(0, 2).toUpperCase() : 'ðŸ‘¤'}
-                    </Text>
-                  </View>
-                )}
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.formAvatarLabel}>Store Avatar</Text>
-                  <Text style={styles.formAvatarAction}>Tap to choose avatar</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={20} color="#737686" />
-              </TouchableOpacity>
-
-              <Text style={styles.fieldLabel}>Shop Name</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter shop name"
-                placeholderTextColor="#94a3b8"
-                value={tempShopName}
-                onChangeText={setTempShopName}
-              />
-
-              <Text style={styles.fieldLabel}>Owner Full Name</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter owner full name"
-                placeholderTextColor="#94a3b8"
-                value={tempOwnerName}
-                onChangeText={setTempOwnerName}
-              />
-
-              <Text style={styles.fieldLabel}>Phone Number</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter contact phone number"
-                placeholderTextColor="#94a3b8"
-                value={tempPhone}
-                onChangeText={setTempPhone}
-                keyboardType="phone-pad"
-              />
-
-              <Text style={styles.fieldLabel}>Email Address</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter email address"
-                placeholderTextColor="#94a3b8"
-                value={tempEmail}
-                onChangeText={setTempEmail}
-                keyboardType="email-address"
-                autoCapitalize="none"
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setEditProfileVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={saveProfile}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* 2. Edit Shop Category Modal */}
-      <Modal visible={categoryModalVisible} animationType="fade" transparent onRequestClose={() => setCategoryModalVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={[styles.modalCard, { maxHeight: '90%' }]}>
-              <Text style={styles.modalTitle}>Shop Category</Text>
-
-              <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 8 }}>
-                <Text style={styles.fieldLabel}>Select Preset Category</Text>
-                <View style={styles.categoryGrid}>
-                  {SHOP_CATEGORIES.map((cat) => {
-                    const isSelected =
-                      tempCategory.trim().toLowerCase() === cat.label.toLowerCase() ||
-                      tempCategory.trim().toLowerCase() === cat.value.toLowerCase() ||
-                      tempCategory.trim().toLowerCase() === cat.code.toLowerCase();
-                    return (
-                      <TouchableOpacity
-                        key={cat.code}
-                        style={[
-                          styles.categoryCard,
-                          isSelected && styles.categoryCardActive,
-                        ]}
-                        onPress={() => setTempCategory(cat.label)}
-                        activeOpacity={0.7}
-                      >
-                        <View
-                          style={[
-                            styles.categoryIconCircle,
-                            isSelected && styles.categoryIconCircleActive,
-                          ]}
-                        >
-                          <MaterialIcons
-                            name={cat.icon as any}
-                            size={18}
-                            color={isSelected ? '#004ac6' : '#64748b'}
-                          />
-                        </View>
-                        <Text
-                          style={[
-                            styles.categoryCardText,
-                            isSelected && styles.categoryCardTextActive,
-                          ]}
-                          numberOfLines={1}
-                        >
-                          {cat.label}
-                        </Text>
-                        {isSelected && (
-                          <MaterialIcons name="check-circle" size={16} color="#004ac6" />
-                        )}
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-
-                <Text style={[styles.fieldLabel, { marginTop: 14 }]}>Or Enter Custom Category</Text>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g. Specialty Bakery / Cafe"
-                  placeholderTextColor="#94a3b8"
-                  value={tempCategory}
-                  onChangeText={setTempCategory}
-                />
-              </ScrollView>
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setCategoryModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={saveCategory}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* 2b. Edit GST Number Modal */}
-      <Modal visible={gstModalVisible} animationType="fade" transparent onRequestClose={() => setGstModalVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>GST Number (GSTIN)</Text>
-              <Text style={styles.modalSubtitle}>
-                Enter your Goods and Services Tax number to display on customer receipts and tax reports
-              </Text>
-
-              <Text style={styles.fieldLabel}>GST Identification Number</Text>
-              <TextInput
-                style={styles.inputField}
-                placeholder="e.g. 33AAAAA0000A1Z5"
-                placeholderTextColor="#94a3b8"
-                value={tempGst}
-                onChangeText={setTempGst}
-                autoCapitalize="characters"
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setGstModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={saveGst}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* 2c. Edit Business Address Modal */}
-      <Modal visible={addressModalVisible} animationType="fade" transparent onRequestClose={() => setAddressModalVisible(false)}>
-        <KeyboardAvoidingView
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          style={{ flex: 1 }}
-        >
-          <View style={styles.modalOverlay}>
-            <View style={styles.modalCard}>
-              <Text style={styles.modalTitle}>Business Address</Text>
-              <Text style={styles.modalSubtitle}>
-                Enter shop location to appear on all printed and generated receipts
-              </Text>
-
-              <Text style={styles.fieldLabel}>Physical Store Address</Text>
-              <TextInput
-                style={[styles.inputField, { height: 72, textAlignVertical: 'top', paddingTop: 8 }]}
-                placeholder="e.g. 123 Main Bazaar Road, Anna Nagar, Chennai"
-                placeholderTextColor="#94a3b8"
-                value={tempAddress}
-                onChangeText={setTempAddress}
-                multiline
-              />
-
-              <View style={styles.modalActions}>
-                <TouchableOpacity
-                  style={styles.cancelBtn}
-                  onPress={() => setAddressModalVisible(false)}
-                >
-                  <Text style={styles.cancelBtnText}>Cancel</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={styles.saveBtn} onPress={saveAddress}>
-                  <Text style={styles.saveBtnText}>Save</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </KeyboardAvoidingView>
-      </Modal>
-
-      {/* 2d. Edit Tax Rate Modal */}
+      {/* Tax Rate Modal */}
       <Modal visible={taxModalVisible} animationType="fade" transparent onRequestClose={() => setTaxModalVisible(false)}>
         <KeyboardAvoidingView
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
