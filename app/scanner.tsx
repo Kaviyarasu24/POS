@@ -9,11 +9,13 @@ import {
   Dimensions,
   Modal,
   TextInput,
+  Platform,
+  LayoutChangeEvent,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { MaterialIcons } from '@expo/vector-icons';
-import { CameraView, useCameraPermissions } from 'expo-camera';
+import { CameraView, useCameraPermissions, BarcodeScanningResult } from 'expo-camera';
 import * as Haptics from 'expo-haptics';
 import { store, Product } from '@/constants/store';
 
@@ -35,6 +37,9 @@ const ALL_BARCODE_TYPES = [
   'datamatrix',
 ] as any;
 
+const BOX_WIDTH = 270;
+const BOX_HEIGHT = 220;
+
 interface ScannedItemState {
   product: Product;
   quantity: number;
@@ -51,6 +56,11 @@ export default function ScannerScreen() {
   const [manualBarcode, setManualBarcode] = useState('');
   const [notFoundSku, setNotFoundSku] = useState<string | null>(null);
 
+  // Scanning box tracking & success flash state
+  const [frameLayout, setFrameLayout] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [cameraLayout, setCameraLayout] = useState<{ width: number; height: number } | null>(null);
+  const [isSuccessScan, setIsSuccessScan] = useState(false);
+
   // Animation for the scanning laser line
   const scanLineAnim = useRef(new Animated.Value(0)).current;
 
@@ -65,13 +75,13 @@ export default function ScannerScreen() {
     Animated.loop(
       Animated.sequence([
         Animated.timing(scanLineAnim, {
-          toValue: 240,
-          duration: 2000,
+          toValue: BOX_HEIGHT - 6,
+          duration: 1800,
           useNativeDriver: false,
         }),
         Animated.timing(scanLineAnim, {
-          toValue: 0,
-          duration: 2000,
+          toValue: 2,
+          duration: 1800,
           useNativeDriver: false,
         }),
       ])
@@ -105,17 +115,76 @@ export default function ScannerScreen() {
     });
   };
 
-  const handleBarcodeScanned = ({ data }: { data: string }) => {
-    const barcodeStr = data.trim();
+  /**
+   * Evaluates if the detected barcode center coordinate falls inside
+   * the visible target scanning box frame.
+   */
+  const isBarcodeInsideFrame = (result: BarcodeScanningResult): boolean => {
+    // If layout not yet available, fallback to allow scan
+    if (!frameLayout || !cameraLayout) {
+      return true;
+    }
+
+    let barcodeCenterX: number | null = null;
+    let barcodeCenterY: number | null = null;
+
+    // 1. Check bounds if provided by camera driver
+    if (result.bounds && result.bounds.origin && result.bounds.size) {
+      const { origin, size } = result.bounds;
+      barcodeCenterX = origin.x + size.width / 2;
+      barcodeCenterY = origin.y + size.height / 2;
+    }
+    // 2. Check cornerPoints if provided
+    else if (result.cornerPoints && result.cornerPoints.length > 0) {
+      const sumX = result.cornerPoints.reduce((acc, p) => acc + p.x, 0);
+      const sumY = result.cornerPoints.reduce((acc, p) => acc + p.y, 0);
+      barcodeCenterX = sumX / result.cornerPoints.length;
+      barcodeCenterY = sumY / result.cornerPoints.length;
+    }
+
+    // If coordinates are not provided by platform driver, allow scan
+    if (barcodeCenterX === null || barcodeCenterY === null) {
+      return true;
+    }
+
+    // Frame boundaries with generous tolerance margin (35px) for smooth scanning ergonomics
+    const toleranceX = 35;
+    const toleranceY = 35;
+
+    const minX = frameLayout.x - toleranceX;
+    const maxX = frameLayout.x + frameLayout.width + toleranceX;
+    const minY = frameLayout.y - toleranceY;
+    const maxY = frameLayout.y + frameLayout.height + toleranceY;
+
+    const isInside =
+      barcodeCenterX >= minX &&
+      barcodeCenterX <= maxX &&
+      barcodeCenterY >= minY &&
+      barcodeCenterY <= maxY;
+
+    return isInside;
+  };
+
+  const handleBarcodeScanned = (scanningResult: BarcodeScanningResult) => {
+    const rawData = scanningResult?.data || '';
+    const barcodeStr = rawData.trim();
     if (!barcodeStr) return;
 
-    // Debounce: the camera fires onBarcodeScanned on every frame while a code is
-    // in view. Ignore the same code seen again within 1.5s so quantity increments once.
+    // Filter: ONLY scan if barcode is positioned inside the viewfinder target box
+    if (!isBarcodeInsideFrame(scanningResult)) {
+      return;
+    }
+
+    // Debounce: ignore same code seen again within 1.5s so quantity increments cleanly
     const now = Date.now();
     if (barcodeStr === lastScanRef.current.code && now - lastScanRef.current.time < 1500) {
       return;
     }
     lastScanRef.current = { code: barcodeStr, time: now };
+
+    // Trigger visual feedback flash
+    setIsSuccessScan(true);
+    setTimeout(() => setIsSuccessScan(false), 600);
 
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium).catch(() => {});
 
@@ -169,9 +238,18 @@ export default function ScannerScreen() {
     }
   };
 
+  const onCameraContainerLayout = (e: LayoutChangeEvent) => {
+    const { width, height } = e.nativeEvent.layout;
+    setCameraLayout({ width, height });
+  };
+
+  const onFrameLayout = (e: LayoutChangeEvent) => {
+    const { x, y, width, height } = e.nativeEvent.layout;
+    setFrameLayout({ x, y, width, height });
+  };
+
   const renderCameraView = () => {
     if (!permission) {
-      // Permissions are still loading
       return <View style={styles.simulatedCameraContainer} />;
     }
 
@@ -204,22 +282,40 @@ export default function ScannerScreen() {
   return (
     <View style={styles.container} pointerEvents="box-none">
       {/* Viewfinder background */}
-      <View style={styles.viewfinderContainer} pointerEvents="box-none">
+      <View
+        style={styles.viewfinderContainer}
+        pointerEvents="box-none"
+        onLayout={onCameraContainerLayout}
+      >
         {renderCameraView()}
 
-        {/* Viewfinder Target Framing */}
+        {/* Viewfinder Target Framing with Dark Mask */}
         <View style={styles.overlayContainer} pointerEvents="none">
-          <View style={styles.targetFrame}>
+          <View
+            style={[
+              styles.targetFrame,
+              isSuccessScan && styles.targetFrameSuccess,
+            ]}
+            onLayout={onFrameLayout}
+          >
             {/* Corner Brackets */}
-            <View style={[styles.cornerBracket, styles.topLeftCorner]} />
-            <View style={[styles.cornerBracket, styles.topRightCorner]} />
-            <View style={[styles.cornerBracket, styles.bottomLeftCorner]} />
-            <View style={[styles.cornerBracket, styles.bottomRightCorner]} />
+            <View style={[styles.cornerBracket, styles.topLeftCorner, isSuccessScan && styles.cornerSuccess]} />
+            <View style={[styles.cornerBracket, styles.topRightCorner, isSuccessScan && styles.cornerSuccess]} />
+            <View style={[styles.cornerBracket, styles.bottomLeftCorner, isSuccessScan && styles.cornerSuccess]} />
+            <View style={[styles.cornerBracket, styles.bottomRightCorner, isSuccessScan && styles.cornerSuccess]} />
 
             {/* Laser Line */}
-            <Animated.View style={[styles.scanLine, { top: scanLineAnim }]} />
+            <Animated.View
+              style={[
+                styles.scanLine,
+                isSuccessScan && styles.scanLineSuccess,
+                { top: scanLineAnim },
+              ]}
+            />
           </View>
-          <Text style={styles.alignmentLabel}>Align barcode within frame</Text>
+          <Text style={[styles.alignmentLabel, isSuccessScan && { color: '#4ade80', fontWeight: '700' }]}>
+            {isSuccessScan ? '✓ Barcode Scanned!' : 'Place barcode inside the box to scan'}
+          </Text>
         </View>
       </View>
 
@@ -232,7 +328,7 @@ export default function ScannerScreen() {
         >
           <MaterialIcons name="arrow-back" size={24} color="#ffffff" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Scan Item</Text>
+        <Text style={styles.headerTitle}>Scan Barcode</Text>
         <TouchableOpacity
           aria-label="Flashlight toggle"
           style={[styles.headerButton, torch && styles.flashlightOn]}
@@ -302,8 +398,8 @@ export default function ScannerScreen() {
               </View>
             ))}
             {scannedItems.length === 0 && (
-              <View style={{ paddingVertical: 32, alignItems: 'center' }}>
-                <MaterialIcons name="qr-code" size={48} color="#c3c6d7" />
+              <View style={{ paddingVertical: 28, alignItems: 'center' }}>
+                <MaterialIcons name="qr-code-scanner" size={44} color="#c3c6d7" />
                 <Text style={{ fontSize: 14, color: '#737686', marginTop: 8 }}>
                   Align barcode inside the target viewfinder frame
                 </Text>
@@ -379,7 +475,12 @@ export default function ScannerScreen() {
                   const barcode = manualBarcode.trim();
                   if (barcode) {
                     setManualInputVisible(false);
-                    handleBarcodeScanned({ data: barcode });
+                    handleBarcodeScanned({
+                      data: barcode,
+                      type: 'manual',
+                      cornerPoints: [],
+                      bounds: { origin: { x: 0, y: 0 }, size: { width: 0, height: 0 } },
+                    } as any);
                   } else {
                     alert('Please enter a valid barcode or SKU.');
                   }
@@ -485,63 +586,78 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
   },
   targetFrame: {
-    width: 240,
-    height: 240,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.3)',
-    borderRadius: 8,
+    width: BOX_WIDTH,
+    height: BOX_HEIGHT,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.4)',
+    borderRadius: 12,
     position: 'relative',
+    backgroundColor: 'rgba(255,255,255,0.02)',
+  },
+  targetFrameSuccess: {
+    borderColor: '#22c55e',
+    backgroundColor: 'rgba(34, 197, 94, 0.08)',
   },
   cornerBracket: {
     position: 'absolute',
-    width: 24,
-    height: 24,
+    width: 28,
+    height: 28,
     borderColor: '#004ac6',
   },
+  cornerSuccess: {
+    borderColor: '#22c55e',
+  },
   topLeftCorner: {
-    top: -2,
-    left: -2,
+    top: -3,
+    left: -3,
     borderTopWidth: 4,
     borderLeftWidth: 4,
-    borderTopLeftRadius: 8,
+    borderTopLeftRadius: 12,
   },
   topRightCorner: {
-    top: -2,
-    right: -2,
+    top: -3,
+    right: -3,
     borderTopWidth: 4,
     borderRightWidth: 4,
-    borderTopRightRadius: 8,
+    borderTopRightRadius: 12,
   },
   bottomLeftCorner: {
-    bottom: -2,
-    left: -2,
+    bottom: -3,
+    left: -3,
     borderBottomWidth: 4,
     borderLeftWidth: 4,
-    borderBottomLeftRadius: 8,
+    borderBottomLeftRadius: 12,
   },
   bottomRightCorner: {
-    bottom: -2,
-    right: -2,
+    bottom: -3,
+    right: -3,
     borderBottomWidth: 4,
     borderRightWidth: 4,
-    borderBottomRightRadius: 8,
+    borderBottomRightRadius: 12,
   },
   scanLine: {
     position: 'absolute',
-    left: 0,
-    right: 0,
+    left: 4,
+    right: 4,
     height: 3,
     backgroundColor: '#ba1a1a',
+    borderRadius: 2,
     shadowColor: '#ba1a1a',
     shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.8,
+    shadowOpacity: 0.9,
     shadowRadius: 8,
   },
+  scanLineSuccess: {
+    backgroundColor: '#22c55e',
+    shadowColor: '#22c55e',
+  },
   alignmentLabel: {
-    color: 'rgba(255,255,255,0.8)',
+    color: 'rgba(255,255,255,0.85)',
     fontSize: 14,
-    fontWeight: '500',
-    marginTop: 16,
+    fontWeight: '600',
+    marginTop: 18,
+    textAlign: 'center',
+    paddingHorizontal: 20,
   },
   header: {
     height: 64,
