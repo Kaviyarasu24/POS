@@ -268,7 +268,7 @@ export default function ScannerScreen() {
 
     return (
       <CameraView
-        style={StyleSheet.absoluteFillObject}
+        style={StyleSheet.absoluteFill}
         facing="back"
         enableTorch={torch}
         onBarcodeScanned={handleBarcodeScanned}
@@ -551,11 +551,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#000000',
   },
   viewfinderContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
   },
   simulatedCameraContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#111827',
     alignItems: 'center',
     justifyContent: 'center',
@@ -580,7 +580,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   overlayContainer: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: 'rgba(0,0,0,0.5)',

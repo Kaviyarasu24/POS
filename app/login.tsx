@@ -594,7 +594,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   waveBackground: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     zIndex: 0,
   },
   topWave: {

@@ -2,7 +2,7 @@
 
 A modern, multi-tenant **Point of Sale (POS)**, **Inventory**, and **Khata (Credit Ledger)** management system built for retail stores, supermarkets, restaurants, and wholesale businesses.
 
-Built with **React Native (Expo SDK 54)** for cross-platform mobile and web, backed by a **FastAPI** Python service with **PostgreSQL**.
+Built with **React Native (Expo SDK 57)** for cross-platform mobile and web, backed by a **FastAPI** Python service with **PostgreSQL**.
 
 ---
 
@@ -57,7 +57,7 @@ Built with **React Native (Expo SDK 54)** for cross-platform mobile and web, bac
 
 | Layer | Technologies |
 |---|---|
-| **Mobile & Web Client** | React Native 0.81.5, Expo SDK 54, React 19, TypeScript, Expo Router |
+| **Mobile & Web Client** | React Native 0.86.3, Expo SDK 57, React 19.2, TypeScript, Expo Router |
 | **Native Modules** | `expo-print`, `expo-sharing`, `expo-camera`, `expo-notifications`, `expo-secure-store`, `expo-file-system` |
 | **Backend API** | Python 3.11+, FastAPI, Uvicorn, SQLAlchemy ORM, Pydantic v2 |
 | **Database** | PostgreSQL (Production on Render) / SQLite (Local development) |

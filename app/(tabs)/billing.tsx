@@ -538,6 +538,10 @@ export default function BillingScreen() {
           numColumns={2}
           contentContainerStyle={styles.productList}
           showsVerticalScrollIndicator={false}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+          removeClippedSubviews={Platform.OS === 'android'}
           renderItem={({ item }) => {
             const qtyInCart = cartQuantities[item.id] || 0;
             const isOutOfStock = item.stock <= 0;

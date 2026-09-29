@@ -737,7 +737,7 @@ const styles = StyleSheet.create({
     height: '100%',
   },
   imageLoadingOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'rgba(248, 250, 252, 0.85)',
     alignItems: 'center',
     justifyContent: 'center',
@@ -749,7 +749,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   imageErrorOverlay: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: '#fef2f2',
     alignItems: 'center',
     justifyContent: 'center',

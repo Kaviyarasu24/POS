@@ -115,6 +115,10 @@ export default function InventoryScreen() {
         data={filteredInventory}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.scrollContainer}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListHeaderComponent={
           <View>
             <Text style={styles.pageTitle}>Inventory</Text>
@@ -685,7 +689,7 @@ const styles = StyleSheet.create({
   },
   // Bottom-sheet drawer styles
   sheetBackdrop: {
-    ...StyleSheet.absoluteFillObject,
+    ...StyleSheet.absoluteFill,
     backgroundColor: 'transparent',
   },
   sheetCard: {

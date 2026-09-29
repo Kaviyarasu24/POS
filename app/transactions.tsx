@@ -307,6 +307,10 @@ export default function TransactionsScreen() {
         contentContainerStyle={styles.listContent}
         refreshing={isRefreshing}
         onRefresh={onRefresh}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListHeaderComponent={
           <View>
             {/* Search Input Bar */}

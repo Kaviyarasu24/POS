@@ -1,15 +1,25 @@
 import { Platform } from 'react-native';
-import * as Notifications from 'expo-notifications';
+import Constants, { ExecutionEnvironment } from 'expo-constants';
 
-// Present low-stock alerts as a banner even while the app is foregrounded.
-Notifications.setNotificationHandler({
-  handleNotification: async () => ({
-    shouldShowBanner: true,
-    shouldShowList: true,
-    shouldPlaySound: false,
-    shouldSetBadge: false,
-  }),
-});
+const isExpoGo = Constants?.executionEnvironment === ExecutionEnvironment.StoreClient;
+
+let Notifications: typeof import('expo-notifications') | null = null;
+if (Platform.OS !== 'web' && !isExpoGo) {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    Notifications = require('expo-notifications');
+    Notifications?.setNotificationHandler({
+      handleNotification: async () => ({
+        shouldShowBanner: true,
+        shouldShowList: true,
+        shouldPlaySound: false,
+        shouldSetBadge: false,
+      }),
+    });
+  } catch (e) {
+    // Suppress errors if notifications cannot be initialized in this runtime
+  }
+}
 
 // Structural type kept local so this module doesn't import from store.ts
 // (which imports this file — importing back would create a cycle).
@@ -26,11 +36,12 @@ let permissionReady: Promise<boolean> | null = null;
 const notified = new Set<string>();
 
 async function ensurePermission(): Promise<boolean> {
-  // expo-notifications local notifications are Android/iOS only.
-  if (Platform.OS === 'web') return false;
+  // expo-notifications local notifications are Android/iOS only and push was removed in Expo Go.
+  if (Platform.OS === 'web' || isExpoGo || !Notifications) return false;
   if (!permissionReady) {
     permissionReady = (async () => {
       try {
+        if (!Notifications) return false;
         // Android 13+ needs a channel to exist before the prompt will appear.
         if (Platform.OS === 'android') {
           await Notifications.setNotificationChannelAsync(LOW_STOCK_CHANNEL, {
@@ -58,6 +69,8 @@ async function ensurePermission(): Promise<boolean> {
  */
 export async function notifyLowStockIfNeeded(products: StockItem[]): Promise<void> {
   try {
+    if (!Notifications) return;
+
     // Anything restocked above its threshold becomes eligible to alert again.
     products.forEach((p) => {
       if (p.stock > p.lowStockAlert) notified.delete(p.id);
@@ -67,7 +80,7 @@ export async function notifyLowStockIfNeeded(products: StockItem[]): Promise<voi
     if (fresh.length === 0) return;
 
     const granted = await ensurePermission();
-    if (!granted) return;
+    if (!granted || !Notifications) return;
 
     fresh.forEach((p) => notified.add(p.id));
 
@@ -86,3 +99,4 @@ export async function notifyLowStockIfNeeded(products: StockItem[]): Promise<voi
     console.warn('Low-stock notification failed:', e);
   }
 }
+

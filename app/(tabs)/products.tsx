@@ -290,6 +290,10 @@ export default function ProductsScreen() {
         stickyHeaderIndices={[0]}
         refreshing={refreshing}
         onRefresh={refreshCatalog}
+        initialNumToRender={10}
+        maxToRenderPerBatch={10}
+        windowSize={5}
+        removeClippedSubviews={Platform.OS === 'android'}
         ListHeaderComponent={
           /* Search & Filter Sticky Bar */
           <View style={styles.toolbarWrapper}>
