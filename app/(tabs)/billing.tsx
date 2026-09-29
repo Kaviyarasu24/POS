@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useMemo, useRef, useEffect, useCallback, useDeferredValue } from 'react';
 import {
   StyleSheet,
   View,
@@ -47,6 +47,82 @@ const formatNum = (val: any) => {
   return isNaN(n) ? '0.00' : n.toFixed(2);
 };
 
+// Helper check for loose weight / volume items
+const isWeightItem = (unit?: string) => ['kg', 'g', 'l', 'ml'].includes(unit || '');
+
+// Fixed item card height in 2-column grid for getItemLayout optimization
+const GRID_ITEM_HEIGHT = 207;
+
+interface ProductGridCardProps {
+  product: Product;
+  qtyInCart: number;
+  onPress: (product: Product) => void;
+}
+
+const ProductGridCard = React.memo(function ProductGridCard({
+  product,
+  qtyInCart,
+  onPress,
+}: ProductGridCardProps) {
+  const isOutOfStock = product.stock <= 0;
+  const isWeight = isWeightItem(product.unit);
+
+  return (
+    <TouchableOpacity
+      style={[
+        styles.productCard,
+        isOutOfStock && styles.productCardDisabled,
+      ]}
+      activeOpacity={0.7}
+      onPress={() => onPress(product)}
+      disabled={isOutOfStock}
+    >
+      <View style={styles.imageWrapper}>
+        {product.image ? (
+          <Image
+            source={{ uri: product.image }}
+            style={styles.productImage}
+            contentFit="cover"
+            transition={200}
+          />
+        ) : (
+          <View style={styles.placeholderImage}>
+            <MaterialIcons name="shopping-bag" size={32} color="#8e90a0" />
+          </View>
+        )}
+        {qtyInCart > 0 && (
+          <View style={styles.quantityBadge}>
+            <Text style={styles.quantityBadgeText}>
+              {isWeight ? `${qtyInCart} ${product.unit}` : qtyInCart}
+            </Text>
+          </View>
+        )}
+        {isOutOfStock && (
+          <View style={styles.outOfStockBadge}>
+            <Text style={styles.outOfStockText}>Out of Stock</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.productInfo}>
+        <Text style={styles.productName} numberOfLines={1}>
+          {product.name}
+        </Text>
+        <Text style={styles.productSku}>{product.sku}</Text>
+        <View style={styles.priceRow}>
+          <Text style={styles.productPrice}>
+            ₹{product.price.toFixed(2)}
+            <Text style={{ fontSize: 10, color: '#737686' }}>/{product.unit || 'pc'}</Text>
+          </Text>
+          <Text style={styles.productStock}>
+            {product.stock} {product.unit || 'pcs'}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+});
+
 export default function BillingScreen() {
   const router = useRouter();
 
@@ -80,8 +156,8 @@ export default function BillingScreen() {
   const [billModalVisible, setBillModalVisible] = useState(false);
   const [generatedBill, setGeneratedBill] = useState<GeneratedBill | null>(null);
 
-  // Helper check for loose weight / volume items
-  const isWeightItem = (unit?: string) => ['kg', 'g', 'l', 'ml'].includes(unit || '');
+  // Defer search filtering for responsive input performance
+  const deferredSearchQuery = useDeferredValue(searchQuery);
 
   // Ingest scanned items from the scanner modal
   const checkScanned = useCallback(() => {
@@ -140,27 +216,38 @@ export default function BillingScreen() {
     }).start();
   }, [cartOpen, slideAnim]);
 
-  // Calculations
+  // Calculations (Single-pass loop for subtotal, totalItems, and proportional tax)
   const cartTotals = useMemo(() => {
     const isTaxEnabled = store.currentUser?.taxEnabled !== false;
     const storeTaxRate = store.currentUser?.taxRate;
 
-    const subtotal = cart.reduce((acc, item) => acc + item.product.price * item.quantity, 0);
+    let subtotal = 0;
+    let totalItems = 0;
+
+    for (let i = 0; i < cart.length; i++) {
+      const item = cart[i];
+      subtotal += item.product.price * item.quantity;
+      totalItems += isWeightItem(item.product.unit) ? 1 : item.quantity;
+    }
+
     const discountAmount = subtotal * (discountPercent / 100);
     const taxableSubtotal = Math.max(0, subtotal - discountAmount);
-    // Per-product tax: apply store/line tax rate, spreading the cart discount
-    // proportionally across lines so the taxable base matches the discounted subtotal.
     const discountFactor = subtotal > 0 ? taxableSubtotal / subtotal : 0;
+
     let tax = 0;
-    if (isTaxEnabled) {
-      tax = cart.reduce((acc, item) => {
+    if (isTaxEnabled && subtotal > 0) {
+      for (let i = 0; i < cart.length; i++) {
+        const item = cart[i];
         const taxableLine = item.product.price * item.quantity * discountFactor;
-        const rate = storeTaxRate !== undefined && storeTaxRate !== null ? storeTaxRate : (item.product.taxRate ?? 0);
-        return acc + taxableLine * (rate / 100);
-      }, 0);
+        const rate =
+          storeTaxRate !== undefined && storeTaxRate !== null
+            ? storeTaxRate
+            : (item.product.taxRate ?? 0);
+        tax += taxableLine * (rate / 100);
+      }
     }
+
     const total = taxableSubtotal + tax;
-    const totalItems = cart.reduce((acc, item) => acc + (isWeightItem(item.product.unit) ? 1 : item.quantity), 0);
 
     return {
       subtotal,
@@ -172,17 +259,19 @@ export default function BillingScreen() {
     };
   }, [cart, discountPercent, store.currentUser?.taxEnabled, store.currentUser?.taxRate]);
 
-  // Filtered Products
+  // Filtered Products (using deferred search query)
   const filteredProducts = useMemo(() => {
+    const query = deferredSearchQuery.trim().toLowerCase();
     return products.filter((product) => {
       const matchesCategory =
         selectedCategory === 'All Items' || product.category === selectedCategory;
       const matchesSearch =
-        product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        product.sku.toLowerCase().includes(searchQuery.toLowerCase());
+        !query ||
+        product.name.toLowerCase().includes(query) ||
+        product.sku.toLowerCase().includes(query);
       return matchesCategory && matchesSearch;
     });
-  }, [products, selectedCategory, searchQuery]);
+  }, [products, selectedCategory, deferredSearchQuery]);
 
   // Helper dictionary of product quantities in cart
   const cartQuantities = useMemo(() => {
@@ -193,29 +282,8 @@ export default function BillingScreen() {
     return quantities;
   }, [cart]);
 
-  // Handle Product Tap
-  const handleProductPress = (product: Product) => {
-    if (product.stock <= 0) {
-      Alert.alert('Out of Stock', `${product.name} is currently out of stock.`);
-      return;
-    }
-
-    if (isWeightItem(product.unit)) {
-      setWeightModalProduct(product);
-      const existing = cart.find((i) => i.product.id === product.id);
-      if (existing) {
-        setWeightInput(existing.quantity.toString());
-      } else {
-        setWeightInput(product.unit === 'g' ? '250' : '0.5');
-      }
-      setWeightUnitMode(product.unit === 'g' ? 'g' : 'kg');
-    } else {
-      addToCart(product);
-    }
-  };
-
   // Cart operations
-  const addToCart = (product: Product) => {
+  const addToCart = useCallback((product: Product) => {
     if (product.stock <= 0) {
       Alert.alert('Out of Stock', `${product.name} is currently out of stock.`);
       return;
@@ -233,7 +301,56 @@ export default function BillingScreen() {
       }
       return [...prev, { product, quantity: 1 }];
     });
-  };
+  }, []);
+
+  // Handle Product Tap
+  const handleProductPress = useCallback(
+    (product: Product) => {
+      if (product.stock <= 0) {
+        Alert.alert('Out of Stock', `${product.name} is currently out of stock.`);
+        return;
+      }
+
+      if (isWeightItem(product.unit)) {
+        setWeightModalProduct(product);
+        setCart((currentCart) => {
+          const existing = currentCart.find((i) => i.product.id === product.id);
+          if (existing) {
+            setWeightInput(existing.quantity.toString());
+          } else {
+            setWeightInput(product.unit === 'g' ? '250' : '0.5');
+          }
+          return currentCart;
+        });
+        setWeightUnitMode(product.unit === 'g' ? 'g' : 'kg');
+      } else {
+        addToCart(product);
+      }
+    },
+    [addToCart]
+  );
+
+  // Memoized renderItem for product catalog grid
+  const renderProductItem = useCallback(
+    ({ item }: { item: Product }) => (
+      <ProductGridCard
+        product={item}
+        qtyInCart={cartQuantities[item.id] || 0}
+        onPress={handleProductPress}
+      />
+    ),
+    [cartQuantities, handleProductPress]
+  );
+
+  // getItemLayout for instantaneous scroll calculation on 2-column grid
+  const getItemLayout = useCallback(
+    (_: any, index: number) => ({
+      length: GRID_ITEM_HEIGHT,
+      offset: GRID_ITEM_HEIGHT * Math.floor(index / 2),
+      index,
+    }),
+    []
+  );
 
   const handleConfirmWeight = () => {
     if (!weightModalProduct) return;
@@ -542,65 +659,8 @@ export default function BillingScreen() {
           maxToRenderPerBatch={12}
           windowSize={5}
           removeClippedSubviews={Platform.OS === 'android'}
-          renderItem={({ item }) => {
-            const qtyInCart = cartQuantities[item.id] || 0;
-            const isOutOfStock = item.stock <= 0;
-
-            return (
-              <TouchableOpacity
-                style={[
-                  styles.productCard,
-                  isOutOfStock && styles.productCardDisabled,
-                ]}
-                activeOpacity={0.7}
-                onPress={() => handleProductPress(item)}
-                disabled={isOutOfStock}
-              >
-                <View style={styles.imageWrapper}>
-                  {item.image ? (
-                    <Image
-                      source={{ uri: item.image }}
-                      style={styles.productImage}
-                      contentFit="cover"
-                      transition={200}
-                    />
-                  ) : (
-                    <View style={styles.placeholderImage}>
-                      <MaterialIcons name="shopping-bag" size={32} color="#8e90a0" />
-                    </View>
-                  )}
-                  {qtyInCart > 0 && (
-                    <View style={styles.quantityBadge}>
-                      <Text style={styles.quantityBadgeText}>
-                        {isWeightItem(item.unit) ? `${qtyInCart} ${item.unit}` : qtyInCart}
-                      </Text>
-                    </View>
-                  )}
-                  {isOutOfStock && (
-                    <View style={styles.outOfStockBadge}>
-                      <Text style={styles.outOfStockText}>Out of Stock</Text>
-                    </View>
-                  )}
-                </View>
-
-                <View style={styles.productInfo}>
-                  <Text style={styles.productName} numberOfLines={1}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.productSku}>{item.sku}</Text>
-                  <View style={styles.priceRow}>
-                    <Text style={styles.productPrice}>
-                      ₹{item.price.toFixed(2)}
-                      <Text style={{ fontSize: 10, color: '#737686' }}>/{item.unit || 'pc'}</Text>
-                    </Text>
-                    <Text style={styles.productStock}>
-                      {item.stock} {item.unit || 'pcs'}
-                    </Text>
-                  </View>
-                </View>
-              </TouchableOpacity>
-            );
-          }}
+          getItemLayout={getItemLayout}
+          renderItem={renderProductItem}
           ListEmptyComponent={
             <View style={styles.emptyState}>
               <MaterialIcons name="search-off" size={48} color="#c3c6d7" />
